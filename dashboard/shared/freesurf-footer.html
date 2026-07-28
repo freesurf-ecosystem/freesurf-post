@@ -1,0 +1,122 @@
+<!-- FreeSurf shared footer — drop into any FreeSurf tool's HTML before </body> -->
+
+<footer class="freesurf-footer">
+  <div class="freesurf-footer-inner">
+    <div class="freesurf-footer-brand">
+      <a href="https://freesurf.tools" class="freesurf-footer-logo">FreeSurf</a>
+      <p class="freesurf-footer-tagline">Free tools for freelancers & small businesses. No commissions, no lock-in, open source.</p>
+    </div>
+    <div class="freesurf-footer-links">
+      <div class="freesurf-footer-col">
+        <span class="freesurf-footer-heading">Tools</span>
+        <a href="https://invoices.freesurf.tools">Invoices</a>
+        <a href="https://links.freesurf.tools">Links</a>
+        <a href="https://post.freesurf.tools">Post</a>
+      </div>
+      <div class="freesurf-footer-col">
+        <span class="freesurf-footer-heading">Platform</span>
+        <a href="https://freesurf.tools">Home</a>
+        <a href="https://auth.freesurf.tools">Sign in</a>
+        <a href="https://github.com/ah8571">GitHub</a>
+      </div>
+      <div class="freesurf-footer-col">
+        <span class="freesurf-footer-heading">Legal</span>
+        <a href="https://invoices.freesurf.tools/privacy.html">Privacy</a>
+        <a href="https://invoices.freesurf.tools/terms.html">Terms</a>
+        <a href="mailto:hello@freesurf.tools">Contact</a>
+      </div>
+    </div>
+  </div>
+  <div class="freesurf-footer-bottom">
+    <span>&copy; <span class="freesurf-footer-year"></span> FreeSurf. Built for independent workers.</span>
+    <span>FreeSurf Post is part of the FreeSurf ecosystem of free tools.</span>
+  </div>
+</footer>
+
+<style>
+.freesurf-footer {
+  border-top: 1px solid var(--border, #e2e6ed);
+  background: var(--surface, #ffffff);
+  padding: 40px 24px 24px;
+  margin-top: 48px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text, #1a1d23);
+}
+
+.freesurf-footer-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.freesurf-footer-brand { max-width: 300px; }
+
+.freesurf-footer-logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--brand, #4f46e5);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.freesurf-footer-tagline {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted, #8f99a8);
+  line-height: 1.5;
+}
+
+.freesurf-footer-links {
+  display: flex;
+  gap: 48px;
+  flex-wrap: wrap;
+}
+
+.freesurf-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.freesurf-footer-heading {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #8f99a8);
+  margin-bottom: 4px;
+}
+
+.freesurf-footer-col a {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #5f6b7a);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.freesurf-footer-col a:hover { color: var(--brand, #4f46e5); }
+
+.freesurf-footer-bottom {
+  max-width: 960px;
+  margin: 28px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border, #e2e6ed);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: var(--text-muted, #8f99a8);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .freesurf-footer-inner { flex-direction: column; gap: 24px; }
+  .freesurf-footer-bottom { flex-direction: column; text-align: center; }
+}
+</style>
+
+<script>
+  document.querySelector('.freesurf-footer-year').textContent = new Date().getFullYear();
+</script>
