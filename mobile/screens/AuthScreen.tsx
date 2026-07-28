@@ -35,7 +35,7 @@ export default function AuthScreen() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
       <View style={styles.inner}>
-        <Text style={styles.title}>cnxt to post</Text>
+        <Text style={styles.title}>FreeSurf Post</Text>
         <Text style={styles.subtitle}>Cross-post everywhere from your phone.</Text>
 
         <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail}

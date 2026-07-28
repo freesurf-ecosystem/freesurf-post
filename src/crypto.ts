@@ -9,7 +9,7 @@
  */
 export async function deriveEncryptionKey(
   masterSecret: string,
-  salt: string = "cnxt-to-post-default-salt"
+  salt: string = "freesurf-to-post-default-salt"
 ): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -153,7 +153,7 @@ const keyCache = new Map<string, CryptoKey>();
  */
 export async function getEncryptionKey(
   masterSecret: string,
-  salt: string = "cnxt-to-post-default-salt"
+  salt: string = "freesurf-to-post-default-salt"
 ): Promise<CryptoKey> {
   const cacheKey = `${salt.substring(0, 16)}`; // Use first 16 chars of salt as cache key
 

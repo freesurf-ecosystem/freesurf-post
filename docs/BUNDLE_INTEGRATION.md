@@ -48,6 +48,29 @@ Every feature below is accessible through their REST API. We proxy calls through
 
 No per-account, per-seat, or per-user fees.
 
+## Bundle Social Rate Limits
+
+External Platform Rate Limits
+These are daily limits per connected social account, counted per UTC calendar day by the post’s scheduled date. The quota is keyed by the platform account itself (platform + account id), not by the connection or the team — so the same real account connected more than once (reconnected, or added to multiple teams) shares a single quota.
+​
+Posting daily limits per platform per tier
+Platform	FREE	PRO	BUSINESS
+TWITTER	5	15	15
+FACEBOOK	10	50	100
+INSTAGRAM	10	50	100
+LINKEDIN	10	18	24
+YOUTUBE	10	10	15
+TIKTOK	5	10	15
+THREADS	10	200	250
+PINTEREST	10	24	36
+REDDIT	10	24	36
+DISCORD	10	100	200
+SLACK	10	100	200
+MASTODON	10	50	100
+BLUESKY	10	50	100
+GOOGLE_BUSINESS	10	20	40
+SNAPCHAT	5	20	40
+
 ## What we've already built
 
 | Feature | Status | Notes |

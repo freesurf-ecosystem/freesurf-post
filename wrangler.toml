@@ -1,10 +1,10 @@
-name = "cnxt-to-post"
+name = "freesurf-to-post"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
 # Routes: Worker only handles API paths so Pages can serve the dashboard at root
 routes = [
-  { pattern = "post.cnxt.to/api/*", zone_name = "cnxt.to" }
+  { pattern = "post.freesurf.tools/api/*", zone_name = "freesurf.tools" }
 ]
 
 # KV for rate limiting counters

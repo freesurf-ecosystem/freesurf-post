@@ -3,7 +3,7 @@
 
   <!-- Cross-posting dashboard -->
   <url>
-    <loc>https://post.cnxt.to/</loc>
+    <loc>https://post.freesurf.tools/</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>

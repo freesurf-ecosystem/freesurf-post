@@ -6,6 +6,7 @@
 import { generateRandomState, generateCorrelationId } from "./crypto";
 import { logPlatformError, logError, ErrorType, ErrorSeverity } from "./logging";
 import type { Env } from "./index";
+import { FREESURF } from "./freesurf.config";
 
 export interface OAuthState {
   state: string;
@@ -214,7 +215,7 @@ export function getBlueskyOAuthConfig(env: Env): PlatformOAuthConfig {
   return {
     clientId: env.BLUESKY_CLIENT_ID || "",
     clientSecret: env.BLUESKY_CLIENT_SECRET || "",
-    redirectUri: `${env.BLUESKY_REDIRECT_URI || "https://post.cnxt.to"}/auth/callback/bluesky`,
+    redirectUri: `${env.BLUESKY_REDIRECT_URI || FREESURF.URLS.post}/auth/callback/bluesky`,
     authUrl: "https://bsky.social/oauth/authorize",
     tokenUrl: "https://bsky.site/oauth/token",
     scopes: ["atproto"],
@@ -228,7 +229,7 @@ export function getLinkedInOAuthConfig(env: Env): PlatformOAuthConfig {
   return {
     clientId: env.LINKEDIN_CLIENT_ID || "",
     clientSecret: env.LINKEDIN_CLIENT_SECRET || "",
-    redirectUri: `${env.LINKEDIN_REDIRECT_URI || "https://post.cnxt.to"}/auth/callback/linkedin`,
+    redirectUri: `${env.LINKEDIN_REDIRECT_URI || FREESURF.URLS.post}/auth/callback/linkedin`,
     authUrl: "https://www.linkedin.com/oauth/v2/authorization",
     tokenUrl: "https://www.linkedin.com/oauth/v2/accessToken",
     scopes: ["w_member_social", "r_liteprofile", "r_emailaddress"],
@@ -242,7 +243,7 @@ export function getFacebookOAuthConfig(env: Env): PlatformOAuthConfig {
   return {
     clientId: env.FACEBOOK_CLIENT_ID || "",
     clientSecret: env.FACEBOOK_CLIENT_SECRET || "",
-    redirectUri: `${env.FACEBOOK_REDIRECT_URI || "https://post.cnxt.to"}/auth/callback/facebook`,
+    redirectUri: `${env.FACEBOOK_REDIRECT_URI || FREESURF.URLS.post}/auth/callback/facebook`,
     authUrl: "https://www.facebook.com/v25.0/dialog/oauth",
     tokenUrl: "https://graph.facebook.com/v25.0/oauth/access_token",
     scopes: ["pages_manage_posts", "pages_read_engagement", "pages_read_user_content"],
@@ -256,7 +257,7 @@ export function getInstagramOAuthConfig(env: Env): PlatformOAuthConfig {
   return {
     clientId: env.INSTAGRAM_CLIENT_ID || "",
     clientSecret: env.INSTAGRAM_CLIENT_SECRET || "",
-    redirectUri: `${env.INSTAGRAM_REDIRECT_URI || "https://post.cnxt.to"}/auth/callback/instagram`,
+    redirectUri: `${env.INSTAGRAM_REDIRECT_URI || FREESURF.URLS.post}/auth/callback/instagram`,
     authUrl: "https://api.instagram.com/oauth/authorize",
     tokenUrl: "https://api.instagram.com/oauth/access_token",
     scopes: ["instagram_basic", "instagram_content_publish", "instagram_manage_comments"],
@@ -270,7 +271,7 @@ export function getThreadsOAuthConfig(env: Env): PlatformOAuthConfig {
   return {
     clientId: env.THREADS_CLIENT_ID || "",
     clientSecret: env.THREADS_CLIENT_SECRET || "",
-    redirectUri: `${env.THREADS_REDIRECT_URI || "https://post.cnxt.to"}/auth/callback/threads`,
+    redirectUri: `${env.THREADS_REDIRECT_URI || FREESURF.URLS.post}/auth/callback/threads`,
     authUrl: "https://threads.net/oauth/authorize",
     tokenUrl: "https://graph.facebook.com/v25.0/oauth/access_token", // Threads uses Facebook's token endpoint
     scopes: ["threads_basic", "threads_content_publish"],
@@ -284,7 +285,7 @@ export function getTikTokOAuthConfig(env: Env): PlatformOAuthConfig {
   return {
     clientId: env.TIKTOK_CLIENT_ID || "",
     clientSecret: env.TIKTOK_CLIENT_SECRET || "",
-    redirectUri: `${env.TIKTOK_REDIRECT_URI || "https://post.cnxt.to"}/auth/callback/tiktok`,
+    redirectUri: `${env.TIKTOK_REDIRECT_URI || FREESURF.URLS.post}/auth/callback/tiktok`,
     authUrl: "https://www.tiktok.com/v2/auth/authorize",
     tokenUrl: "https://open.tiktokapis.com/v2/oauth/token/",
     scopes: ["video.publish", "user.info.basic"],

@@ -46,7 +46,7 @@ function App() {
         >
           {session ? (
             <>
-              <Stack.Screen name="Compose" component={ComposeScreen} options={{ title: "cnxt to post" }} />
+              <Stack.Screen name="Compose" component={ComposeScreen} options={{ title: "FreeSurf Post" }} />
               <Stack.Screen name="Accounts" component={AccountsScreen} options={{ title: "Accounts" }} />
               <Stack.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
             </>

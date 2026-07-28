@@ -8,7 +8,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabase";
 
-const API_BASE = "https://post.cnxt.to";
+const API_BASE = "https://post.freesurf.tools";
 const PLATFORMS = [
   { key: "bluesky", name: "Bluesky" },
   { key: "x", name: "X" },

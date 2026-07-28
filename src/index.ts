@@ -8,6 +8,7 @@ import { postToTikTok, getTikTokMetrics } from "./platforms/tiktok";
 import { postToX, deleteFromX, getXMetrics } from "./platforms/x";
 import { postToThreads, getThreadsMetrics } from "./platforms/threads";
 import { fetchUserTokens, findToken, listConnectedProfiles, type PlatformToken } from "./tokens";
+import { FREESURF } from "./freesurf.config";
 
 export interface Env {
   SUPABASE_JWT_SECRET: string;
@@ -51,12 +52,7 @@ export interface Env {
   RATE_LIMITS?: KVNamespace;
 }
 
-const ALLOWED_ORIGINS = [
-  "https://post.cnxt.to",
-  "https://cnxt.to",
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
+const ALLOWED_ORIGINS = FREESURF.CORS_ORIGINS.post;
 
 function corsHeaders(origin: string): Record<string, string> {
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -104,7 +100,7 @@ export default {
       return handleApi(request, env, url, origin);
     }
 
-    return new Response("cnxt to post — API", {
+    return new Response("FreeSurf Post — API", {
       status: 200,
       headers: { "Content-Type": "text/plain" },
     });

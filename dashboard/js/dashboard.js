@@ -1,11 +1,12 @@
-// ── cnxt to post — Dashboard ──
-import { getSharedSession, clearSharedSession } from "./cnxt-auth.js";
+// ── FreeSurf Post — Dashboard ──
+import { getSharedSession, clearSharedSession } from "./freesurf-auth.js";
+import config from "./freesurf.config.js";
 
-const API_BASE = "https://post.cnxt.to";
+const API_BASE = config.URLS.post;
 const CHAR_SOFT_LIMIT = 300;
 const CHAR_HARD_LIMIT = 5000;
-const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzdG9qZXdhc2h3b3N3c3Nrd2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNTg2OTAsImV4cCI6MjA5MzkzNDY5MH0.o3hYxYr1ZbmEShPfZebx1vchjmIrN7uYZMX1C5fhoac";
+const SUPABASE_URL = config.AUTH.SUPABASE_URL;
+const SUPABASE_ANON_KEY = config.AUTH.SUPABASE_ANON_KEY;
 
 // ── Platform config ──
 const PLATFORMS = [
@@ -282,8 +283,8 @@ function clearFeedback() { feedback.className = "feedback"; feedback.innerHTML =
 
 // ── History ──
 
-function saveHistory() { try { localStorage.setItem("cnxt-post-history", JSON.stringify(postHistory.slice(0, 50))); } catch {} }
-function loadHistory() { try { postHistory = JSON.parse(localStorage.getItem("cnxt-post-history") || "[]"); } catch { postHistory = []; } }
+function saveHistory() { try { localStorage.setItem("freesurf-post-history", JSON.stringify(postHistory.slice(0, 50))); } catch {} }
+function loadHistory() { try { postHistory = JSON.parse(localStorage.getItem("freesurf-post-history") || "[]"); } catch { postHistory = []; } }
 
 function renderHistory() {
   if (!postHistory.length) {

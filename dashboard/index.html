@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cnxt to post — Free social media cross-poster</title>
-  <meta name="description" content="Post to everywhere. From one place. Free social media poster powered by cnxt — Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube. Free web &amp; API with mobile app coming soon." />
+  <title>FreeSurf Post — Free social media cross-poster</title>
+  <meta name="description" content="Post to everywhere. From one place. Free social media poster powered by FreeSurf — Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube. Free web &amp; API with mobile app coming soon." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/style-redesigned.css" />
@@ -13,7 +13,7 @@
   <div class="app-shell">
     <!-- Mobile Header -->
     <header class="mobile-header">
-      <a href="/" class="mobile-logo"><span class="mobile-logo-dot"></span>cnxt to post</a>
+      <a href="/" class="mobile-logo"><span class="mobile-logo-dot"></span>FreeSurf Post</a>
       <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
@@ -24,7 +24,7 @@
       <div class="sidebar-header">
         <a href="/" class="sidebar-logo">
           <span class="sidebar-logo-dot"></span>
-          <span>cnxt to post</span>
+          <span>FreeSurf Post</span>
         </a>
         <button class="sidebar-close" id="sidebar-close" aria-label="Close sidebar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -89,7 +89,7 @@
           </div>
         </div>
         <div class="sidebar-actions">
-          <a href="https://auth.cnxt.to/?redirect=https://post.cnxt.to/" class="btn btn-sm btn-primary btn-full" id="btn-sign-in">Sign in</a>
+          <a href="https://auth.freesurf.tools/?redirect=https://post.freesurf.tools/" class="btn btn-sm btn-primary btn-full" id="btn-sign-in">Sign in</a>
           <button class="btn btn-sm btn-ghost btn-full hidden" id="btn-sign-out">Sign out</button>
           <button class="btn btn-sm btn-ghost btn-full" id="btn-theme-toggle" title="Toggle dark mode">◐ Theme</button>
         </div>
@@ -108,7 +108,7 @@
             <p class="hero-description" id="hero-desc"></p>
             <p class="hero-subline" id="hero-subline" style="display:none;font-size:0.9375rem;color:var(--text-muted);margin-bottom:24px;"></p>
             <div class="hero-actions">
-              <a href="https://auth.cnxt.to/?redirect=https://post.cnxt.to/" class="btn btn-primary btn-large">Sign in or Get Started</a>
+              <a href="https://auth.freesurf.tools/?redirect=https://post.freesurf.tools/" class="btn btn-primary btn-large">Sign in or Get Started</a>
             </div>
             <div class="hero-platforms">
               <span class="hero-platform-label">Works with</span>
@@ -161,7 +161,7 @@
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
               </div>
               <h3 class="feature-title">Open Source</h3>
-              <p class="feature-description">Built in public and community-driven. <a href="https://github.com/ah8571/cnxt-to-post" target="_blank" style="color:var(--brand);font-weight:500;">View on GitHub →</a></p>
+              <p class="feature-description">Built in public and community-driven. <a href="https://github.com/ah8571/freesurf-to-post" target="_blank" style="color:var(--brand);font-weight:500;">View on GitHub →</a></p>
             </div>
             <div class="feature-card">
               <div class="feature-icon">
@@ -294,7 +294,7 @@
 
       <!-- API Docs -->
       <section id="view-docs" class="view hidden">
-        <div class="card"><div class="card-header"><div><h2 class="card-title">API Reference</h2><p class="card-subtitle">Use the cnxt-to-post API from your own apps.</p></div></div>
+        <div class="card"><div class="card-header"><div><h2 class="card-title">API Reference</h2><p class="card-subtitle">Use the FreeSurf Post API from your own apps.</p></div></div>
           <div style="display:flex;flex-direction:column;gap:20px;margin-top:8px;">
             <div><h3>Auth</h3><code style="display:block;background:var(--bg);padding:12px 16px;border-radius:6px;font-size:0.8125rem;font-family:monospace;">Authorization: Bearer &lt;supabase-access-token&gt;</code></div>
             <div><h3>POST /api/post</h3><code style="display:block;background:var(--bg);padding:12px 16px;border-radius:6px;font-size:0.8125rem;font-family:monospace;white-space:pre-wrap;">{ "platforms": ["bluesky","threads"], "text": "Hello!" }</code></div>
@@ -427,45 +427,45 @@
       </section>
     </main>
 
-    <!-- Shared cnxt footer -->
-    <footer class="cnxt-footer">
-      <div class="cnxt-footer-inner">
-        <div class="cnxt-footer-brand">
-          <a href="https://cnxt.to" class="cnxt-footer-logo">cnxt</a>
-          <p class="cnxt-footer-tagline">Free tools for creators, freelancers, and contractors. No commissions, no lock-in, subscription-optional, open source.</p>
+    <!-- FreeSurf footer -->
+    <footer class="freesurf-footer">
+      <div class="freesurf-footer-inner">
+        <div class="freesurf-footer-brand">
+          <a href="https://freesurf.tools" class="freesurf-footer-logo">FreeSurf</a>
+          <p class="freesurf-footer-tagline">Free tools for freelancers & small businesses. No commissions, no lock-in, open source.</p>
         </div>
-        <div class="cnxt-footer-links">
-          <div class="cnxt-footer-col">
-            <span class="cnxt-footer-heading">Tools</span>
-            <a href="https://invoices.cnxt.to">Invoices</a>
-            <a href="https://links.cnxt.to">Links</a>
-            <a href="https://post.cnxt.to">Post</a>
+        <div class="freesurf-footer-links">
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">Tools</span>
+            <a href="https://invoices.freesurf.tools">Invoices</a>
+            <a href="https://links.freesurf.tools">Links</a>
+            <a href="https://post.freesurf.tools">Post</a>
           </div>
-          <div class="cnxt-footer-col">
-            <span class="cnxt-footer-heading">Platform</span>
-            <a href="https://cnxt.to">Home</a>
-            <a href="https://auth.cnxt.to">Sign in</a>
-            <a href="https://github.com/ah8571">GitHub</a>
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">Platform</span>
+            <a href="https://freesurf.tools">Home</a>
+            <a href="https://auth.freesurf.tools">Sign in</a>
+              <a href="https://github.com/freesurf-ecosystem">GitHub</a>
           </div>
-          <div class="cnxt-footer-col">
-            <span class="cnxt-footer-heading">Legal</span>
-            <a href="https://invoices.cnxt.to/privacy.html">Privacy</a>
-            <a href="https://invoices.cnxt.to/terms.html">Terms</a>
-            <a href="mailto:hello@cnxt.to">Contact</a>
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">Legal</span>
+            <a href="https://freesurf.tools/privacy.html">Privacy</a>
+            <a href="https://freesurf.tools/terms.html">Terms</a>
+            <a href="mailto:hello@freesurf.tools">Contact</a>
           </div>
         </div>
       </div>
-      <div class="cnxt-footer-bottom">
-        <span>&copy; <span class="cnxt-footer-year"></span> cnxt. Built for independent workers.</span>
-        <span>cnxt to post is part of the cnxt ecosystem of free tools.</span>
+      <div class="freesurf-footer-bottom">
+        <span>&copy; <span class="freesurf-footer-year"></span> FreeSurf. Built for independent workers.</span>
+        <span>Part of the FreeSurf ecosystem of free tools.</span>
       </div>
     </footer>
   </div>
 
   <script type="module" src="./js/dashboard.js"></script>
-  <script>document.querySelector('.cnxt-footer-year').textContent = new Date().getFullYear();</script>
-<script>document.getElementById("btn-theme-toggle").addEventListener("click",()=>{const t=document.documentElement.dataset.theme==="dark"?"":"dark";document.documentElement.dataset.theme=t;localStorage.setItem("cnxt-theme",t)});(function(){const t=localStorage.getItem("cnxt-theme");if(t)document.documentElement.dataset.theme=t})();
+  <script>document.querySelector('.freesurf-footer-year').textContent = new Date().getFullYear();</script>
+<script>document.getElementById("btn-theme-toggle").addEventListener("click",()=>{const t=document.documentElement.dataset.theme==="dark"?"":"dark";document.documentElement.dataset.theme=t;localStorage.setItem("freesurf-theme",t)});(function(){const t=localStorage.getItem("freesurf-theme");if(t)document.documentElement.dataset.theme=t})();
 // Typing animation
-(function(){const L0="cnxt to post",L1="Post everywhere.",L2="Free, from one place.",D="Open source social media poster powered by cnxt",S="Web app & API included (mobile app coming soon) \u2014 fair-use included or BYOK";const e0=document.getElementById("hero-line0"),e1=document.getElementById("hero-line1"),e2=document.getElementById("hero-line2"),ed=document.getElementById("hero-desc"),es=document.getElementById("hero-subline"),cur=document.querySelector(".hero-cursor");let s=0;const all=L0+L1+L2+D+S;const b0=L0.length,b1=b0+L1.length,b2=b1+L2.length,b3=b2+D.length;function explode(el,cb){const t=el.textContent;el.textContent='';const ps=t.split('').map(function(c){const s=document.createElement('span');s.textContent=c;s.style.display='inline-block';s.style.transition='transform 0.7s cubic-bezier(0.22,0.61,0.36,1),opacity 0.7s ease';el.appendChild(s);return s});requestAnimationFrame(function(){requestAnimationFrame(function(){ps.forEach(function(p){const a=Math.random()*Math.PI*2;const d=80+Math.random()*120;p.style.transform='translate('+Math.cos(a)*d+'px,'+Math.sin(a)*d+'px) rotate('+((Math.random()-0.5)*180)+'deg)';p.style.opacity='0.15'})})});setTimeout(function(){ps.forEach(function(p){p.style.transform='translate(0,0) rotate(0deg)';p.style.opacity='1'});setTimeout(function(){el.textContent=t;cb()},800)},2800)}function type(){if(s<all.length){if(s===b0){e0.textContent=L0;cur.remove();e1.textContent=''}if(s===b1){e2.textContent=''}if(s===b2){ed.textContent=''}if(s===b3){es.style.display='block';es.textContent=''}if(s<b0){e0.textContent+=all[s]}else if(s<b1){e1.textContent+=all[s]}else if(s<b2){e2.textContent+=all[s]}else if(s<b3){ed.textContent+=all[s]}else{es.textContent+=all[s]}s++;const ch=all[s-1];setTimeout(type,ch==='.'?700:65+Math.random()*30)}else{explode(e0,function(){cur.style.display='inline';es.appendChild(cur)})}}setTimeout(type,500)})();</script></script>
+(function(){const L0="FreeSurf Post",L1="Post everywhere.",L2="Free, from one place.",D="Open source social media poster powered by FreeSurf",S="Web app & API included (mobile app coming soon) \u2014 fair-use included or BYOK";const e0=document.getElementById("hero-line0"),e1=document.getElementById("hero-line1"),e2=document.getElementById("hero-line2"),ed=document.getElementById("hero-desc"),es=document.getElementById("hero-subline"),cur=document.querySelector(".hero-cursor");let s=0;const all=L0+L1+L2+D+S;const b0=L0.length,b1=b0+L1.length,b2=b1+L2.length,b3=b2+D.length;function explode(el,cb){const t=el.textContent;el.textContent='';const ps=t.split('').map(function(c){const s=document.createElement('span');s.textContent=c;s.style.display='inline-block';s.style.transition='transform 0.7s cubic-bezier(0.22,0.61,0.36,1),opacity 0.7s ease';el.appendChild(s);return s});requestAnimationFrame(function(){requestAnimationFrame(function(){ps.forEach(function(p){const a=Math.random()*Math.PI*2;const d=80+Math.random()*120;p.style.transform='translate('+Math.cos(a)*d+'px,'+Math.sin(a)*d+'px) rotate('+((Math.random()-0.5)*180)+'deg)';p.style.opacity='0.15'})})});setTimeout(function(){ps.forEach(function(p){p.style.transform='translate(0,0) rotate(0deg)';p.style.opacity='1'});setTimeout(function(){el.textContent=t;cb()},800)},2800)}function type(){if(s<all.length){if(s===b0){e0.textContent=L0;cur.remove();e1.textContent=''}if(s===b1){e2.textContent=''}if(s===b2){ed.textContent=''}if(s===b3){es.style.display='block';es.textContent=''}if(s<b0){e0.textContent+=all[s]}else if(s<b1){e1.textContent+=all[s]}else if(s<b2){e2.textContent+=all[s]}else if(s<b3){ed.textContent+=all[s]}else{es.textContent+=all[s]}s++;const ch=all[s-1];setTimeout(type,ch==='.'?700:65+Math.random()*30)}else{explode(e0,function(){cur.style.display='inline';es.appendChild(cur)})}}setTimeout(type,500)})();</script></script>
 </body>
 </html>

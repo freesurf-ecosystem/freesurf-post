@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking } from "react-native";
 import { supabase } from "../lib/supabase";
 
-const API_BASE = "https://post.cnxt.to";
+const API_BASE = "https://post.freesurf.tools";
 
 const PLATFORMS = [
   { key: "bluesky", name: "Bluesky", note: "App Password — no registration needed" },
