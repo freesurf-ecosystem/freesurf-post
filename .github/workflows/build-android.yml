@@ -1,0 +1,109 @@
+﻿name: Build Android
+
+# Production Android build: release-signed AAB (Google Play) + release-signed
+# APK (sideload). If the ANDROID_KEYSTORE_* secrets are absent, it falls back to
+# a debug-signed build so the workflow still runs.
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/build-android.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Prebuild Android
+        working-directory: mobile
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Configure Gradle memory
+        working-directory: mobile/android
+        run: printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m\n' >> gradle.properties
+
+      - name: Ensure debug keystore
+        working-directory: mobile/android
+        run: test -f app/debug.keystore || keytool -genkeypair -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,OU=Android,O=Android,L=Android,ST=Android,C=US"
+
+      - name: Setup Android signing
+        working-directory: mobile/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > app/keystore.jks
+            printf 'storeFile=keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > app/keystore.properties
+          fi
+          cat >> app/build.gradle <<'EOF'
+          android {
+              signingConfigs {
+                  release {
+                      def props = new Properties()
+                      def propsFile = file("keystore.properties")
+                      if (propsFile.exists()) {
+                          propsFile.withInputStream { props.load(it) }
+                          storeFile file(props['storeFile'])
+                          storePassword props['storePassword']
+                          keyAlias props['keyAlias']
+                          keyPassword props['keyPassword']
+                      } else {
+                          storeFile file("debug.keystore")
+                          storePassword "android"
+                          keyAlias "androiddebugkey"
+                          keyPassword "android"
+                      }
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+
+      - name: Build AAB + APK
+        working-directory: mobile/android
+        run: bash ./gradlew bundleRelease assembleRelease
+
+      - name: Upload AAB (Google Play)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: mobile/android/app/build/outputs/bundle/release/*.aab
+
+      - name: Upload APK (sideload)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: mobile/android/app/build/outputs/apk/release/*.apk
