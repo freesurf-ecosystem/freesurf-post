@@ -31,17 +31,14 @@ CREATE TABLE IF NOT EXISTS post_platform_tokens (
   -- Audit fields
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  last_used_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Ensure one default profile per platform per user
-  CONSTRAINT unique_active_platform_per_user 
-    EXCLUDE (user_id WITH =, platform WITH =) 
-    WHERE (is_active = TRUE)
+  last_used_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Index for efficient token lookups
 CREATE INDEX idx_post_tokens_user_platform ON post_platform_tokens(user_id, platform, is_active);
 CREATE INDEX idx_post_tokens_expires_at ON post_platform_tokens(token_expires_at) WHERE token_expires_at IS NOT NULL;
+-- One active token per user+platform
+CREATE UNIQUE INDEX idx_post_tokens_active_unique ON post_platform_tokens(user_id, platform) WHERE is_active = TRUE;
 
 -- ============================================================================
 -- SCHEDULED POSTS
@@ -75,18 +72,15 @@ CREATE TABLE IF NOT EXISTS post_scheduled (
   
   -- Audit fields
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  
-  -- Prevent duplicate posts within short timeframes
-  CONSTRAINT unique_pending_post_per_user 
-    EXCLUDE (user_id WITH =, text WITH =, scheduled_for WITH &&) 
-    WHERE (status = 'pending')
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Indexes for scheduled posts
 CREATE INDEX idx_post_scheduled_user_status ON post_scheduled(user_id, status, scheduled_for);
 CREATE INDEX idx_post_scheduled_due ON post_scheduled(scheduled_for, status) WHERE status IN ('pending', 'failed');
 CREATE INDEX idx_post_scheduled_retry ON post_scheduled(user_id, retry_count, max_retries) WHERE status = 'failed' AND retry_count < max_retries;
+-- Prevent duplicate pending posts per user (same text)
+CREATE UNIQUE INDEX idx_post_scheduled_unique_pending ON post_scheduled(user_id, text) WHERE status = 'pending';
 
 -- ============================================================================
 -- POST HISTORY
@@ -99,7 +93,7 @@ CREATE TABLE IF NOT EXISTS post_history (
   cnxt_post_id UUID NOT NULL DEFAULT gen_random_uuid(),
   
   -- Platform-specific details
-  platform TEXT NOT NULL CHECK (platform IN ('bluesky', 'x', 'linkedin', 'facebook', 'instagram', 'threads', 'tiktok')),
+  platform TEXT NOT NULL CHECK (platform IN ('bluesky', 'x', 'linkedin', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'reddit', 'mastodon', 'discord', 'slack', 'google_business', 'snapchat')),
   platform_post_id TEXT,
   platform_post_url TEXT,
   
@@ -274,17 +268,15 @@ CREATE TABLE IF NOT EXISTS post_engagement_log (
   additional_metrics JSONB DEFAULT '{}',
   
   -- Tracking
-  logged_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  
-  -- Prevent duplicate logs for the same post within short timeframes
-  CONSTRAINT unique_engagement_log_per_time 
-    EXCLUDE (platform_post_id WITH =, platform WITH =, logged_at WITH &&)
+  logged_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Indexes for engagement logs
 CREATE INDEX idx_post_engagement_user_post ON post_engagement_log(user_id, cnxt_post_id, platform, logged_at DESC);
 CREATE INDEX idx_post_engagement_platform_post ON post_engagement_log(platform, platform_post_id, logged_at DESC);
 CREATE INDEX idx_post_engagement_logged_at ON post_engagement_log(logged_at DESC);
+-- Prevent exact duplicate engagement logs
+CREATE UNIQUE INDEX idx_post_engagement_unique ON post_engagement_log(platform, platform_post_id, logged_at);
 
 -- ============================================================================
 -- API CREDIT BALANCE (for X API credit system)
@@ -375,7 +367,7 @@ CREATE INDEX idx_post_error_log_correlation ON post_error_log(correlation_id) WH
 -- ============================================================================
 
 -- Update updated_at timestamp automatically
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+CREATE OR REPLACE FUNCTION post_update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -385,25 +377,25 @@ $$ LANGUAGE plpgsql;
 
 -- Apply updated_at trigger to all relevant tables
 CREATE TRIGGER update_post_platform_tokens_updated_at BEFORE UPDATE ON post_platform_tokens
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
 
 CREATE TRIGGER update_post_scheduled_updated_at BEFORE UPDATE ON post_scheduled
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
 
 CREATE TRIGGER update_post_drafts_updated_at BEFORE UPDATE ON post_drafts
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
 
 CREATE TRIGGER update_post_queue_updated_at BEFORE UPDATE ON post_queue
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
 
 CREATE TRIGGER update_post_hashtag_groups_updated_at BEFORE UPDATE ON post_hashtag_groups
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
 
 CREATE TRIGGER update_post_saved_replies_updated_at BEFORE UPDATE ON post_saved_replies
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
 
 CREATE TRIGGER update_post_credit_balance_updated_at BEFORE UPDATE ON post_credit_balance
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
 
 -- ============================================================================
 -- ROW LEVEL SECURITY POLICIES
@@ -420,6 +412,7 @@ ALTER TABLE post_saved_replies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_engagement_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_credit_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_credit_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_error_log ENABLE ROW LEVEL SECURITY;
 
 -- Users can only access their own data
 CREATE POLICY "Users can view own platform tokens" ON post_platform_tokens
@@ -521,6 +514,9 @@ CREATE POLICY "Users can view own credit transactions" ON post_credit_transactio
 CREATE POLICY "Users can insert own credit transactions" ON post_credit_transactions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Users can view own error logs" ON post_error_log
+  FOR SELECT USING (auth.uid() = user_id);
+
 -- Service role can bypass RLS for background processing
 -- (This is handled by Supabase's service role key automatically)
 
@@ -587,6 +583,6 @@ $$ LANGUAGE plpgsql;
 
 -- Grant necessary permissions
 GRANT USAGE ON SCHEMA public TO authenticated, anon;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, anon;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;

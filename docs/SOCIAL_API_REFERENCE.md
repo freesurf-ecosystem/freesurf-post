@@ -2,11 +2,38 @@
 
 Bare essentials per platform for building cross-platform posting/reading scripts.
 
-## Proxy connection
+## Platform API docs
 
-https://info.bundle.social/welcome
+| Platform | API docs | Developer portal (get keys) |
+|---|---|---|
+| X (Twitter) | [docs.x.com](https://docs.x.com/x-api/tweets/manage-tweets) | [developer.x.com](https://developer.x.com/en/portal/dashboard) |
+| LinkedIn | [learn.microsoft.com](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api) | [linkedin.com/developers](https://www.linkedin.com/developers/apps) |
+| Instagram | [developers.facebook.com](https://developers.facebook.com/docs/instagram-platform/content-publishing) | [developers.facebook.com/apps](https://developers.facebook.com/apps) |
+| Facebook | [developers.facebook.com](https://developers.facebook.com/docs/graph-api/reference/page/feed) | [developers.facebook.com/apps](https://developers.facebook.com/apps) |
+| Threads | [developers.facebook.com](https://developers.facebook.com/docs/threads) | [developers.facebook.com/apps](https://developers.facebook.com/apps) |
+| TikTok | [developers.tiktok.com](https://developers.tiktok.com/products/content-posting-api) | [developers.tiktok.com/apps](https://developers.tiktok.com/apps) |
+| YouTube | [developers.google.com](https://developers.google.com/youtube/v3/docs/videos/insert) | [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) |
+| Bluesky | [docs.bsky.app](https://docs.bsky.app/docs/get-started) | [bsky.app/settings](https://bsky.app/settings/app-passwords) |
+| Pinterest | [developers.pinterest.com](https://developers.pinterest.com/docs/api/overview/) | [developers.pinterest.com](https://developers.pinterest.com) |
+| Reddit | [reddit.com/dev/api](https://www.reddit.com/dev/api/) | [reddit.com/dev](https://www.reddit.com/dev/) |
+| Mastodon | [docs.joinmastodon.org](https://docs.joinmastodon.org/api/) | — |
+| Discord | [discord.com/developers](https://discord.com/developers/docs/resources/webhook) | [discord.com/developers/applications](https://discord.com/developers/applications) |
+| Slack | [api.slack.com](https://api.slack.com/messaging/webhooks) | [api.slack.com](https://api.slack.com) |
+| Google Business | [developers.google.com](https://developers.google.com/my-business/reference/rest) | [developers.google.com](https://developers.google.com/my-business) |
+| Snapchat | [developers.snap.com](https://developers.snap.com/api/marketing/) | [developers.snap.com](https://developers.snap.com) |
 
----
+## Auth cheat sheet
+
+| Platform | Auth | Complexity | Get Keys |
+|---|---|---|---|
+| X | OAuth 1.0a | Medium | [developer.x.com](https://developer.x.com/en/portal/dashboard) |
+| LinkedIn | OAuth 2.0 Bearer | Low | [linkedin.com/developers](https://www.linkedin.com/developers/apps) |
+| Instagram | Facebook OAuth | Medium | [developers.facebook.com](https://developers.facebook.com/apps) |
+| Facebook | Facebook OAuth | Medium | [developers.facebook.com](https://developers.facebook.com/apps) |
+| TikTok | OAuth 2.0 (Login Kit) | Medium | [developers.tiktok.com](https://developers.tiktok.com/apps) |
+| Threads | Facebook OAuth 2.0 | Low | [developers.facebook.com](https://developers.facebook.com/apps) |
+| Bluesky | App Password or OAuth 2.0 + DPoP | Low / High | [bsky.app/settings](https://bsky.app/settings/app-passwords) |
+| YouTube | Google OAuth 2.0 | Low | [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) |
 
 ## X (Twitter)
 
@@ -136,21 +163,6 @@ Auth: Google OAuth 2.0. Scopes: `https://www.googleapis.com/auth/youtube.upload`
 - Have users upload directly from their browser to YouTube (bypass the Worker), or
 - Use Workers Paid ($5/mo) for up to 500 MB file bodies, or
 - Offload to a separate upload handler for files >100 MB
-
----
-
-## Auth cheat sheet
-
-| Platform | Auth | Complexity | Get Keys |
-|---|---|---|---|
-| X | OAuth 1.0a | Medium | [developer.x.com](https://developer.x.com/en/portal/dashboard) |
-| LinkedIn | OAuth 2.0 Bearer | Low | [linkedin.com/developers](https://www.linkedin.com/developers/apps) |
-| Instagram | Facebook OAuth | Medium | [developers.facebook.com](https://developers.facebook.com/apps) |
-| Facebook | Facebook OAuth | Medium | [developers.facebook.com](https://developers.facebook.com/apps) |
-| TikTok | OAuth 2.0 (Login Kit) | Medium | [developers.tiktok.com](https://developers.tiktok.com/apps) |
-| Threads | Facebook OAuth 2.0 | Low | [developers.facebook.com](https://developers.facebook.com/apps) |
-| Bluesky | App Password or OAuth 2.0 + DPoP | Low / High | [bsky.app/settings](https://bsky.app/settings/app-passwords) |
-| YouTube | Google OAuth 2.0 | Low | [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) |
 
 
 

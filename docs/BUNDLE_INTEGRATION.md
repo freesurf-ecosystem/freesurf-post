@@ -85,6 +85,23 @@ SNAPCHAT	5	20	40
 | Multi-profile | ✅ | Schema + UI supports it |
 | OAuth scripts | ✅ | Node.js scripts for all platforms |
 
+## Dependency map: graduating off Bundle
+
+What Bundle.social absorbs for us today, and what we'd own to go direct
+(Postiz-style: our own platform apps + OAuth), so Bundle becomes a pure fallback.
+
+### Bundle vs. own-apps (Postiz-style)
+
+| Concern | Bundle.social (now) | Own apps / Postiz-style (later) |
+|---|---|---|
+| Credentials | They own the approved platform apps; we hold one API key (`SOCIAL_API_PROVIDER_KEY`) | We register our own TikTok/Meta/etc. apps; we hold client_id/secret per platform |
+| OAuth flow | Hosted portal ("Connect") | We build authorize/authenticate/callback per platform |
+| Token storage + refresh | They handle it | We store per-user tokens (encrypted) + run a refresh worker |
+| App review | Already passed for us | We pass each platform (TikTok: unaudited app → private-account-only posting; Meta: business verification + permission review) |
+| Re-auth / revoked tokens | Their problem | Ours (surface a "reconnect" action) |
+| Rate limits / caps | Their tier + platform quotas | Direct platform limits (e.g., TikTok daily active-user cap) |
+| Analytics / comments | Their normalized API | We aggregate from each platform's API |
+
 ## Strategy: three phases
 
 ### Phase 1 — MVP (now, using Bundle)
@@ -120,6 +137,22 @@ Replace Bundle features one at a time with our own implementations:
 ### Phase 3 — Bundle as fallback only (long term)
 
 Bundle becomes a safety net. If our direct adapter fails for any platform, fall back to Bundle. New platforms we haven't built yet route through Bundle until we build them.
+
+
+### Key facts (from reviewing Postiz's providers)
+
+- Access tokens expire (~24h TikTok) but auto-refresh via a background task — not the scary part.
+- App credentials (client_id/secret) don't expire; they're static until rotated.
+- The real frictions are: **one-time app review** (days–weeks) and **occasional re-auth**.
+
+### To graduate (rough order)
+
+1. Keep a **provider interface** seam — so any backend swaps in without UI changes. This is the whole game.
+2. Bluesky + X first (we already have direct adapters/OAuth).
+3. Meta (FB/IG/Threads) — register app, business verification, permission review.
+4. TikTok — register app, Content Posting API review.
+5. Token refresh worker + "reconnect" UX.
+6. Bundle stays as fallback: on direct-adapter failure, route through Bundle.
 
 ## Implementation plan for today
 
