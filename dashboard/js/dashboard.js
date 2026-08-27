@@ -16,8 +16,8 @@ const PLATFORMS = [
   { key: "facebook",  name: "Facebook",   oauth: true },
   { key: "instagram", name: "Instagram",  oauth: true },
   { key: "threads",   name: "Threads",    oauth: true },
-  { key: "tiktok",    name: "TikTok",     oauth: true, note: "Content Posting API approval required" },
-  { key: "youtube",   name: "YouTube",    oauth: true, note: "Channel selection required after OAuth" },
+  { key: "tiktok",    name: "TikTok",     oauth: true },
+  { key: "youtube",   name: "YouTube",    oauth: true },
 ];
 
 // ── State ──
