@@ -125,6 +125,8 @@ function showAuth() {
   $("#auth-email").value = "";
   $("#auth-password").value = "";
   $("#auth-confirm").value = "";
+  $("#auth-terms").checked = false;
+  $("#auth-newsletter").checked = true;
   const errEl = $("#auth-error");
   errEl.className = "feedback";
   errEl.textContent = "";
@@ -137,6 +139,7 @@ function setAuthMode(mode) {
   $("#auth-subtitle").textContent =
     mode === "signin" ? "Sign in to start cross-posting." : "Create a free account to get started.";
   $("#auth-confirm-group").classList.toggle("hidden", mode === "signin");
+  $("#auth-extra-group").classList.toggle("hidden", mode === "signin");
   $("#btn-auth-submit").textContent = mode === "signin" ? "Sign in" : "Create account";
   $("#btn-auth-toggle").textContent =
     mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in";
@@ -174,6 +177,11 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       errEl.textContent = "Passwords don't match.";
       return;
     }
+    if (!$("#auth-terms").checked) {
+      errEl.className = "feedback error visible";
+      errEl.textContent = "Please agree to the Terms and Privacy Policy.";
+      return;
+    }
   }
 
   const btn = $("#btn-auth-submit");
@@ -189,6 +197,13 @@ $("#btn-auth-submit").addEventListener("click", async () => {
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
+      // Subscribe to the FeedFree Digest via the feedless repo's create-signup
+      // edge function (fire-and-forget; the digest has its own confirmation flow).
+      if ($("#auth-newsletter").checked) {
+        supabase.functions.invoke("feedfree-create-signup", {
+          body: { email, topics: [] },
+        }).catch(() => {});
+      }
       errEl.className = "feedback success visible";
       errEl.textContent = "Account created. Check your email to confirm, then sign in.";
       setAuthMode("signin");

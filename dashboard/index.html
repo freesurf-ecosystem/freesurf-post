@@ -105,9 +105,10 @@
         <div class="hero">
           <div class="hero-content">
             <h1 class="hero-title"><span id="hero-line0" class="hero-brand-name"></span><span class="hero-cursor">|</span><br><br><span id="hero-line1"></span><br><span id="hero-line2"></span></h1>
-            <p class="hero-asterisk" id="hero-asterisk">*X API fees passed through at cost</p>
+            <p class="hero-asterisk" id="hero-asterisk"></p>
             <p class="hero-description" id="hero-desc"></p>
-            <p class="hero-tagline" id="hero-tagline">Powered by FreeSurf: a developing ecosystem of free tools for contractors and small businesses</p>
+            <p class="hero-tagline" id="hero-tagline1"></p>
+            <p class="hero-tagline hero-tagline2" id="hero-tagline2"></p>
             <p class="hero-subline" id="hero-subline" style="display:none;font-size:0.9375rem;color:var(--text-muted);margin-bottom:24px;"></p>
             <div class="hero-actions">
               <button class="btn btn-primary btn-large" id="btn-hero-signin">Sign in or Get Started</button>
@@ -198,6 +199,19 @@
             <div class="form-group hidden" id="auth-confirm-group">
               <label class="form-label" for="auth-confirm">Confirm password</label>
               <input type="password" class="form-input" id="auth-confirm" placeholder="Re-enter password" autocomplete="new-password" />
+            </div>
+            <div class="hidden" id="auth-extra-group">
+              <label class="auth-checkbox">
+                <input type="checkbox" id="auth-terms" />
+                <span>I agree to the <a href="https://freesurf.tools/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="https://freesurf.tools/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></span>
+              </label>
+              <label class="auth-checkbox">
+                <input type="checkbox" id="auth-newsletter" />
+                <span>
+                  <span class="auth-checkbox-main">Subscribe to the FeedFree Digest</span>
+                  <span class="auth-checkbox-sub">Curated blog-length social posts covering AI, SEO, social media marketing and more - from X and LinkedIn</span>
+                </span>
+              </label>
             </div>
             <button class="btn btn-primary btn-full" id="btn-auth-submit">Sign in</button>
             <button class="btn btn-ghost btn-full" id="btn-auth-toggle">Don't have an account? Sign up</button>
@@ -497,6 +511,71 @@
   <script>document.querySelector('.freesurf-footer-year').textContent = new Date().getFullYear();</script>
 <script>document.getElementById("btn-theme-toggle").addEventListener("click",()=>{const t=document.documentElement.dataset.theme==="dark"?"":"dark";document.documentElement.dataset.theme=t;localStorage.setItem("freesurf-theme",t)});(function(){const t=localStorage.getItem("freesurf-theme");if(t)document.documentElement.dataset.theme=t})();
 // Typing animation
-(function(){const L0="Post by FreeSurf",L1="Post everywhere.",L2="Free*, from one place.",D="Open source social media poster",S="Web app & API included (mobile app coming soon)";const e0=document.getElementById("hero-line0"),e1=document.getElementById("hero-line1"),e2=document.getElementById("hero-line2"),ed=document.getElementById("hero-desc"),es=document.getElementById("hero-subline"),cur=document.querySelector(".hero-cursor");let s=0;const all=L0+L1+L2+D+S;const b0=L0.length,b1=b0+L1.length,b2=b1+L2.length,b3=b2+D.length;function explode(el,cb){const t=el.textContent;el.textContent='';const ps=t.split('').map(function(c){const s=document.createElement('span');s.textContent=c;s.style.display='inline-block';s.style.transition='transform 0.7s cubic-bezier(0.22,0.61,0.36,1),opacity 0.7s ease';el.appendChild(s);return s});requestAnimationFrame(function(){requestAnimationFrame(function(){ps.forEach(function(p){const a=Math.random()*Math.PI*2;const d=80+Math.random()*120;p.style.transform='translate('+Math.cos(a)*d+'px,'+Math.sin(a)*d+'px) rotate('+((Math.random()-0.5)*180)+'deg)';p.style.opacity='0.15'})})});setTimeout(function(){ps.forEach(function(p){p.style.transform='translate(0,0) rotate(0deg)';p.style.opacity='1'});setTimeout(function(){el.textContent=t;cb()},800)},2800)}function type(){if(s<all.length){if(s===b0){e0.textContent=L0;cur.remove();e1.textContent=''}if(s===b1){e2.textContent=''}if(s===b2){ed.textContent=''}if(s===b3){es.style.display='block';es.textContent=''}if(s<b0){e0.textContent+=all[s]}else if(s<b1){e1.textContent+=all[s]}else if(s<b2){e2.textContent+=all[s]}else if(s<b3){ed.textContent+=all[s]}else{es.textContent+=all[s]}s++;const ch=all[s-1];setTimeout(type,ch==='.'?700:65+Math.random()*30)}else{explode(e0,function(){cur.style.display='inline';es.appendChild(cur)})}}setTimeout(type,500)})();</script></script>
+(function(){
+  const cur = document.querySelector(".hero-cursor");
+  const subline = document.getElementById("hero-subline");
+  const targets = [
+    [document.getElementById("hero-line0"),    "Post by FreeSurf"],
+    [document.getElementById("hero-line1"),    "Post everywhere,"],
+    [document.getElementById("hero-line2"),    "from one place"],
+    [document.getElementById("hero-asterisk"), "Free except for X API fees passed through at cost"],
+    [document.getElementById("hero-desc"),     "Open source social media poster"],
+    [document.getElementById("hero-tagline1"), "Powered by FreeSurf: a developing ecosystem of free tools"],
+    [document.getElementById("hero-tagline2"), "for contractors, small businesses and everyday people"],
+    [subline, "Web app & API included (mobile app coming soon)"],
+  ];
+  let seg = 0, idx = 0;
+
+  function explode(el, cb) {
+    const t = el.textContent;
+    el.textContent = '';
+    const ps = t.split('').map(function(c){
+      const s = document.createElement('span');
+      s.textContent = c;
+      s.style.display = 'inline-block';
+      s.style.transition = 'transform 0.7s cubic-bezier(0.22,0.61,0.36,1),opacity 0.7s ease';
+      el.appendChild(s);
+      return s;
+    });
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        ps.forEach(function(p){
+          const a = Math.random() * Math.PI * 2;
+          const d = 80 + Math.random() * 120;
+          p.style.transform = 'translate(' + Math.cos(a)*d + 'px,' + Math.sin(a)*d + 'px) rotate(' + ((Math.random()-0.5)*180) + 'deg)';
+          p.style.opacity = '0.15';
+        });
+      });
+    });
+    setTimeout(function(){
+      ps.forEach(function(p){ p.style.transform = 'translate(0,0) rotate(0deg)'; p.style.opacity = '1'; });
+      setTimeout(function(){ el.textContent = t; cb(); }, 800);
+    }, 2800);
+  }
+
+  function type() {
+    if (seg >= targets.length) {
+      explode(targets[0][0], function(){ cur.style.display = 'inline'; subline.appendChild(cur); });
+      return;
+    }
+    const el = targets[seg][0];
+    const text = targets[seg][1];
+    if (el === subline) el.style.display = 'block';
+    let ch = '';
+    if (idx < text.length) {
+      ch = text[idx];
+      el.textContent += ch;
+      idx++;
+    } else {
+      if (seg === 0) cur.remove();
+      seg++;
+      idx = 0;
+    }
+    setTimeout(type, ch === '.' ? 700 : 65 + Math.random() * 30);
+  }
+
+  setTimeout(type, 500);
+})();
+</script>
 </body>
 </html>
