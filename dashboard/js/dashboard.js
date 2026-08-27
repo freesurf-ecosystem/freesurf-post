@@ -126,11 +126,18 @@ function showAuth() {
   $("#auth-password").value = "";
   $("#auth-confirm").value = "";
   $("#auth-terms").checked = false;
-  $("#auth-newsletter").checked = true;
+  $("#auth-newsletter").checked = false;
   const errEl = $("#auth-error");
   errEl.className = "feedback";
   errEl.textContent = "";
+  $("#auth-form").classList.remove("hidden");
+  $("#auth-verify").classList.add("hidden");
   showView("auth");
+}
+
+function showAuthVerify() {
+  $("#auth-form").classList.add("hidden");
+  $("#auth-verify").classList.remove("hidden");
 }
 
 function setAuthMode(mode) {
@@ -153,6 +160,7 @@ $("#btn-hero-signin").addEventListener("click", showAuth);
 $("#btn-auth-toggle").addEventListener("click", () =>
   setAuthMode(authMode === "signin" ? "signup" : "signin")
 );
+$("#btn-auth-back").addEventListener("click", showAuth);
 
 $("#btn-auth-submit").addEventListener("click", async () => {
   const email = $("#auth-email").value.trim();
@@ -212,9 +220,8 @@ $("#btn-auth-submit").addEventListener("click", async () => {
         }
       }
 
-      errEl.className = "feedback success visible";
-      errEl.textContent = "Account created. Check your email to confirm, then sign in." + digestNote;
-      setAuthMode("signin");
+      $("#auth-verify-text").textContent = "Check your email to verify your address and get started." + digestNote;
+      showAuthVerify();
       return;
     }
   } catch (e) {

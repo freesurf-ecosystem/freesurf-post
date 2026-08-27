@@ -86,7 +86,6 @@
           </div>
           <div class="sidebar-user-info">
             <span class="sidebar-user-email" id="user-email"></span>
-            <span class="sidebar-user-plan">Free forever</span>
           </div>
         </div>
         <div class="sidebar-actions">
@@ -189,6 +188,7 @@
               </div>
             </div>
             <div id="auth-error" class="feedback"></div>
+            <div id="auth-form">
             <div class="form-group">
               <label class="form-label" for="auth-email">Email</label>
               <input type="email" class="form-input" id="auth-email" placeholder="you@example.com" autocomplete="email" />
@@ -216,6 +216,11 @@
             </div>
             <button class="btn btn-primary btn-full" id="btn-auth-submit">Sign in</button>
             <button class="btn btn-ghost btn-full" id="btn-auth-toggle">Don't have an account? Sign up</button>
+            </div>
+            <div class="hidden" id="auth-verify">
+              <p class="auth-verify-text" id="auth-verify-text">Check your email to verify your address and get started.</p>
+              <button class="btn btn-ghost btn-full" id="btn-auth-back">Back to sign in</button>
+            </div>
           </div>
         </div>
       </section>

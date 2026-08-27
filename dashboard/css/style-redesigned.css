@@ -66,11 +66,11 @@
 /* Dark mode grid + clouds */
 [data-theme="dark"] body::before {
   background-image:
-    radial-gradient(ellipse 340px 220px at 8% 10%, rgba(0, 0, 0, 0.9), transparent 70%),
-    radial-gradient(ellipse 440px 280px at 90% 6%, rgba(0, 0, 0, 0.88), transparent 70%),
-    radial-gradient(ellipse 380px 250px at 20% 80%, rgba(0, 0, 0, 0.85), transparent 70%),
-    radial-gradient(ellipse 480px 300px at 80% 90%, rgba(0, 0, 0, 0.88), transparent 70%),
-    radial-gradient(ellipse 520px 340px at 48% 46%, rgba(0, 0, 0, 0.82), transparent 70%),
+    radial-gradient(ellipse 340px 220px at 8% 10%, rgba(0, 0, 0, 0.98), transparent 70%),
+    radial-gradient(ellipse 440px 280px at 90% 6%, rgba(0, 0, 0, 0.96), transparent 70%),
+    radial-gradient(ellipse 380px 250px at 20% 80%, rgba(0, 0, 0, 0.95), transparent 70%),
+    radial-gradient(ellipse 480px 300px at 80% 90%, rgba(0, 0, 0, 0.97), transparent 70%),
+    radial-gradient(ellipse 520px 340px at 48% 46%, rgba(0, 0, 0, 0.94), transparent 70%),
     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
 }
@@ -107,11 +107,11 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse 340px 220px at 8% 10%, rgba(255, 255, 255, 0.9), transparent 70%),
-    radial-gradient(ellipse 440px 280px at 90% 6%, rgba(255, 255, 255, 0.88), transparent 70%),
-    radial-gradient(ellipse 380px 250px at 20% 80%, rgba(255, 255, 255, 0.85), transparent 70%),
-    radial-gradient(ellipse 480px 300px at 80% 90%, rgba(255, 255, 255, 0.88), transparent 70%),
-    radial-gradient(ellipse 520px 340px at 48% 46%, rgba(255, 255, 255, 0.82), transparent 70%),
+    radial-gradient(ellipse 340px 220px at 8% 10%, rgba(255, 255, 255, 0.98), transparent 70%),
+    radial-gradient(ellipse 440px 280px at 90% 6%, rgba(255, 255, 255, 0.96), transparent 70%),
+    radial-gradient(ellipse 380px 250px at 20% 80%, rgba(255, 255, 255, 0.95), transparent 70%),
+    radial-gradient(ellipse 480px 300px at 80% 90%, rgba(255, 255, 255, 0.97), transparent 70%),
+    radial-gradient(ellipse 520px 340px at 48% 46%, rgba(255, 255, 255, 0.94), transparent 70%),
     linear-gradient(rgba(29, 27, 24, 0.07) 1px, transparent 1px),
     linear-gradient(90deg, rgba(29, 27, 24, 0.07) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 22px 22px, 22px 22px;
@@ -1899,4 +1899,10 @@ a:hover { text-decoration: underline; }
 .auth-checkbox a {
   color: var(--brand);
   text-decoration: underline;
+}
+
+.auth-verify-text {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
