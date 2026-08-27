@@ -498,16 +498,24 @@ a:hover { text-decoration: underline; }
   font-size: 1.1875rem;
   color: var(--text-secondary);
   max-width: 500px;
-  margin: 0 auto 32px;
+  margin: 0 auto 6px;
   line-height: 1.6;
 }
 
 .hero-asterisk {
   font-size: 1.1875rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   max-width: 500px;
   margin: -12px auto 8px;
   line-height: 1.6;
+}
+
+.hero-tagline {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  max-width: 560px;
+  margin: 0 auto 24px;
+  line-height: 1.5;
 }
 
 .hero-actions {

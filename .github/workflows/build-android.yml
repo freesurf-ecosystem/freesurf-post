@@ -18,6 +18,7 @@ jobs:
     env:
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
       SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD: "true"
+      NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,7 +26,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
       - name: Setup Java
         uses: actions/setup-java@v4
