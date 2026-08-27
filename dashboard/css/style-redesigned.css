@@ -38,13 +38,13 @@
 [data-theme="dark"] {
   --bg: #0a0a0c;
   --bg-alt: #111115;
-  --surface: #16161a;
-  --panel: rgba(22, 22, 26, 0.85);
-  --border: #252530;
-  --border-light: #1e1e28;
-  --text: #e4e4ed;
-  --text-secondary: #9898a8;
-  --text-muted: #686878;
+  --surface: #17171d;
+  --panel: rgba(23, 23, 29, 0.88);
+  --border: #2c2c3a;
+  --border-light: #23232e;
+  --text: #ffffff;
+  --text-secondary: #b9b9c6;
+  --text-muted: #8b8b9a;
 
   --brand: #6b8cff;
   --brand-dark: #5a78e8;
@@ -66,11 +66,17 @@
 /* Dark mode grid + clouds */
 [data-theme="dark"] body::before {
   background-image:
-    radial-gradient(ellipse 340px 220px at 8% 10%, rgba(0, 0, 0, 0.98), transparent 70%),
-    radial-gradient(ellipse 440px 280px at 90% 6%, rgba(0, 0, 0, 0.96), transparent 70%),
-    radial-gradient(ellipse 380px 250px at 20% 80%, rgba(0, 0, 0, 0.95), transparent 70%),
-    radial-gradient(ellipse 480px 300px at 80% 90%, rgba(0, 0, 0, 0.97), transparent 70%),
-    radial-gradient(ellipse 520px 340px at 48% 46%, rgba(0, 0, 0, 0.94), transparent 70%),
+    radial-gradient(ellipse 260px 180px at 6% 8%, rgba(0, 0, 0, 0.98), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 24% 4%, rgba(0, 0, 0, 0.97), transparent 70%),
+    radial-gradient(ellipse 340px 220px at 48% 8%, rgba(0, 0, 0, 0.98), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 72% 5%, rgba(0, 0, 0, 0.97), transparent 70%),
+    radial-gradient(ellipse 260px 180px at 92% 10%, rgba(0, 0, 0, 0.98), transparent 70%),
+    radial-gradient(ellipse 320px 220px at 14% 38%, rgba(0, 0, 0, 0.97), transparent 70%),
+    radial-gradient(ellipse 360px 240px at 52% 42%, rgba(0, 0, 0, 0.98), transparent 70%),
+    radial-gradient(ellipse 320px 220px at 88% 40%, rgba(0, 0, 0, 0.97), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 20% 72%, rgba(0, 0, 0, 0.98), transparent 70%),
+    radial-gradient(ellipse 340px 220px at 56% 78%, rgba(0, 0, 0, 0.97), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 86% 76%, rgba(0, 0, 0, 0.98), transparent 70%),
     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
 }
@@ -107,15 +113,21 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse 340px 220px at 8% 10%, rgba(255, 255, 255, 0.98), transparent 70%),
-    radial-gradient(ellipse 440px 280px at 90% 6%, rgba(255, 255, 255, 0.96), transparent 70%),
-    radial-gradient(ellipse 380px 250px at 20% 80%, rgba(255, 255, 255, 0.95), transparent 70%),
-    radial-gradient(ellipse 480px 300px at 80% 90%, rgba(255, 255, 255, 0.97), transparent 70%),
-    radial-gradient(ellipse 520px 340px at 48% 46%, rgba(255, 255, 255, 0.94), transparent 70%),
+    radial-gradient(ellipse 260px 180px at 6% 8%, rgba(255, 255, 255, 0.98), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 24% 4%, rgba(255, 255, 255, 0.97), transparent 70%),
+    radial-gradient(ellipse 340px 220px at 48% 8%, rgba(255, 255, 255, 0.98), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 72% 5%, rgba(255, 255, 255, 0.97), transparent 70%),
+    radial-gradient(ellipse 260px 180px at 92% 10%, rgba(255, 255, 255, 0.98), transparent 70%),
+    radial-gradient(ellipse 320px 220px at 14% 38%, rgba(255, 255, 255, 0.97), transparent 70%),
+    radial-gradient(ellipse 360px 240px at 52% 42%, rgba(255, 255, 255, 0.98), transparent 70%),
+    radial-gradient(ellipse 320px 220px at 88% 40%, rgba(255, 255, 255, 0.97), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 20% 72%, rgba(255, 255, 255, 0.98), transparent 70%),
+    radial-gradient(ellipse 340px 220px at 56% 78%, rgba(255, 255, 255, 0.97), transparent 70%),
+    radial-gradient(ellipse 300px 200px at 86% 76%, rgba(255, 255, 255, 0.98), transparent 70%),
     linear-gradient(rgba(29, 27, 24, 0.07) 1px, transparent 1px),
     linear-gradient(90deg, rgba(29, 27, 24, 0.07) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 22px 22px, 22px 22px;
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 22px 22px, 22px 22px;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat;
   z-index: 0;
 }
 
@@ -165,6 +177,7 @@ a:hover { text-decoration: underline; }
   background: var(--brand);
   border-radius: 50%;
   flex-shrink: 0;
+  margin-left: 6px;
 }
 
 .mobile-menu-btn {
@@ -227,6 +240,7 @@ a:hover { text-decoration: underline; }
   background: var(--brand);
   border-radius: 50%;
   flex-shrink: 0;
+  margin-left: 6px;
 }
 
 .sidebar-close {
@@ -1869,7 +1883,7 @@ a:hover { text-decoration: underline; }
   max-width: 420px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .auth-checkbox {
@@ -1905,4 +1919,19 @@ a:hover { text-decoration: underline; }
   font-size: 0.9375rem;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+#auth-extra-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Neutralize the browser's yellow autofill background */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset !important;
+  -webkit-text-fill-color: var(--text) !important;
+  box-shadow: 0 0 0 1000px var(--surface) inset !important;
 }

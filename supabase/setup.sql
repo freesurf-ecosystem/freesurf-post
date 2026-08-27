@@ -4,8 +4,7 @@
 --   post_accounts — a user's connected social accounts + API tokens
 --   post_posts    — everything a user composes: drafts, scheduled, queued, posted
 --   post_content  — misc per-user content (hashtag groups, saved replies)
--- Plus one shared, non-prefixed table:
---   consents      — ecosystem-wide terms/privacy agreements (all FreeSurf apps)
+-- (See consents_setup.sql for the shared, ecosystem-wide consents table.)
 --
 -- All keyed by auth.users(id) with RLS. The Worker uses the service role key
 -- (bypasses RLS); the dashboard/mobile only talk to the Worker API.
@@ -41,7 +40,6 @@ DROP TABLE IF EXISTS content CASCADE;
 DROP TABLE IF EXISTS post_accounts CASCADE;
 DROP TABLE IF EXISTS post_posts CASCADE;
 DROP TABLE IF EXISTS post_content CASCADE;
-DROP TABLE IF EXISTS consents CASCADE;
 
 DROP FUNCTION IF EXISTS post_update_updated_at_column() CASCADE;
 DROP FUNCTION IF EXISTS initialize_post_user_account(uuid) CASCADE;
@@ -111,18 +109,6 @@ CREATE TABLE IF NOT EXISTS post_content (
 CREATE INDEX IF NOT EXISTS idx_post_content_user_type ON post_content(user_id, type);
 
 -- ============================================================================
--- CONSENTS — shared ecosystem-wide terms/privacy agreements (NOT post-specific)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS consents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,              -- e.g., 'terms'
-  version TEXT,                    -- e.g., '2026-08-01'
-  accepted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_consents_user_type ON consents(user_id, type);
-
--- ============================================================================
 -- FUNCTIONS AND TRIGGERS
 -- ============================================================================
 CREATE OR REPLACE FUNCTION fs_update_updated_at()
@@ -146,7 +132,6 @@ CREATE TRIGGER trg_post_content_updated BEFORE UPDATE ON post_content
 ALTER TABLE post_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_content ENABLE ROW LEVEL SECURITY;
-ALTER TABLE consents ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users manage own post accounts" ON post_accounts
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
@@ -156,9 +141,3 @@ CREATE POLICY "Users manage own post posts" ON post_posts
 
 CREATE POLICY "Users manage own post content" ON post_content
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can record their own consent" ON consents
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view their own consents" ON consents
-  FOR SELECT USING (auth.uid() = user_id);
