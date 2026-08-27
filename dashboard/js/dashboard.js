@@ -197,15 +197,23 @@ $("#btn-auth-submit").addEventListener("click", async () => {
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-      // Subscribe to the FeedFree Digest via the feedless repo's create-signup
-      // edge function (fire-and-forget; the digest has its own confirmation flow).
+
+      let digestNote = "";
       if ($("#auth-newsletter").checked) {
-        supabase.functions.invoke("feedfree-create-signup", {
-          body: { email, topics: [] },
-        }).catch(() => {});
+        try {
+          const { data: digestData, error: digestError } = await supabase.functions.invoke("feedfree-create-signup", {
+            body: { email, topics: [] },
+          });
+          if (digestError || digestData?.ok === false) {
+            digestNote = " Note: we couldn't subscribe you to the FeedFree Digest — you can join at feedfree.tech.";
+          }
+        } catch {
+          digestNote = " Note: we couldn't subscribe you to the FeedFree Digest — you can join at feedfree.tech.";
+        }
       }
+
       errEl.className = "feedback success visible";
-      errEl.textContent = "Account created. Check your email to confirm, then sign in.";
+      errEl.textContent = "Account created. Check your email to confirm, then sign in." + digestNote;
       setAuthMode("signin");
       return;
     }
