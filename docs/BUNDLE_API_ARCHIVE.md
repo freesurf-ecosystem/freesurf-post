@@ -1,8 +1,6 @@
 # Bundle.social API — Functionality Archive
 
-Internal reference dump of what Bundle.social's API does — per platform and
-endpoint — so we can cross-reference while building our own direct adapters and
-keep Bundle as a fallback.
+Internal reference dump of what Bundle.social's API does — per platform and endpoint — so we can cross-reference while building our own direct adapters and keep Bundle as a fallback.
 
 Source: `https://info.bundle.social/llms.txt` + the api-reference pages.
 Companion docs: `BUNDLE_INTEGRATION.md` (strategy), `SOCIAL_API_REFERENCE.md`

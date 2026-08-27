@@ -6,7 +6,7 @@ const API_BASE = "https://post.freesurf.tools";
 
 const PLATFORMS = [
   { key: "bluesky", name: "Bluesky", note: "App Password — no registration needed" },
-  { key: "x", name: "X (Twitter)", note: "BYOK or credits required" },
+  { key: "x", name: "X (Twitter)", note: "Connected via Bundle (no free API tier)" },
   { key: "linkedin", name: "LinkedIn", note: "Personal + company pages" },
   { key: "facebook", name: "Facebook", note: "Personal + business pages" },
   { key: "instagram", name: "Instagram", note: "Professional account required" },
@@ -45,9 +45,9 @@ export default function AccountsScreen() {
       const res = await fetch(`${API_BASE}/api/connect/${platform}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (data.url) {
-        Linking.openURL(data.url);
+      const bundleData = await res.json();
+      if (bundleData.url) {
+        Linking.openURL(bundleData.url);
         Alert.alert("Connect", "Portal opened. After connecting, pull down to refresh.");
       }
     } catch { Alert.alert("Error", "Unable to open connection portal."); }
@@ -75,12 +75,6 @@ export default function AccountsScreen() {
           </View>
         );
       })}
-    </ScrollView>
-  );
-}
-          </TouchableOpacity>
-        </View>
-      ))}
     </ScrollView>
   );
 }

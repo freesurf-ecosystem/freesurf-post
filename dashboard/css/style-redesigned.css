@@ -502,6 +502,14 @@ a:hover { text-decoration: underline; }
   line-height: 1.6;
 }
 
+.hero-asterisk {
+  font-size: 1.1875rem;
+  color: var(--text-muted);
+  max-width: 500px;
+  margin: -12px auto 8px;
+  line-height: 1.6;
+}
+
 .hero-actions {
   display: flex;
   gap: 12px;
@@ -1165,6 +1173,10 @@ a:hover { text-decoration: underline; }
   .hero-description {
     font-size: 1rem;
   }
+
+  .hero-asterisk {
+    font-size: 1rem;
+  }
   
   .features {
     padding: 48px 16px;
@@ -1819,4 +1831,20 @@ a:hover { text-decoration: underline; }
 @media (max-width: 640px) {
   .freesurf-footer-inner { flex-direction: column; gap: 24px; }
   .freesurf-footer-bottom { flex-direction: column; text-align: center; }
+}
+
+/* ── Auth page ── */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px 16px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }

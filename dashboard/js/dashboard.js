@@ -11,7 +11,7 @@ const SUPABASE_ANON_KEY = config.AUTH.SUPABASE_ANON_KEY;
 // ── Platform config ──
 const PLATFORMS = [
   { key: "bluesky",   name: "Bluesky",   oauth: false, note: "App Password — no registration needed" },
-  { key: "x",         name: "X",          oauth: true,  note: "Fair-use included or BYOK" },
+  { key: "x",         name: "X",          oauth: true, note: "Connected via Bundle (no free API tier)" },
   { key: "linkedin",  name: "LinkedIn",   oauth: true },
   { key: "facebook",  name: "Facebook",   oauth: true },
   { key: "instagram", name: "Instagram",  oauth: true },
@@ -99,7 +99,7 @@ function renderAuthUI() {
   // Switch between welcome and compose
   if (!signedIn) {
     showView("welcome");
-  } else if (currentView === "welcome") {
+  } else if (currentView === "welcome" || currentView === "auth") {
     showView("compose");
   } else {
     showView(currentView);
@@ -114,6 +114,93 @@ $("#btn-sign-out").addEventListener("click", async () => {
   connectedProfiles = [];
   renderAuthUI();
   renderPlatformChips();
+});
+
+// ── Local Auth (sign in / sign up) ──
+
+let authMode = "signin";
+
+function showAuth() {
+  setAuthMode("signin");
+  $("#auth-email").value = "";
+  $("#auth-password").value = "";
+  $("#auth-confirm").value = "";
+  const errEl = $("#auth-error");
+  errEl.className = "feedback";
+  errEl.textContent = "";
+  showView("auth");
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  $("#auth-title").textContent = mode === "signin" ? "Sign in" : "Create account";
+  $("#auth-subtitle").textContent =
+    mode === "signin" ? "Sign in to start cross-posting." : "Create a free account to get started.";
+  $("#auth-confirm-group").classList.toggle("hidden", mode === "signin");
+  $("#btn-auth-submit").textContent = mode === "signin" ? "Sign in" : "Create account";
+  $("#btn-auth-toggle").textContent =
+    mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in";
+  const errEl = $("#auth-error");
+  errEl.className = "feedback";
+  errEl.textContent = "";
+}
+
+$("#btn-sign-in").addEventListener("click", showAuth);
+$("#btn-hero-signin").addEventListener("click", showAuth);
+$("#btn-auth-toggle").addEventListener("click", () =>
+  setAuthMode(authMode === "signin" ? "signup" : "signin")
+);
+
+$("#btn-auth-submit").addEventListener("click", async () => {
+  const email = $("#auth-email").value.trim();
+  const password = $("#auth-password").value;
+  const confirm = $("#auth-confirm").value;
+  const errEl = $("#auth-error");
+  errEl.className = "feedback";
+
+  if (!email || !password) {
+    errEl.className = "feedback error visible";
+    errEl.textContent = "Please enter your email and password.";
+    return;
+  }
+  if (authMode === "signup") {
+    if (password.length < 6) {
+      errEl.className = "feedback error visible";
+      errEl.textContent = "Password must be at least 6 characters.";
+      return;
+    }
+    if (password !== confirm) {
+      errEl.className = "feedback error visible";
+      errEl.textContent = "Passwords don't match.";
+      return;
+    }
+  }
+
+  const btn = $("#btn-auth-submit");
+  btn.disabled = true;
+  btn.textContent = "Please wait…";
+
+  try {
+    const supabase = await initSupabase();
+    if (authMode === "signin") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      await refreshAuth();
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      errEl.className = "feedback success visible";
+      errEl.textContent = "Account created. Check your email to confirm, then sign in.";
+      setAuthMode("signin");
+      return;
+    }
+  } catch (e) {
+    errEl.className = "feedback error visible";
+    errEl.textContent = e?.message || "Authentication failed.";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === "signin" ? "Sign in" : "Create account";
+  }
 });
 
 // ── Mobile Menu & Sidebar ──
@@ -351,59 +438,9 @@ function connectPlatform(key) {
       renderAccounts();
       renderPlatformChips();
     }
-  } else if (key === "x") {
-    // BYOK for X — user brings their own OAuth 1.0a keys from developer.twitter.com
-    const label = prompt("Profile name (e.g. 'Personal' or 'Brand'):", "Personal");
-    if (!label) return;
-    const handle = prompt("X @handle (e.g. @yourname):");
-    if (!handle) return;
-    const consumerKey = prompt("X API Key (from developer.twitter.com portal):");
-    if (!consumerKey) return;
-    const consumerSecret = prompt("X API Key Secret:");
-    if (!consumerSecret) return;
-    const accessToken = prompt("X Access Token:");
-    if (!accessToken) return;
-    const accessSecret = prompt("X Access Token Secret:");
-    if (!accessSecret) return;
-
-    saveXToken(label, handle, consumerKey, consumerSecret, accessToken, accessSecret);
   } else {
-    // Redirect to Bundle.social portal for OAuth
+    // Redirect to Bundle.social portal for OAuth (X included — no free tier)
     fetchConnectUrl(key);
-  }
-}
-
-async function saveXToken(label, handle, consumerKey, consumerSecret, accessToken, accessSecret) {
-  if (!session?.access_token) return;
-  try {
-    const res = await fetch(`${API_BASE}/api/profiles/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        platform: "x",
-        label,
-        handle,
-        accessToken,
-        metadata: {
-          consumer_key: consumerKey,
-          consumer_secret: consumerSecret,
-          access_secret: accessSecret,
-        },
-      }),
-    });
-    if (res.ok) {
-      connectedProfiles.push({ platform: "x", label, handle, id: crypto.randomUUID() });
-      renderAccounts();
-      renderPlatformChips();
-    } else {
-      const err = await res.json();
-      alert(err.error || "Failed to save X keys");
-    }
-  } catch {
-    alert("Network error saving X keys.");
   }
 }
 
@@ -1167,7 +1204,7 @@ function renderQueue(queue) {
       <div class="queue-header">
         <div class="queue-schedule">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          ${new Date(item.schedule_time || item.created_at).toLocaleString()}
+          ${new Date(item.scheduled_at || item.created_at).toLocaleString()}
         </div>
         <div class="queue-actions">
           <button class="btn btn-sm btn-ghost" onclick="removeFromQueue('${item.id}')">Remove</button>

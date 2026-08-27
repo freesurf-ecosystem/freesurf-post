@@ -2,10 +2,14 @@ name = "freesurf-to-post"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
-# Routes: Worker only handles API paths so Pages can serve the dashboard at root
-routes = [
-  { pattern = "post.freesurf.tools/api/*", zone_name = "freesurf.tools" }
-]
+# Routing is via the custom domain post.freesurf.tools (set in the Cloudflare
+# dashboard → Workers → Domains & Routes), so no `routes` block is needed here.
+
+# Static dashboard (landing + compose UI) served from ./dashboard
+[assets]
+directory = "./dashboard"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 # KV for rate limiting counters
 [[kv_namespaces]]

@@ -206,7 +206,7 @@ async function generateOAuth1Header(
   const signature = btoa(String.fromCharCode(...new Uint8Array(sig)));
 
   // Build Authorization header
-  const headerParams = { ...oauthParams, oauth_signature: signature };
+  const headerParams: Record<string, string> = { ...oauthParams, oauth_signature: signature };
   const headerStr = Object.keys(headerParams)
     .sort()
     .map((k) => `${percentEncode(k)}="${percentEncode(headerParams[k])}"`)

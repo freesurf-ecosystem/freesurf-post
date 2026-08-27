@@ -26,7 +26,7 @@ export async function fetchUserTokens(
   serviceRoleKey: string
 ): Promise<PlatformToken[]> {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/platform_tokens?user_id=eq.${userId}&select=*`,
+    `${SUPABASE_URL}/rest/v1/post_accounts?user_id=eq.${userId}&select=*`,
     {
       headers: {
         apikey: serviceRoleKey,

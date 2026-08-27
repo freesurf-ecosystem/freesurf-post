@@ -304,7 +304,7 @@ export async function generateXRequestToken(
   callbackUrl: string
 ): Promise<{ oauth_token: string; oauth_token_secret: string }> {
   const url = "https://api.x.com/oauth/request_token";
-  const params = {
+  const params: Record<string, string> = {
     oauth_callback: callbackUrl,
     oauth_consumer_key: env.X_CONSUMER_KEY!,
     oauth_nonce: generateRandomState(),
@@ -313,7 +313,6 @@ export async function generateXRequestToken(
     oauth_signature_method: "HMAC-SHA1",
   };
 
-  // Generate OAuth 1.0a signature
   const signature = await generateOAuth1Signature(
     "POST",
     url,
@@ -321,16 +320,13 @@ export async function generateXRequestToken(
     env.X_CONSUMER_KEY!,
     env.X_CONSUMER_KEY_SECRET!
   );
-
   params["oauth_signature"] = signature;
 
   const authHeader = generateOAuth1Header(params);
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: authHeader,
-    },
+    headers: { Authorization: authHeader },
   });
 
   if (!response.ok) {
@@ -338,9 +334,7 @@ export async function generateXRequestToken(
     throw new Error(`X request token failed: ${response.status} - ${errorText}`);
   }
 
-  const body = await response.text();
-  const result = parseOAuth1Response(body);
-
+  const result = parseOAuth1Response(await response.text());
   return {
     oauth_token: result.oauth_token,
     oauth_token_secret: result.oauth_token_secret,
@@ -362,7 +356,7 @@ export async function exchangeXAccessToken(
   screen_name: string;
 }> {
   const url = "https://api.x.com/oauth/access_token";
-  const params = {
+  const params: Record<string, string> = {
     oauth_consumer_key: env.X_CONSUMER_KEY!,
     oauth_nonce: generateRandomState(),
     oauth_signature_method: "HMAC-SHA1",
@@ -380,16 +374,13 @@ export async function exchangeXAccessToken(
     env.X_CONSUMER_KEY_SECRET!,
     oauthTokenSecret
   );
-
   params["oauth_signature"] = signature;
 
   const authHeader = generateOAuth1Header(params);
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: authHeader,
-    },
+    headers: { Authorization: authHeader },
   });
 
   if (!response.ok) {
@@ -397,8 +388,13 @@ export async function exchangeXAccessToken(
     throw new Error(`X access token failed: ${response.status} - ${errorText}`);
   }
 
-  const body = await response.text();
-  return parseOAuth1Response(body);
+  const result = parseOAuth1Response(await response.text());
+  return {
+    oauth_token: result.oauth_token,
+    oauth_token_secret: result.oauth_token_secret,
+    user_id: result.user_id,
+    screen_name: result.screen_name,
+  };
 }
 
 /**
@@ -412,23 +408,19 @@ async function generateOAuth1Signature(
   consumerSecret: string,
   tokenSecret?: string
 ): Promise<string> {
-  // Sort parameters alphabetically
   const sortedParams = Object.keys(params)
     .sort()
-    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
     .join("&");
 
-  // Create signature base string
   const encodedUrl = encodeURIComponent(url);
   const encodedParams = encodeURIComponent(sortedParams);
   const baseString = `${method.toUpperCase()}&${encodedUrl}&${encodedParams}`;
 
-  // Create signing key
   const encodedConsumerSecret = encodeURIComponent(consumerSecret);
   const encodedTokenSecret = tokenSecret ? encodeURIComponent(tokenSecret) : "";
   const signingKey = `${encodedConsumerSecret}&${encodedTokenSecret}`;
 
-  // Generate HMAC-SHA1 signature
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(signingKey),
@@ -443,7 +435,6 @@ async function generateOAuth1Signature(
     new TextEncoder().encode(baseString)
   );
 
-  // Base64 encode and URL encode
   const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signature)));
   return encodeURIComponent(base64Signature);
 }
@@ -453,9 +444,9 @@ async function generateOAuth1Signature(
  */
 function generateOAuth1Header(params: Record<string, string>): string {
   const oauthParams = Object.keys(params)
-    .filter(key => key.startsWith("oauth_"))
+    .filter((key) => key.startsWith("oauth_"))
     .sort()
-    .map(key => `${key}="${params[key]}"`)
+    .map((key) => `${key}="${params[key]}"`)
     .join(", ");
 
   return `OAuth ${oauthParams}`;
@@ -466,7 +457,7 @@ function generateOAuth1Header(params: Record<string, string>): string {
  */
 function parseOAuth1Response(body: string): Record<string, string> {
   const result: Record<string, string> = {};
-  body.split("&").forEach(param => {
+  body.split("&").forEach((param) => {
     const [key, value] = param.split("=");
     result[decodeURIComponent(key)] = decodeURIComponent(value);
   });
@@ -571,7 +562,13 @@ export async function refreshPlatformTokenIfNeeded(
       throw new Error(`Failed to fetch platform token: ${response.status}`);
     }
 
-    const tokens = await response.json();
+    const tokens = (await response.json()) as Array<{
+      token_expires_at?: string;
+      refresh_token_encrypted?: string;
+      platform_user_id?: string;
+      platform_handle?: string;
+      metadata?: Record<string, unknown>;
+    }>;
 
     if (!tokens || tokens.length === 0) {
       return; // No token to refresh
@@ -601,7 +598,7 @@ export async function refreshPlatformTokenIfNeeded(
         const linkedInConfig = getLinkedInOAuthConfig(env);
         const { decryptData, getEncryptionKey } = await import("./crypto");
         const encryptionKey = await getEncryptionKey(env.ENCRYPTION_KEY || "default-encryption-key");
-        const currentRefreshToken = await decryptData(token.refresh_token_encrypted, encryptionKey);
+        const currentRefreshToken = await decryptData(token.refresh_token_encrypted!, encryptionKey);
 
         const linkedInTokens = await refreshAccessToken(linkedInConfig, currentRefreshToken);
         newAccessToken = linkedInTokens.access_token;
@@ -620,7 +617,7 @@ export async function refreshPlatformTokenIfNeeded(
         const metaRefreshToken = await (async () => {
           const { decryptData, getEncryptionKey } = await import("./crypto");
           const encryptionKey = await getEncryptionKey(env.ENCRYPTION_KEY || "default-encryption-key");
-          return await decryptData(token.refresh_token_encrypted, encryptionKey);
+          return await decryptData(token.refresh_token_encrypted!, encryptionKey);
         })();
 
         const metaTokens = await refreshAccessToken(metaConfig, metaRefreshToken);

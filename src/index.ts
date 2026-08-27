@@ -12,7 +12,7 @@ import { FREESURF } from "./freesurf.config";
 
 export interface Env {
   SUPABASE_JWT_SECRET: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;  // for querying platform_tokens
+  SUPABASE_SERVICE_ROLE_KEY?: string;  // for querying the accounts table
   SUPABASE_URL?: string;
 
   // Encryption key for token storage
@@ -50,9 +50,11 @@ export interface Env {
   X_ACCESS_TOKEN?: string;  X_ACCESS_TOKEN_SECRET?: string;  X_BEARER_TOKEN?: string;
 
   RATE_LIMITS?: KVNamespace;
+  ASSETS?: Fetcher;                 // Workers Assets binding (static dashboard)
 }
 
-const ALLOWED_ORIGINS = FREESURF.CORS_ORIGINS.post;
+const ALLOWED_ORIGINS: string[] = [...FREESURF.CORS_ORIGINS.post];
+const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
 
 function corsHeaders(origin: string): Record<string, string> {
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -100,6 +102,11 @@ export default {
       return handleApi(request, env, url, origin);
     }
 
+    // --- Static dashboard (Workers Assets) ---
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+
     return new Response("FreeSurf Post — API", {
       status: 200,
       headers: { "Content-Type": "text/plain" },
@@ -120,7 +127,7 @@ async function handleApi(
     return handleProfiles(request, env, origin, h);
   }
 
-  // --- POST /api/profiles/token — save BYOK platform token ---
+  // --- POST /api/profiles/token — save a direct platform token ---
   if (url.pathname === "/api/profiles/token" && request.method === "POST") {
     return handleSaveToken(request, env, origin, h);
   }
@@ -287,8 +294,8 @@ async function handleProfiles(
 }
 
 /**
- * POST /api/profiles/token — Save a BYOK platform token (e.g. X OAuth 1.0a keys).
- * Body: { platform, label, handle, accessToken, metadata: { consumer_key, consumer_secret, access_secret, ... } }
+ * POST /api/profiles/token — Save a direct platform token (e.g. Bluesky app password).
+ * Body: { platform, label, handle, accessToken, metadata: { ... } }
  */
 async function handleSaveToken(
   request: Request,
@@ -314,7 +321,7 @@ async function handleSaveToken(
     }
 
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/platform_tokens`,
+      `${SUPABASE_URL}/rest/v1/post_accounts`,
       {
         method: "POST",
         headers: {
@@ -554,6 +561,17 @@ async function handlePostImport(
 }
 
 /**
+ * True when the deployment has direct X credentials (env vars or per-user BYOK),
+ * so we prefer our own adapter over Bundle and can migrate off Bundle gradually.
+ */
+function hasDirectXCreds(env: Env, userTokens: PlatformToken[]): boolean {
+  if (env.X_CONSUMER_KEY && env.X_CONSUMER_KEY_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_TOKEN_SECRET) {
+    return true;
+  }
+  return userTokens.some((t) => t.platform === "x" && (t.metadata as any)?.consumer_key);
+}
+
+/**
  * POST /api/post — Post to one or more platforms.
  */
 async function handlePost(
@@ -586,7 +604,7 @@ async function handlePost(
 
   // ── Rate limits (KV-backed) ──
 
-  // Fetch per-user platform tokens first (needed for BYOK detection + direct posting)
+  // Fetch per-user platform tokens first (needed for direct adapter fallback)
   let userTokens: PlatformToken[] = [];
   if (env.SUPABASE_SERVICE_ROLE_KEY) {
     userTokens = await fetchUserTokens(user.sub, env.SUPABASE_SERVICE_ROLE_KEY);
@@ -613,27 +631,36 @@ async function handlePost(
     }
 
     // 3. Per-platform monthly: 300 posts/platform/month (prevents bot attacks on one platform)
-    // BYOK for X bypasses the monthly cap
-    const hasXByok = userTokens?.some(t => t.platform === "x" && (t.metadata as any)?.consumer_key);
+    // Direct X credentials bypass the monthly cap (they don't consume Bundle quota).
     for (const platform of body.platforms) {
-      if (platform === "x" && hasXByok) continue; // BYOK bypass
+      if (platform === "x" && hasDirectXCreds(env, userTokens)) continue;
       const platMonthKey = `rate:plat:${monthStr}:${platform}:${user.sub}`;
       const platCount = parseInt((await env.RATE_LIMITS.get(platMonthKey)) ?? "0");
       if (platCount >= 300) {
-        return errorResponse(`${platform} monthly limit reached (300 posts/mo).${platform === "x" ? " Add your own X API keys for unlimited posting." : ""}`, 429, origin);
+        return errorResponse(`${platform} monthly limit reached (300 posts/mo).`, 429, origin);
       }
     }
   }
 
-  // Post to each platform in parallel, with provider fallback
+  // Post to each platform in parallel. Bundle-first (Bundle holds the platform
+  // API keys), falling back to direct adapters when Bundle isn't configured or
+  // a platform post fails. When direct credentials exist (e.g. own X keys), we
+  // prefer them so we can migrate off Bundle gradually.
+  const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.BUNDLE_TEAM_ID);
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {
-      const result = await postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
-      // If direct keys aren't configured, try the third-party provider
-      if (!result.success && result.error?.includes("not configured") && env.SOCIAL_API_PROVIDER_KEY) {
-        return postViaProvider(platform, body.text, env, body.mediaUrls);
+      const preferDirect =
+        !bundleConfigured || (platform === "x" && hasDirectXCreds(env, userTokens));
+
+      if (preferDirect) {
+        return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
       }
-      return result;
+
+      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls);
+      if (providerResult.success) return providerResult;
+
+      // Fall back to a direct adapter (e.g. Bluesky app password, env vars)
+      return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
     })
   );
 
@@ -649,22 +676,62 @@ async function handlePost(
     await env.RATE_LIMITS.put(dayKey, String(dayCur + 1), { expirationTtl: 86400 });
 
     // Per-platform monthly counters
-    const hasXByok = userTokens.some(t => t.platform === "x" && (t.metadata as any)?.consumer_key);
     for (const platform of body.platforms) {
-      if (platform === "x" && hasXByok) continue;
+      if (platform === "x" && hasDirectXCreds(env, userTokens)) continue;
       const platMonthKey = `rate:plat:${monthStr}:${platform}:${user.sub}`;
       const platCur = parseInt((await env.RATE_LIMITS.get(platMonthKey)) ?? "0");
       await env.RATE_LIMITS.put(platMonthKey, String(platCur + 1), { expirationTtl: 60 * 86400 });
     }
   }
 
+  const postId = crypto.randomUUID();
+  await persistPostHistory(env, user.sub, postId, body.text, body.mediaUrls, results);
+
   const response: PostResponse = {
-    id: crypto.randomUUID(),
+    id: postId,
     results,
     postedAt: new Date().toISOString(),
   };
 
   return json(response, 200, headers);
+}
+
+/**
+ * Persist a published post to the posts table (status "posted").
+ * Best-effort: only runs with a service role key, and never fails the post.
+ */
+async function persistPostHistory(
+  env: Env,
+  userId: string,
+  postId: string,
+  text: string,
+  mediaUrls: string[] | undefined,
+  results: PlatformPostResult[]
+): Promise<void> {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY!,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: postId,
+        user_id: userId,
+        status: "posted",
+        text,
+        media_urls: mediaUrls || [],
+        platforms: results.map((r) => r.platform),
+        results,
+        posted_at: new Date().toISOString(),
+      }),
+    });
+  } catch {
+    // History persistence is best-effort; don't fail the post.
+  }
 }
 
 /**
@@ -719,13 +786,13 @@ async function postToPlatform(
       return postToThreads(text, accessToken, userId, mediaUrls);
     }
     case "x": {
-      // BYOK: prefer user's own OAuth 1.0a keys from platform_tokens metadata
+      // Direct X via own OAuth 1.0a keys (env vars or per-user BYOK metadata).
       const consumerKey = (token?.metadata as any)?.consumer_key || env.X_CONSUMER_KEY;
       const consumerSecret = (token?.metadata as any)?.consumer_secret || env.X_CONSUMER_KEY_SECRET;
       const accessToken = token?.access_token || env.X_ACCESS_TOKEN;
       const accessSecret = (token?.metadata as any)?.access_secret || env.X_ACCESS_TOKEN_SECRET;
       if (!consumerKey || !consumerSecret || !accessToken || !accessSecret)
-        return { platform, success: false, error: "X not configured — OAuth 1.0a keys required (BYOK or env vars)" };
+        return { platform, success: false, error: "X not configured — OAuth 1.0a keys required (env vars or BYOK)" };
       return postToX(text, consumerKey, consumerSecret, accessToken, accessSecret, replyTo);
     }
 
@@ -822,10 +889,10 @@ async function handleSchedule(
   }
 
   try {
-    const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/scheduled_posts`, {
+    const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], scheduled_at: body.scheduledAt }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], scheduled_at: body.scheduledAt }),
     });
     if (!res.ok) return errorResponse("Failed to schedule post", 500, origin);
     const [scheduled] = (await res.json()) as any[];
@@ -848,7 +915,7 @@ async function handleScheduled(
 
   try {
     const res = await fetch(
-      `${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/scheduled_posts?user_id=eq.${user.sub}&status=eq.pending&order=scheduled_at.asc`,
+      `${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.scheduled&order=scheduled_at.asc`,
       { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
     );
     const posts = (await res.json()) as any[];
@@ -871,7 +938,7 @@ async function handleCancelSchedule(
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
-    await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/scheduled_posts?id=eq.${id}&user_id=eq.${user.sub}`, {
+    await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts?id=eq.${id}&user_id=eq.${user.sub}`, {
       method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
     });
     return json({ deleted: true }, 200, headers);
@@ -1216,7 +1283,7 @@ async function handleGetDrafts(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_drafts?user_id=eq.${user.sub}&order=updated_at.desc`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.draft&order=updated_at.desc`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1263,7 +1330,7 @@ async function handleCreateDraft(
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
-    const res = await fetch(`${supabaseUrl}/rest/v1/post_drafts`, {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
       method: "POST",
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1273,9 +1340,10 @@ async function handleCreateDraft(
       },
       body: JSON.stringify({
         user_id: user.sub,
+        status: "draft",
         text: body.text,
         platforms: body.platforms || [],
-        media: body.media || [],
+        media_urls: (body.media || []).map((m) => m.name),
       }),
     });
 
@@ -1309,7 +1377,7 @@ async function handleDeleteDraft(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_drafts?id=eq.${draftId}&user_id=eq.${user.sub}`,
+      `${supabaseUrl}/rest/v1/post_posts?id=eq.${draftId}&user_id=eq.${user.sub}`,
       {
         method: "DELETE",
         headers: {
@@ -1348,7 +1416,7 @@ async function handleGetHashtags(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_hashtag_groups?user_id=eq.${user.sub}&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/post_content?user_id=eq.${user.sub}&type=eq.hashtag_group&order=created_at.desc`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1361,7 +1429,8 @@ async function handleGetHashtags(
       return errorResponse("Failed to fetch hashtag groups", 500, origin);
     }
 
-    const groups = await res.json();
+    const rows = (await res.json()) as any[];
+    const groups = rows.map((r) => ({ id: r.id, ...r.data }));
     return json({ groups }, 200, headers);
   } catch (error) {
     console.error("Hashtag groups fetch error:", error);
@@ -1401,7 +1470,7 @@ async function handleCreateHashtagGroup(
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
-    const res = await fetch(`${supabaseUrl}/rest/v1/post_hashtag_groups`, {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_content`, {
       method: "POST",
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1411,9 +1480,12 @@ async function handleCreateHashtagGroup(
       },
       body: JSON.stringify({
         user_id: user.sub,
-        name: body.name,
-        platform: body.platform,
-        hashtags: body.hashtags.filter((h) => h.trim().startsWith("#")),
+        type: "hashtag_group",
+        data: {
+          name: body.name,
+          platform: body.platform,
+          hashtags: body.hashtags.filter((h) => h.trim().startsWith("#")),
+        },
       }),
     });
 
@@ -1422,8 +1494,8 @@ async function handleCreateHashtagGroup(
       return errorResponse(errorData.message || "Failed to create hashtag group", 500, origin);
     }
 
-    const [group] = await res.json() as any[];
-    return json({ group }, 201, headers);
+    const [row] = await res.json() as any[];
+    return json({ group: { id: row.id, ...row.data } }, 201, headers);
   } catch (error) {
     console.error("Hashtag group creation error:", error);
     return errorResponse("Failed to create hashtag group", 500, origin);
@@ -1447,7 +1519,7 @@ async function handleDeleteHashtagGroup(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_hashtag_groups?id=eq.${groupId}&user_id=eq.${user.sub}`,
+      `${supabaseUrl}/rest/v1/post_content?id=eq.${groupId}&user_id=eq.${user.sub}`,
       {
         method: "DELETE",
         headers: {
@@ -1486,7 +1558,7 @@ async function handleGetSavedReplies(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_saved_replies?user_id=eq.${user.sub}&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/post_content?user_id=eq.${user.sub}&type=eq.saved_reply&order=created_at.desc`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1499,7 +1571,8 @@ async function handleGetSavedReplies(
       return errorResponse("Failed to fetch saved replies", 500, origin);
     }
 
-    const replies = await res.json();
+    const rows = (await res.json()) as any[];
+    const replies = rows.map((r) => ({ id: r.id, ...r.data }));
     return json({ replies }, 200, headers);
   } catch (error) {
     console.error("Saved replies fetch error:", error);
@@ -1536,7 +1609,7 @@ async function handleCreateSavedReply(
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
-    const res = await fetch(`${supabaseUrl}/rest/v1/post_saved_replies`, {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_content`, {
       method: "POST",
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1546,9 +1619,12 @@ async function handleCreateSavedReply(
       },
       body: JSON.stringify({
         user_id: user.sub,
-        title: body.title,
-        content: body.content,
-        platforms: body.platforms || [],
+        type: "saved_reply",
+        data: {
+          title: body.title,
+          content: body.content,
+          platforms: body.platforms || [],
+        },
       }),
     });
 
@@ -1557,8 +1633,8 @@ async function handleCreateSavedReply(
       return errorResponse(errorData.message || "Failed to create saved reply", 500, origin);
     }
 
-    const [reply] = await res.json() as any[];
-    return json({ reply }, 201, headers);
+    const [row] = await res.json() as any[];
+    return json({ reply: { id: row.id, ...row.data } }, 201, headers);
   } catch (error) {
     console.error("Saved reply creation error:", error);
     return errorResponse("Failed to create saved reply", 500, origin);
@@ -1582,7 +1658,7 @@ async function handleDeleteSavedReply(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_saved_replies?id=eq.${replyId}&user_id=eq.${user.sub}`,
+      `${supabaseUrl}/rest/v1/post_content?id=eq.${replyId}&user_id=eq.${user.sub}`,
       {
         method: "DELETE",
         headers: {
@@ -1621,7 +1697,7 @@ async function handleGetQueue(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_queue?user_id=eq.${user.sub}&status=eq.pending&order=created_at.asc`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.queued&order=created_at.asc`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1676,7 +1752,7 @@ async function handleAddToQueue(
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
-    const res = await fetch(`${supabaseUrl}/rest/v1/post_queue`, {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
       method: "POST",
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1686,11 +1762,11 @@ async function handleAddToQueue(
       },
       body: JSON.stringify({
         user_id: user.sub,
+        status: "queued",
         text: body.text,
         platforms: body.platforms,
         media_urls: body.mediaUrls || [],
-        schedule_time: scheduleTime ? scheduleTime.toISOString() : null,
-        status: "pending",
+        scheduled_at: scheduleTime ? scheduleTime.toISOString() : null,
       }),
     });
 
@@ -1734,7 +1810,7 @@ async function handleRefillQueue(
 
     // Get current queue count
     const queueRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_queue?user_id=eq.${user.sub}&status=eq.pending&select=id`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.queued&select=id`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1753,7 +1829,7 @@ async function handleRefillQueue(
 
     // Get unused drafts
     const draftsRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_drafts?user_id=eq.${user.sub}&limit=${needed}&order=updated_at.desc&select=*`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.draft&limit=${needed}&order=updated_at.desc&select=*`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1774,7 +1850,7 @@ async function handleRefillQueue(
 
     for (let i = 0; i < drafts.length && i < needed; i++) {
       const scheduleTime = new Date(now.getTime() + (i + 1) * dayMs);
-      const res = await fetch(`${supabaseUrl}/rest/v1/post_queue`, {
+      const res = await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
         method: "POST",
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1784,11 +1860,11 @@ async function handleRefillQueue(
         },
         body: JSON.stringify({
           user_id: user.sub,
+          status: "queued",
           text: drafts[i].text,
           platforms: drafts[i].platforms,
-          media_urls: drafts[i].media || [],
-          schedule_time: scheduleTime.toISOString(),
-          status: "pending",
+          media_urls: drafts[i].media_urls || [],
+          scheduled_at: scheduleTime.toISOString(),
         }),
       });
 
@@ -1831,7 +1907,7 @@ async function handleRemoveFromQueue(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_queue?id=eq.${queueId}&user_id=eq.${user.sub}`,
+      `${supabaseUrl}/rest/v1/post_posts?id=eq.${queueId}&user_id=eq.${user.sub}`,
       {
         method: "DELETE",
         headers: {
@@ -1874,9 +1950,9 @@ async function handleGetAnalytics(
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
 
-    // Get post history for the date range
+    // Get posted posts for the date range
     const historyRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_history?user_id=eq.${user.sub}&created_at=gte.${startDate}&created_at=lte.${endDate}&select=*`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&created_at=gte.${startDate}&created_at=lte.${endDate}&select=*`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1891,19 +1967,6 @@ async function handleGetAnalytics(
 
     const posts = await historyRes.json() as any[];
 
-    // Get engagement logs
-    const engagementRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_engagement_log?post_id=in.(${posts.map((p: any) => p.id).join(",")})&select=*`,
-      {
-        headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-      }
-    );
-
-    const engagements = engagementRes.ok ? await engagementRes.json() as any[] : [];
-
     // Aggregate analytics by platform
     const analytics: Record<string, any> = {
       bluesky: { posts: 0, likes: 0, comments: 0, shares: 0 },
@@ -1916,18 +1979,16 @@ async function handleGetAnalytics(
     };
 
     posts.forEach((post: any) => {
-      const platform = post.platform;
-      if (analytics[platform]) {
-        analytics[platform].posts++;
+      for (const platform of post.platforms || []) {
+        if (analytics[platform]) analytics[platform].posts++;
       }
-    });
-
-    engagements.forEach((eng: any) => {
-      const platform = eng.platform;
-      if (analytics[platform]) {
-        analytics[platform].likes += eng.likes || 0;
-        analytics[platform].comments += eng.comments || 0;
-        analytics[platform].shares += eng.shares || 0;
+      const metrics = post.metrics || {};
+      for (const [platform, m] of Object.entries(metrics) as [string, any][]) {
+        if (analytics[platform]) {
+          analytics[platform].likes += m?.likes || 0;
+          analytics[platform].comments += m?.comments || 0;
+          analytics[platform].shares += m?.shares || 0;
+        }
       }
     });
 
@@ -1974,9 +2035,9 @@ async function handleGetAnalyticsTrends(
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    // Get post history grouped by day
+    // Get posted posts grouped by day
     const historyRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_history?user_id=eq.${user.sub}&created_at=gte.${startDate}&order=created_at.desc&select=*`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&created_at=gte.${startDate}&order=created_at.desc&select=*`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -2029,9 +2090,9 @@ async function handleCron(env: Env): Promise<Response> {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const now = new Date().toISOString();
 
-    // Get pending posts scheduled for now or earlier
+    // Get due scheduled/queued posts
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_queue?status=eq.pending&schedule_time=lte.${now}&limit=10&order=schedule_time.asc&select=*`,
+      `${supabaseUrl}/rest/v1/post_posts?status=in.(scheduled,queued)&scheduled_at=lte.${now}&limit=10&order=scheduled_at.asc&select=*`,
       {
         headers: {
           apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -2063,9 +2124,9 @@ async function handleCron(env: Env): Promise<Response> {
           )
         );
 
-        // Update queue status
+        // Mark the post as published with its results
         const updateRes = await fetch(
-          `${supabaseUrl}/rest/v1/post_queue?id=eq.${queuedPost.id}`,
+          `${supabaseUrl}/rest/v1/post_posts?id=eq.${queuedPost.id}`,
           {
             method: "PATCH",
             headers: {
@@ -2073,29 +2134,11 @@ async function handleCron(env: Env): Promise<Response> {
               Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ status: "posted", posted_at: now }),
+            body: JSON.stringify({ status: "posted", posted_at: now, results }),
           }
         );
 
-        // Add to post history
-        const historyRes = await fetch(`${supabaseUrl}/rest/v1/post_history`, {
-          method: "POST",
-          headers: {
-            apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: queuedPost.user_id,
-            text: queuedPost.text,
-            platforms: queuedPost.platforms,
-            media_urls: queuedPost.media_urls,
-            results,
-            created_at: now,
-          }),
-        });
-
-        if (updateRes.ok && historyRes.ok) {
+        if (updateRes.ok) {
           processed++;
         } else {
           failed++;

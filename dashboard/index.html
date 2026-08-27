@@ -89,7 +89,7 @@
           </div>
         </div>
         <div class="sidebar-actions">
-          <a href="https://auth.freesurf.tools/?redirect=https://post.freesurf.tools/" class="btn btn-sm btn-primary btn-full" id="btn-sign-in">Sign in</a>
+          <button class="btn btn-sm btn-primary btn-full" id="btn-sign-in">Sign in</button>
           <button class="btn btn-sm btn-ghost btn-full hidden" id="btn-sign-out">Sign out</button>
           <button class="btn btn-sm btn-ghost btn-full" id="btn-theme-toggle" title="Toggle dark mode">◐ Theme</button>
         </div>
@@ -105,10 +105,11 @@
         <div class="hero">
           <div class="hero-content">
             <h1 class="hero-title"><span id="hero-line0" class="hero-brand-name"></span><span class="hero-cursor">|</span><br><br><span id="hero-line1"></span><br><span id="hero-line2"></span></h1>
+            <p class="hero-asterisk" id="hero-asterisk">*Unfortunately, X API fees will need funding for posting/analytics</p>
             <p class="hero-description" id="hero-desc"></p>
             <p class="hero-subline" id="hero-subline" style="display:none;font-size:0.9375rem;color:var(--text-muted);margin-bottom:24px;"></p>
             <div class="hero-actions">
-              <a href="https://auth.freesurf.tools/?redirect=https://post.freesurf.tools/" class="btn btn-primary btn-large">Sign in or Get Started</a>
+              <button class="btn btn-primary btn-large" id="btn-hero-signin">Sign in or Get Started</button>
             </div>
             <div class="hero-platforms">
               <span class="hero-platform-label">Works with</span>
@@ -167,9 +168,38 @@
               <div class="feature-icon">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               </div>
-              <h3 class="feature-title">100% Free <span style="font-weight:400;color:var(--text-secondary);">— fair-use included or BYOK</span></h3>
+              <h3 class="feature-title">100% Free <span style="font-weight:400;color:var(--text-secondary);">— X API fees passed through at cost</span></h3>
               <p class="feature-description">No subscriptions, no limits, no hidden fees. Open source and community-driven.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Auth (local sign in / sign up) -->
+      <section id="view-auth" class="view hidden">
+        <div class="auth-page">
+          <div class="card auth-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title" id="auth-title">Sign in</h2>
+                <p class="card-subtitle" id="auth-subtitle">Sign in to start cross-posting.</p>
+              </div>
+            </div>
+            <div id="auth-error" class="feedback"></div>
+            <div class="form-group">
+              <label class="form-label" for="auth-email">Email</label>
+              <input type="email" class="form-input" id="auth-email" placeholder="you@example.com" autocomplete="email" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="auth-password">Password</label>
+              <input type="password" class="form-input" id="auth-password" placeholder="Your password" autocomplete="current-password" />
+            </div>
+            <div class="form-group hidden" id="auth-confirm-group">
+              <label class="form-label" for="auth-confirm">Confirm password</label>
+              <input type="password" class="form-input" id="auth-confirm" placeholder="Re-enter password" autocomplete="new-password" />
+            </div>
+            <button class="btn btn-primary btn-full" id="btn-auth-submit">Sign in</button>
+            <button class="btn btn-ghost btn-full" id="btn-auth-toggle">Don't have an account? Sign up</button>
           </div>
         </div>
       </section>
@@ -444,7 +474,7 @@
           <div class="freesurf-footer-col">
             <span class="freesurf-footer-heading">Platform</span>
             <a href="https://freesurf.tools">Home</a>
-            <a href="https://auth.freesurf.tools">Sign in</a>
+            <a href="https://post.freesurf.tools">Sign in</a>
               <a href="https://github.com/freesurf-ecosystem">GitHub</a>
           </div>
           <div class="freesurf-footer-col">
@@ -466,6 +496,6 @@
   <script>document.querySelector('.freesurf-footer-year').textContent = new Date().getFullYear();</script>
 <script>document.getElementById("btn-theme-toggle").addEventListener("click",()=>{const t=document.documentElement.dataset.theme==="dark"?"":"dark";document.documentElement.dataset.theme=t;localStorage.setItem("freesurf-theme",t)});(function(){const t=localStorage.getItem("freesurf-theme");if(t)document.documentElement.dataset.theme=t})();
 // Typing animation
-(function(){const L0="FreeSurf Post",L1="Post everywhere.",L2="Free, from one place.",D="Open source social media poster powered by FreeSurf",S="Web app & API included (mobile app coming soon) \u2014 fair-use included or BYOK";const e0=document.getElementById("hero-line0"),e1=document.getElementById("hero-line1"),e2=document.getElementById("hero-line2"),ed=document.getElementById("hero-desc"),es=document.getElementById("hero-subline"),cur=document.querySelector(".hero-cursor");let s=0;const all=L0+L1+L2+D+S;const b0=L0.length,b1=b0+L1.length,b2=b1+L2.length,b3=b2+D.length;function explode(el,cb){const t=el.textContent;el.textContent='';const ps=t.split('').map(function(c){const s=document.createElement('span');s.textContent=c;s.style.display='inline-block';s.style.transition='transform 0.7s cubic-bezier(0.22,0.61,0.36,1),opacity 0.7s ease';el.appendChild(s);return s});requestAnimationFrame(function(){requestAnimationFrame(function(){ps.forEach(function(p){const a=Math.random()*Math.PI*2;const d=80+Math.random()*120;p.style.transform='translate('+Math.cos(a)*d+'px,'+Math.sin(a)*d+'px) rotate('+((Math.random()-0.5)*180)+'deg)';p.style.opacity='0.15'})})});setTimeout(function(){ps.forEach(function(p){p.style.transform='translate(0,0) rotate(0deg)';p.style.opacity='1'});setTimeout(function(){el.textContent=t;cb()},800)},2800)}function type(){if(s<all.length){if(s===b0){e0.textContent=L0;cur.remove();e1.textContent=''}if(s===b1){e2.textContent=''}if(s===b2){ed.textContent=''}if(s===b3){es.style.display='block';es.textContent=''}if(s<b0){e0.textContent+=all[s]}else if(s<b1){e1.textContent+=all[s]}else if(s<b2){e2.textContent+=all[s]}else if(s<b3){ed.textContent+=all[s]}else{es.textContent+=all[s]}s++;const ch=all[s-1];setTimeout(type,ch==='.'?700:65+Math.random()*30)}else{explode(e0,function(){cur.style.display='inline';es.appendChild(cur)})}}setTimeout(type,500)})();</script></script>
+(function(){const L0="FreeSurf Post",L1="Post everywhere.",L2="Free*, from one place.",D="Open source social media poster powered by FreeSurf",S="Web app & API included (mobile app coming soon)";const e0=document.getElementById("hero-line0"),e1=document.getElementById("hero-line1"),e2=document.getElementById("hero-line2"),ed=document.getElementById("hero-desc"),es=document.getElementById("hero-subline"),cur=document.querySelector(".hero-cursor");let s=0;const all=L0+L1+L2+D+S;const b0=L0.length,b1=b0+L1.length,b2=b1+L2.length,b3=b2+D.length;function explode(el,cb){const t=el.textContent;el.textContent='';const ps=t.split('').map(function(c){const s=document.createElement('span');s.textContent=c;s.style.display='inline-block';s.style.transition='transform 0.7s cubic-bezier(0.22,0.61,0.36,1),opacity 0.7s ease';el.appendChild(s);return s});requestAnimationFrame(function(){requestAnimationFrame(function(){ps.forEach(function(p){const a=Math.random()*Math.PI*2;const d=80+Math.random()*120;p.style.transform='translate('+Math.cos(a)*d+'px,'+Math.sin(a)*d+'px) rotate('+((Math.random()-0.5)*180)+'deg)';p.style.opacity='0.15'})})});setTimeout(function(){ps.forEach(function(p){p.style.transform='translate(0,0) rotate(0deg)';p.style.opacity='1'});setTimeout(function(){el.textContent=t;cb()},800)},2800)}function type(){if(s<all.length){if(s===b0){e0.textContent=L0;cur.remove();e1.textContent=''}if(s===b1){e2.textContent=''}if(s===b2){ed.textContent=''}if(s===b3){es.style.display='block';es.textContent=''}if(s<b0){e0.textContent+=all[s]}else if(s<b1){e1.textContent+=all[s]}else if(s<b2){e2.textContent+=all[s]}else if(s<b3){ed.textContent+=all[s]}else{es.textContent+=all[s]}s++;const ch=all[s-1];setTimeout(type,ch==='.'?700:65+Math.random()*30)}else{explode(e0,function(){cur.style.display='inline';es.appendChild(cur)})}}setTimeout(type,500)})();</script></script>
 </body>
 </html>

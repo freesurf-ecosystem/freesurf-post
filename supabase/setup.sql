@@ -1,373 +1,116 @@
--- cnxt-to-post Database Schema
--- This schema integrates with the shared cnxt auth system
--- All tables are prefixed with 'post_' to avoid conflicts with other cnxt tools
+-- FreeSurf Post — Database Schema (consolidated)
+-- =====================================================
+-- Three `post_`-prefixed tables, shared with the rest of the FreeSurf ecosystem:
+--   post_accounts — a user's connected social accounts + API tokens
+--   post_posts    — everything a user composes: drafts, scheduled, queued, posted
+--   post_content  — misc per-user content (hashtag groups, saved replies)
+--
+-- All three are keyed by auth.users(id) with RLS. The Worker uses the service
+-- role key (bypasses RLS); the dashboard/mobile only talk to the Worker API.
 
 -- ============================================================================
--- PLATFORM TOKENS STORAGE
+-- CLEANUP — drop legacy tables/views/functions so this file can be re-run
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS post_platform_tokens (
+DROP VIEW IF EXISTS post_active_user_profiles CASCADE;
+DROP VIEW IF EXISTS post_recent_activity CASCADE;
+DROP VIEW IF EXISTS post_engagement_summary CASCADE;
+
+-- legacy multi-table schema
+DROP TABLE IF EXISTS post_error_log CASCADE;
+DROP TABLE IF EXISTS post_credit_transactions CASCADE;
+DROP TABLE IF EXISTS post_credit_balance CASCADE;
+DROP TABLE IF EXISTS post_engagement_log CASCADE;
+DROP TABLE IF EXISTS post_saved_replies CASCADE;
+DROP TABLE IF EXISTS post_hashtag_groups CASCADE;
+DROP TABLE IF EXISTS post_queue CASCADE;
+DROP TABLE IF EXISTS post_drafts CASCADE;
+DROP TABLE IF EXISTS post_history CASCADE;
+DROP TABLE IF EXISTS post_scheduled CASCADE;
+DROP TABLE IF EXISTS post_platform_tokens CASCADE;
+DROP TABLE IF EXISTS scheduled_posts CASCADE;
+DROP TABLE IF EXISTS platform_tokens CASCADE;
+
+-- un-prefixed tables from an earlier consolidation pass
+DROP TABLE IF EXISTS accounts CASCADE;
+DROP TABLE IF EXISTS posts CASCADE;
+DROP TABLE IF EXISTS content CASCADE;
+
+-- current tables (for clean re-runs)
+DROP TABLE IF EXISTS post_accounts CASCADE;
+DROP TABLE IF EXISTS post_posts CASCADE;
+DROP TABLE IF EXISTS post_content CASCADE;
+
+DROP FUNCTION IF EXISTS post_update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS initialize_post_user_account(uuid) CASCADE;
+DROP FUNCTION IF EXISTS fs_update_updated_at() CASCADE;
+
+-- ============================================================================
+-- POST_ACCOUNTS — connected social accounts + API tokens
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS post_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  platform TEXT NOT NULL CHECK (platform IN ('bluesky', 'x', 'linkedin', 'facebook', 'instagram', 'threads', 'tiktok')),
-  profile_label TEXT NOT NULL DEFAULT 'Default Account',
-  
-  -- Encrypted access token (always encrypted before storage)
-  access_token_encrypted TEXT NOT NULL,
-  -- Refresh token (for platforms that support it, also encrypted)
-  refresh_token_encrypted TEXT,
-  
-  -- Platform-specific identifiers
-  platform_user_id TEXT,
-  platform_handle TEXT,
-  
-  -- Additional platform-specific data (page IDs, metadata, etc.)
-  metadata JSONB DEFAULT '{}',
-  
-  -- Token lifecycle management
-  token_expires_at TIMESTAMP WITH TIME ZONE,
-  last_refreshed_at TIMESTAMP WITH TIME ZONE,
-  is_active BOOLEAN DEFAULT TRUE,
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  last_used_at TIMESTAMP WITH TIME ZONE
-);
-
--- Index for efficient token lookups
-CREATE INDEX idx_post_tokens_user_platform ON post_platform_tokens(user_id, platform, is_active);
-CREATE INDEX idx_post_tokens_expires_at ON post_platform_tokens(token_expires_at) WHERE token_expires_at IS NOT NULL;
--- One active token per user+platform
-CREATE UNIQUE INDEX idx_post_tokens_active_unique ON post_platform_tokens(user_id, platform) WHERE is_active = TRUE;
-
--- ============================================================================
--- SCHEDULED POSTS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_scheduled (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Post content
-  text TEXT NOT NULL CHECK (LENGTH(text) > 0 AND LENGTH(text) <= 5000),
-  media_urls TEXT[] DEFAULT '{}',
-  
-  -- Target platforms
-  platforms TEXT[] NOT NULL CHECK (array_length(platforms, 1) > 0),
-  
-  -- Scheduling
-  scheduled_for TIMESTAMP WITH TIME ZONE NOT NULL CHECK (scheduled_for > NOW()),
-  
-  -- Status tracking
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled')),
-  processing_started_at TIMESTAMP WITH TIME ZONE,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Error handling
-  error_message TEXT,
-  retry_count INTEGER DEFAULT 0,
-  max_retries INTEGER DEFAULT 3,
-  
-  -- Results storage (after posting)
-  results JSONB DEFAULT '{}',
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes for scheduled posts
-CREATE INDEX idx_post_scheduled_user_status ON post_scheduled(user_id, status, scheduled_for);
-CREATE INDEX idx_post_scheduled_due ON post_scheduled(scheduled_for, status) WHERE status IN ('pending', 'failed');
-CREATE INDEX idx_post_scheduled_retry ON post_scheduled(user_id, retry_count, max_retries) WHERE status = 'failed' AND retry_count < max_retries;
--- Prevent duplicate pending posts per user (same text)
-CREATE UNIQUE INDEX idx_post_scheduled_unique_pending ON post_scheduled(user_id, text) WHERE status = 'pending';
-
--- ============================================================================
--- POST HISTORY
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Cross-post grouping ID (all platforms for the same post share this)
-  cnxt_post_id UUID NOT NULL DEFAULT gen_random_uuid(),
-  
-  -- Platform-specific details
-  platform TEXT NOT NULL CHECK (platform IN ('bluesky', 'x', 'linkedin', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'reddit', 'mastodon', 'discord', 'slack', 'google_business', 'snapchat')),
-  platform_post_id TEXT,
-  platform_post_url TEXT,
-  
-  -- Post content (for historical record)
-  text TEXT NOT NULL,
-  media_urls TEXT[] DEFAULT '{}',
-  
-  -- Platform-specific token used (for debugging/auditing)
-  platform_token_id UUID REFERENCES post_platform_tokens(id) ON DELETE SET NULL,
-  
-  -- Result tracking
-  success BOOLEAN NOT NULL,
-  error_message TEXT,
-  error_code TEXT,
-  
-  -- Engagement metrics (cached from platform APIs)
-  metrics JSONB DEFAULT '{}',
-  metrics_last_updated_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Audit fields
-  posted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes for post history
-CREATE INDEX idx_post_history_user_cnxt ON post_history(user_id, cnxt_post_id);
-CREATE INDEX idx_post_history_platform_post ON post_history(platform, platform_post_id) WHERE platform_post_id IS NOT NULL;
-CREATE INDEX idx_post_history_posted_at ON post_history(user_id, posted_at DESC);
-CREATE INDEX idx_post_history_metrics_update ON post_history(metrics_last_updated_at) WHERE metrics_last_updated_at IS NOT NULL;
-
--- ============================================================================
--- DRAFTS / CONTENT LIBRARY
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_drafts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Content
-  text TEXT NOT NULL CHECK (LENGTH(text) > 0 AND LENGTH(text) <= 5000),
-  media_urls TEXT[] DEFAULT '{}',
-  
-  -- Organization
-  title TEXT,
-  tags TEXT[] DEFAULT '{}',
-  
-  -- Platform-specific customizations
-  platform_variants JSONB DEFAULT '{}', -- { "linkedin": { "text": "LinkedIn version" }, "x": { "text": "X version" } }
-  
-  -- Usage tracking
-  usage_count INTEGER DEFAULT 0,
-  last_used_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes for drafts
-CREATE INDEX idx_post_drafts_user ON post_drafts(user_id, updated_at DESC);
-CREATE INDEX idx_post_drafts_tags ON post_drafts(user_id, tags) USING GIN;
-
--- ============================================================================
--- POST QUEUE (for auto-posting)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_queue (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Reference to draft or scheduled post
-  source_id UUID NOT NULL,
-  source_type TEXT NOT NULL CHECK (source_type IN ('draft', 'scheduled', 'recurring')),
-  
-  -- Post content (copied from source)
-  text TEXT NOT NULL,
-  media_urls TEXT[] DEFAULT '{}',
-  platforms TEXT[] NOT NULL,
-  
-  -- Queue schedule
-  queue_schedule JSONB NOT NULL, -- { "type": "interval|times", "interval_hours": 24, "times": ["09:00", "15:00"], "timezone": "America/New_York" }
-  next_post_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  
-  -- Queue status
-  is_active BOOLEAN DEFAULT TRUE,
-  post_count_remaining INTEGER DEFAULT -1, -- -1 means unlimited
-  total_posts INTEGER DEFAULT 0,
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  last_posted_at TIMESTAMP WITH TIME ZONE
-);
-
--- Indexes for queue
-CREATE INDEX idx_post_queue_next_post ON post_queue(next_post_at, is_active) WHERE is_active = TRUE;
-CREATE INDEX idx_post_queue_user ON post_queue(user_id, is_active);
-
--- ============================================================================
--- HASHTAG GROUPS
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_hashtag_groups (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Group details
-  name TEXT NOT NULL,
-  description TEXT,
-  
-  -- Hashtags (stored as array for easy querying)
-  hashtags TEXT[] NOT NULL CHECK (array_length(hashtags, 1) > 0),
-  
-  -- Platform association (can be shared or platform-specific)
-  platforms TEXT[] CHECK (array_length(platforms, 1) > 0),
-  
-  -- Usage tracking
-  usage_count INTEGER DEFAULT 0,
-  last_used_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes for hashtag groups
-CREATE INDEX idx_post_hashtag_groups_user ON post_hashtag_groups(user_id, updated_at DESC);
-CREATE INDEX idx_post_hashtag_groups_platforms ON post_hashtag_groups(user_id, platforms) USING GIN;
-
--- ============================================================================
--- SAVED REPLIES (for community inbox)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_saved_replies (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Reply content
-  title TEXT NOT NULL,
-  text TEXT NOT NULL CHECK (LENGTH(text) > 0),
-  
-  -- Categorization
-  tags TEXT[] DEFAULT '{}',
-  platforms TEXT[] DEFAULT '{}',
-  
-  -- Usage tracking
-  usage_count INTEGER DEFAULT 0,
-  last_used_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes for saved replies
-CREATE INDEX idx_post_saved_replies_user ON post_saved_replies(user_id, updated_at DESC);
-
--- ============================================================================
--- ENGAGEMENT TRACKING (for analytics)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_engagement_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  cnxt_post_id UUID NOT NULL,
   platform TEXT NOT NULL,
-  platform_post_id TEXT NOT NULL,
-  
-  -- Engagement metrics
-  likes INTEGER DEFAULT 0,
-  comments INTEGER DEFAULT 0,
-  shares INTEGER DEFAULT 0,
-  impressions INTEGER DEFAULT 0,
-  clicks INTEGER DEFAULT 0,
-  
-  -- Additional platform-specific metrics
-  additional_metrics JSONB DEFAULT '{}',
-  
-  -- Tracking
-  logged_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes for engagement logs
-CREATE INDEX idx_post_engagement_user_post ON post_engagement_log(user_id, cnxt_post_id, platform, logged_at DESC);
-CREATE INDEX idx_post_engagement_platform_post ON post_engagement_log(platform, platform_post_id, logged_at DESC);
-CREATE INDEX idx_post_engagement_logged_at ON post_engagement_log(logged_at DESC);
--- Prevent exact duplicate engagement logs
-CREATE UNIQUE INDEX idx_post_engagement_unique ON post_engagement_log(platform, platform_post_id, logged_at);
-
--- ============================================================================
--- API CREDIT BALANCE (for X API credit system)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS post_credit_balance (
-  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Credit tracking
-  balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (balance_cents >= 0),
-  total_credits_purchased_cents INTEGER DEFAULT 0,
-  total_credits_used_cents INTEGER DEFAULT 0,
-  
-  -- Audit fields
+  profile_label TEXT NOT NULL DEFAULT 'Default',
+  platform_handle TEXT,
+  platform_user_id TEXT,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  metadata JSONB DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_post_accounts_user ON post_accounts(user_id, platform);
 
 -- ============================================================================
--- CREDIT TRANSACTIONS
+-- POST_POSTS — unified: drafts, scheduled, queued, posted, failed
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS post_credit_transactions (
+CREATE TABLE IF NOT EXISTS post_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- Transaction details
-  type TEXT NOT NULL CHECK (type IN ('purchase', 'usage', 'refund', 'bonus')),
-  amount_cents INTEGER NOT NULL CHECK (amount_cents != 0),
-  
-  -- Reference information
-  reference_id TEXT, -- Stripe payment ID, post ID, etc.
-  reference_type TEXT,
-  description TEXT,
-  
-  -- Balance snapshot
-  balance_after_cents INTEGER NOT NULL,
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+  -- status: draft | scheduled | queued | posted | failed
+  status TEXT NOT NULL DEFAULT 'draft',
+
+  text TEXT NOT NULL,
+  media_urls TEXT[] DEFAULT '{}',
+  platforms TEXT[] DEFAULT '{}',
+
+  scheduled_at TIMESTAMP WITH TIME ZONE,
+  posted_at TIMESTAMP WITH TIME ZONE,
+
+  -- per-platform results after publishing: [{ platform, success, postId, postUrl, error }]
+  results JSONB DEFAULT '[]',
+  -- cached engagement metrics: { bluesky: { likes, comments, shares }, ... }
+  metrics JSONB DEFAULT '{}',
+  error TEXT,
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Indexes for credit transactions
-CREATE INDEX idx_post_credit_transactions_user ON post_credit_transactions(user_id, created_at DESC);
-CREATE INDEX idx_post_credit_transactions_type ON post_credit_transactions(user_id, type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_post_posts_user_status ON post_posts(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_post_posts_user_scheduled ON post_posts(user_id, scheduled_at) WHERE scheduled_at IS NOT NULL;
 
 -- ============================================================================
--- ERROR LOGGING
+-- POST_CONTENT — misc per-user content (hashtag groups, saved replies)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS post_error_log (
+CREATE TABLE IF NOT EXISTS post_content (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID, -- Nullable for system-level errors
-  
-  -- Error details
-  error_type TEXT NOT NULL,
-  error_code TEXT,
-  error_message TEXT NOT NULL,
-  error_stack TEXT,
-  
-  -- Context
-  endpoint TEXT,
-  method TEXT,
-  request_body JSONB,
-  platform TEXT,
-  
-  -- Additional context
-  correlation_id TEXT,
-  user_agent TEXT,
-  ip_address TEXT,
-  
-  -- Severity tracking
-  severity TEXT NOT NULL DEFAULT 'error' CHECK (severity IN ('debug', 'info', 'warning', 'error', 'critical')),
-  
-  -- Resolution tracking
-  resolved_at TIMESTAMP WITH TIME ZONE,
-  resolution_notes TEXT,
-  
-  -- Audit fields
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
 
--- Indexes for error logs
-CREATE INDEX idx_post_error_log_user ON post_error_log(user_id, created_at DESC) WHERE user_id IS NOT NULL;
-CREATE INDEX idx_post_error_log_type ON post_error_log(error_type, created_at DESC);
-CREATE INDEX idx_post_error_log_severity ON post_error_log(severity, resolved_at) WHERE resolved_at IS NULL;
-CREATE INDEX idx_post_error_log_correlation ON post_error_log(correlation_id) WHERE correlation_id IS NOT NULL;
+  -- type: hashtag_group | saved_reply
+  type TEXT NOT NULL,
+  data JSONB DEFAULT '{}',
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_post_content_user_type ON post_content(user_id, type);
 
 -- ============================================================================
 -- FUNCTIONS AND TRIGGERS
 -- ============================================================================
-
--- Update updated_at timestamp automatically
-CREATE OR REPLACE FUNCTION post_update_updated_at_column()
+CREATE OR REPLACE FUNCTION fs_update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -375,214 +118,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply updated_at trigger to all relevant tables
-CREATE TRIGGER update_post_platform_tokens_updated_at BEFORE UPDATE ON post_platform_tokens
-  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
-
-CREATE TRIGGER update_post_scheduled_updated_at BEFORE UPDATE ON post_scheduled
-  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
-
-CREATE TRIGGER update_post_drafts_updated_at BEFORE UPDATE ON post_drafts
-  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
-
-CREATE TRIGGER update_post_queue_updated_at BEFORE UPDATE ON post_queue
-  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
-
-CREATE TRIGGER update_post_hashtag_groups_updated_at BEFORE UPDATE ON post_hashtag_groups
-  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
-
-CREATE TRIGGER update_post_saved_replies_updated_at BEFORE UPDATE ON post_saved_replies
-  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
-
-CREATE TRIGGER update_post_credit_balance_updated_at BEFORE UPDATE ON post_credit_balance
-  FOR EACH ROW EXECUTE FUNCTION post_update_updated_at_column();
+CREATE TRIGGER trg_post_accounts_updated BEFORE UPDATE ON post_accounts
+  FOR EACH ROW EXECUTE FUNCTION fs_update_updated_at();
+CREATE TRIGGER trg_post_posts_updated BEFORE UPDATE ON post_posts
+  FOR EACH ROW EXECUTE FUNCTION fs_update_updated_at();
+CREATE TRIGGER trg_post_content_updated BEFORE UPDATE ON post_content
+  FOR EACH ROW EXECUTE FUNCTION fs_update_updated_at();
 
 -- ============================================================================
--- ROW LEVEL SECURITY POLICIES
+-- ROW LEVEL SECURITY
 -- ============================================================================
+ALTER TABLE post_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_content ENABLE ROW LEVEL SECURITY;
 
--- Enable RLS on all user-specific tables
-ALTER TABLE post_platform_tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_scheduled ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_drafts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_queue ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_hashtag_groups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_saved_replies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_engagement_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_credit_balance ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_credit_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE post_error_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own post accounts" ON post_accounts
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- Users can only access their own data
-CREATE POLICY "Users can view own platform tokens" ON post_platform_tokens
-  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users manage own post posts" ON post_posts
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own platform tokens" ON post_platform_tokens
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own platform tokens" ON post_platform_tokens
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own platform tokens" ON post_platform_tokens
-  FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own scheduled posts" ON post_scheduled
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own scheduled posts" ON post_scheduled
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own scheduled posts" ON post_scheduled
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own scheduled posts" ON post_scheduled
-  FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own post history" ON post_history
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own post history" ON post_history
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own drafts" ON post_drafts
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own drafts" ON post_drafts
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own drafts" ON post_drafts
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own drafts" ON post_drafts
-  FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own queue items" ON post_queue
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own queue items" ON post_queue
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own queue items" ON post_queue
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own queue items" ON post_queue
-  FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own hashtag groups" ON post_hashtag_groups
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own hashtag groups" ON post_hashtag_groups
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own hashtag groups" ON post_hashtag_groups
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own hashtag groups" ON post_hashtag_groups
-  FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own saved replies" ON post_saved_replies
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own saved replies" ON post_saved_replies
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own saved replies" ON post_saved_replies
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own saved replies" ON post_saved_replies
-  FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own engagement logs" ON post_engagement_log
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own engagement logs" ON post_engagement_log
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own credit balance" ON post_credit_balance
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own credit balance" ON post_credit_balance
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own credit balance" ON post_credit_balance
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own credit transactions" ON post_credit_transactions
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own credit transactions" ON post_credit_transactions
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own error logs" ON post_error_log
-  FOR SELECT USING (auth.uid() = user_id);
-
--- Service role can bypass RLS for background processing
--- (This is handled by Supabase's service role key automatically)
-
--- ============================================================================
--- VIEWS FOR COMMON QUERIES
--- ============================================================================
-
--- View for active user profiles
-CREATE OR REPLACE VIEW post_active_user_profiles AS
-SELECT 
-  user_id,
-  platform,
-  platform_handle,
-  profile_label,
-  token_expires_at,
-  is_active
-FROM post_platform_tokens
-WHERE is_active = TRUE;
-
--- View for recent post activity
-CREATE OR REPLACE VIEW post_recent_activity AS
-SELECT 
-  ph.user_id,
-  ph.cnxt_post_id,
-  ph.platform,
-  ph.platform_post_id,
-  ph.success,
-  ph.error_message,
-  ph.posted_at,
-  ph.metrics
-FROM post_history ph
-WHERE ph.posted_at > NOW() - INTERVAL '30 days'
-ORDER BY ph.posted_at DESC;
-
--- View for engagement summary
-CREATE OR REPLACE VIEW post_engagement_summary AS
-SELECT 
-  ph.user_id,
-  ph.cnxt_post_id,
-  ph.platform,
-  ph.posted_at,
-  COALESCE(ph.metrics->>'likes', '0')::INTEGER as likes,
-  COALESCE(ph.metrics->>'comments', '0')::INTEGER as comments,
-  COALESCE(ph.metrics->>'shares', '0')::INTEGER as shares,
-  COALESCE(ph.metrics->>'impressions', '0')::INTEGER as impressions
-FROM post_history ph
-WHERE ph.success = TRUE AND ph.metrics != '{}'
-ORDER BY ph.posted_at DESC;
-
--- ============================================================================
--- INITIALIZATION
--- ============================================================================
-
--- Create function to initialize user accounts
-CREATE OR REPLACE FUNCTION initialize_post_user_account(user_uuid UUID)
-RETURNS VOID AS $$
-BEGIN
-  -- Initialize credit balance for new users
-  INSERT INTO post_credit_balance (user_id, balance_cents)
-  VALUES (user_uuid, 0)
-  ON CONFLICT (user_id) DO NOTHING;
-END;
-$$ LANGUAGE plpgsql;
-
--- Grant necessary permissions
-GRANT USAGE ON SCHEMA public TO authenticated, anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+CREATE POLICY "Users manage own post content" ON post_content
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

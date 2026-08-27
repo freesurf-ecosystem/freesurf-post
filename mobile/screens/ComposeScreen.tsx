@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator,
+  ScrollView, Alert, ActivityIndicator, Switch,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -26,6 +26,12 @@ export default function ComposeScreen() {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set(["bluesky"]));
   const [loading, setLoading] = useState(false);
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isScheduled) setScheduledAt(null);
+  }, [isScheduled]);
 
   function toggle(p: string) {
     setSelected((prev) => {
@@ -45,19 +51,39 @@ export default function ComposeScreen() {
       const token = data.session?.access_token;
       if (!token) { Alert.alert("Error", "Not signed in."); return; }
 
-      const res = await fetch(`${API_BASE}/api/post`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ platforms: Array.from(selected), text: text.trim() }),
-      });
-      const result = await res.json();
+      if (isScheduled && scheduledAt) {
+        // Schedule the post for future publishing
+        const res = await fetch(`${API_BASE}/api/schedule`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ platforms: Array.from(selected), text: text.trim(), scheduledAt }),
+        });
+        const result = await res.json();
 
-      if (res.ok) {
-        const ok = result.results.filter((r: any) => r.success).length;
-        Alert.alert("Posted!", `Successfully posted to ${ok} platform(s).`);
-        setText("");
+        if (res.ok) {
+          Alert.alert("Scheduled!", `Post scheduled for ${new Date(scheduledAt).toLocaleString()}.`);
+          setText("");
+          setIsScheduled(false);
+          setScheduledAt(null);
+        } else {
+          Alert.alert("Error", result.error || "Scheduling failed.");
+        }
       } else {
-        Alert.alert("Error", result.error || "Post failed.");
+        // Post immediately
+        const res = await fetch(`${API_BASE}/api/post`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ platforms: Array.from(selected), text: text.trim() }),
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+          const ok = result.results.filter((r: any) => r.success).length;
+          Alert.alert("Posted!", `Successfully posted to ${ok} platform(s).`);
+          setText("");
+        } else {
+          Alert.alert("Error", result.error || "Post failed.");
+        }
       }
     } catch {
       Alert.alert("Error", "Network error.");
@@ -93,9 +119,39 @@ export default function ComposeScreen() {
           <Text style={[s.charCount, len > 300 && { color: "#d97706" }, len > 5000 && { color: "#dc2626" }]}>
             {len} / 300
           </Text>
+
+          {/* Schedule toggle */}
+          <View style={s.scheduleRow}>
+            <Switch
+              value={isScheduled}
+              onValueChange={setIsScheduled}
+              thumbColor={isScheduled ? "#4f46e5" : "#e2e6ed"}
+              trackColor={{ false: "#e2e6ed", true: "#4f46e5" }}
+            />
+            <Text style={s.scheduleText}>
+              {isScheduled ? "Schedule" : "Post Now"}
+            </Text>
+          </View>
+
+          {/* Scheduled date/time input (shown when scheduled) */}
+          {isScheduled && scheduledAt ? (
+            <View style={s.scheduleInput}>
+              <Text style={s.scheduleLabel}>Schedule for</Text>
+              <TextInput
+                style={s.scheduleInputField}
+                value={scheduledAt}
+                onChangeText={setScheduledAt}
+                editable={false}
+                placeholder="Tap to select date/time"
+              />
+            </View>
+          ) : (
+            <View style={s.scheduleInput} />
+          )}
+
           <TouchableOpacity style={[s.btn, (len === 0 || loading) && { opacity: 0.5 }]}
             onPress={post} disabled={len === 0 || loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Post</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>{isScheduled ? "Schedule" : "Post"}</Text>}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -122,10 +178,15 @@ const s = StyleSheet.create({
   chipTextSelected: { color: "#4f46e5" },
   footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   charCount: { fontSize: 13, color: "#8f99a8" },
+  scheduleRow: { flexDirection: "row", alignItems: "center" },
+  scheduleText: { fontSize: 14, color: "#4f46e5", marginLeft: 8 },
+  scheduleInput: { marginTop: 8, marginHorizontal: -16 },
+  scheduleLabel: { fontSize: 12, color: "#8f99a8", marginBottom: 4 },
+  scheduleInputField: { backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 8, padding: 12, color: "#1a1d23", fontSize: 14 },
   btn: { backgroundColor: "#4f46e5", borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   tabs: { flexDirection: "row", borderTopWidth: 1, borderColor: "#e2e6ed", backgroundColor: "#fff", paddingBottom: 20 },
   tab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   tabActive: { fontSize: 12, fontWeight: "600", color: "#4f46e5" },
-  tabText: { fontSize: 12, color: "#8f99a8" },
+  tabText: { fontSize: 12, color: "#8f99a8"},
 });

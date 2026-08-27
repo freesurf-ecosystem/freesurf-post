@@ -31,8 +31,9 @@ Existing scripts live in `social/`:
 
 ## X / Twitter Cost Strategy
 
-X API v2 is not free. The free tier is heavily rate-limited (1,500 posts/month, 100 reads/month). Paid tiers: Basic ~$100/mo, Pro ~$5,000/mo.
-
+Owned Reads (ie reads related to your own profile) = $0.001
+Post w/o url = $0.015
+Posts w/ URL = $0.20 
 
 
 **Two paths for users:**
