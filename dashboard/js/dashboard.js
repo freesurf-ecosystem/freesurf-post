@@ -203,8 +203,13 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       if (error) throw error;
       await refreshAuth();
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data: signUpData, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
+
+      // Record the shared ecosystem terms agreement.
+      if ($("#auth-terms").checked) {
+        supabase.from("consents").insert({ type: "terms", version: "1" }).then(() => {}).catch(() => {});
+      }
 
       let digestNote = "";
       if ($("#auth-newsletter").checked) {
@@ -220,8 +225,14 @@ $("#btn-auth-submit").addEventListener("click", async () => {
         }
       }
 
-      $("#auth-verify-text").textContent = "Check your email to verify your address and get started." + digestNote;
-      showAuthVerify();
+      if (signUpData?.session) {
+        // Email confirmation is disabled — sign the user straight in.
+        await refreshAuth();
+      } else {
+        // Email confirmation still enabled — show the verify state as a fallback.
+        $("#auth-verify-text").textContent = "Check your email to verify your address and get started." + digestNote;
+        showAuthVerify();
+      }
       return;
     }
   } catch (e) {
