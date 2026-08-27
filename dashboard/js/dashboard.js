@@ -11,7 +11,7 @@ const SUPABASE_ANON_KEY = config.AUTH.SUPABASE_ANON_KEY;
 // ── Platform config ──
 const PLATFORMS = [
   { key: "bluesky",   name: "Bluesky",   oauth: false, note: "App Password — no registration needed" },
-  { key: "x",         name: "X",          oauth: true, note: "Connected via Bundle (no free API tier)" },
+  { key: "x",         name: "X",          oauth: true },
   { key: "linkedin",  name: "LinkedIn",   oauth: true },
   { key: "facebook",  name: "Facebook",   oauth: true },
   { key: "instagram", name: "Instagram",  oauth: true },
@@ -416,7 +416,7 @@ function loadHistory() { try { postHistory = JSON.parse(localStorage.getItem("fr
 
 function renderHistory() {
   if (!postHistory.length) {
-    $("#history-list").innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><p class="empty-state-text">Your posts will appear here.</p></div>`;
+    $("#history-list").innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><p class="empty-state-text">Post history is in progress.</p></div>`;
     return;
   }
   $("#history-list").innerHTML = postHistory.map((p) => `
