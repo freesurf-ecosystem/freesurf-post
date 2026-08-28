@@ -104,7 +104,8 @@
             <p class="hero-asterisk" id="hero-asterisk"></p>
             <p class="hero-description" id="hero-desc"></p>
             <p class="hero-tagline" id="hero-tagline1"></p>
-            <p class="hero-tagline hero-tagline2" id="hero-tagline2"></p>
+            <p class="hero-tagline" id="hero-tagline2"></p>
+            <p class="hero-tagline hero-tagline2" id="hero-tagline3"></p>
             <p class="hero-subline" id="hero-subline" style="display:none;font-size:0.9375rem;color:var(--text-muted);margin-bottom:24px;"></p>
             <div class="hero-actions">
               <button class="btn btn-primary btn-large" id="btn-hero-signin">Sign in or Get Started</button>
@@ -494,42 +495,17 @@
     [document.getElementById("hero-line2"),    "from one place"],
     [document.getElementById("hero-asterisk"), "Free except for X API fees passed through at cost"],
     [document.getElementById("hero-desc"),     "Open source social media poster"],
-    [document.getElementById("hero-tagline1"), "Powered by FreeSurf: a developing ecosystem of free tools"],
-    [document.getElementById("hero-tagline2"), "for contractors, small businesses and everyday people"],
+    [document.getElementById("hero-tagline1"), "Powered by FreeSurf:"],
+    [document.getElementById("hero-tagline2"), "a developing ecosystem of free tools"],
+    [document.getElementById("hero-tagline3"), "for contractors, small businesses and everyday people"],
     [subline, "Web app included (mobile app and API coming soon)"],
   ];
   let seg = 0, idx = 0;
 
-  function explode(el, cb) {
-    const t = el.textContent;
-    el.textContent = '';
-    const ps = t.split('').map(function(c){
-      const s = document.createElement('span');
-      s.textContent = c;
-      s.style.display = 'inline-block';
-      s.style.transition = 'transform 0.7s cubic-bezier(0.22,0.61,0.36,1),opacity 0.7s ease';
-      el.appendChild(s);
-      return s;
-    });
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){
-        ps.forEach(function(p){
-          const a = Math.random() * Math.PI * 2;
-          const d = 80 + Math.random() * 120;
-          p.style.transform = 'translate(' + Math.cos(a)*d + 'px,' + Math.sin(a)*d + 'px) rotate(' + ((Math.random()-0.5)*180) + 'deg)';
-          p.style.opacity = '0.15';
-        });
-      });
-    });
-    setTimeout(function(){
-      ps.forEach(function(p){ p.style.transform = 'translate(0,0) rotate(0deg)'; p.style.opacity = '1'; });
-      setTimeout(function(){ el.textContent = t; cb(); }, 800);
-    }, 2800);
-  }
-
   function type() {
     if (seg >= targets.length) {
-      explode(targets[0][0], function(){ cur.style.display = 'inline'; subline.appendChild(cur); });
+      cur.style.display = 'inline';
+      subline.appendChild(cur);
       return;
     }
     const el = targets[seg][0];
