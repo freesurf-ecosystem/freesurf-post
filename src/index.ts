@@ -391,7 +391,7 @@ async function handleConnect(
     });
     const data = (await res.json()) as any;
     if (!res.ok || !data.url) {
-      console.error(`Bundle connect failed (${platform}):`, res.status, JSON.stringify(data));
+      console.error(`Bundle connect failed (${platform}, team=${env.BUNDLE_TEAM_ID}):`, res.status, JSON.stringify(data));
       return errorResponse(data.message || "Failed to generate connect URL", res.status || 502, origin);
     }
     return json({ url: data.url }, 200, headers);

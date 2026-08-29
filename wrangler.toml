@@ -18,3 +18,20 @@ id = "0a83c67d64d5484e96cb732f64e19c89"
 
 [vars]
 ENVIRONMENT = "production"
+
+# Observability — capture Worker logs (console.*) so proxy errors are visible.
+# Mirrors the Cloudflare dashboard settings so deployments stay consistent.
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
