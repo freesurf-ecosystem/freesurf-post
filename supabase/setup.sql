@@ -4,6 +4,7 @@
 --   post_accounts — a user's connected social accounts + API tokens
 --   post_posts    — everything a user composes: drafts, scheduled, queued, posted
 --   post_content  — misc per-user content (hashtag groups, saved replies)
+--   post_bundle_teams — each user's Bundle.social team id (for multi-tenant posting)
 -- (See consents_setup.sql for the shared, ecosystem-wide consents table.)
 --
 -- All keyed by auth.users(id) with RLS. The Worker uses the service role key
@@ -40,6 +41,7 @@ DROP TABLE IF EXISTS content CASCADE;
 DROP TABLE IF EXISTS post_accounts CASCADE;
 DROP TABLE IF EXISTS post_posts CASCADE;
 DROP TABLE IF EXISTS post_content CASCADE;
+DROP TABLE IF EXISTS post_bundle_teams CASCADE;
 
 DROP FUNCTION IF EXISTS post_update_updated_at_column() CASCADE;
 DROP FUNCTION IF EXISTS initialize_post_user_account(uuid) CASCADE;
@@ -109,6 +111,20 @@ CREATE TABLE IF NOT EXISTS post_content (
 CREATE INDEX IF NOT EXISTS idx_post_content_user_type ON post_content(user_id, type);
 
 -- ============================================================================
+-- POST_BUNDLE_TEAMS — per-user Bundle.social team mapping
+-- ============================================================================
+-- Not unique on user_id: a user may have multiple teams later (personal, brand, …).
+CREATE TABLE IF NOT EXISTS post_bundle_teams (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  bundle_team_id TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT 'Default',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_post_bundle_teams_user ON post_bundle_teams(user_id);
+
+-- ============================================================================
 -- FUNCTIONS AND TRIGGERS
 -- ============================================================================
 CREATE OR REPLACE FUNCTION fs_update_updated_at()
@@ -125,6 +141,8 @@ CREATE TRIGGER trg_post_posts_updated BEFORE UPDATE ON post_posts
   FOR EACH ROW EXECUTE FUNCTION fs_update_updated_at();
 CREATE TRIGGER trg_post_content_updated BEFORE UPDATE ON post_content
   FOR EACH ROW EXECUTE FUNCTION fs_update_updated_at();
+CREATE TRIGGER trg_post_bundle_teams_updated BEFORE UPDATE ON post_bundle_teams
+  FOR EACH ROW EXECUTE FUNCTION fs_update_updated_at();
 
 -- ============================================================================
 -- ROW LEVEL SECURITY
@@ -132,6 +150,7 @@ CREATE TRIGGER trg_post_content_updated BEFORE UPDATE ON post_content
 ALTER TABLE post_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_content ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_bundle_teams ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users manage own post accounts" ON post_accounts
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
@@ -140,4 +159,7 @@ CREATE POLICY "Users manage own post posts" ON post_posts
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users manage own post content" ON post_content
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users manage own bundle teams" ON post_bundle_teams
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

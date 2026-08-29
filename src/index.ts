@@ -358,6 +358,62 @@ async function handleSaveToken(
 }
 
 /**
+ * Get (or lazily create) the Bundle.social team for a user.
+ * Each user gets their own team so their connected accounts and posts stay
+ * isolated. The team id is stored in post_bundle_teams.
+ */
+async function getOrCreateBundleTeam(userId: string, env: Env): Promise<string | null> {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+
+  try {
+    const lookRes = await fetch(
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&limit=1&select=bundle_team_id`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    if (lookRes.ok) {
+      const rows = (await lookRes.json()) as Array<{ bundle_team_id: string }>;
+      if (rows[0]?.bundle_team_id) return rows[0].bundle_team_id;
+    }
+  } catch {
+    // fall through to create
+  }
+
+  try {
+    const createRes = await fetch("https://api.bundle.social/api/v1/team", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ name: `freesurf-${userId.slice(0, 8)}` }),
+    });
+    const team = (await createRes.json()) as any;
+    if (!createRes.ok || !team.id) {
+      console.error("Bundle team create failed:", createRes.status, JSON.stringify(team));
+      return null;
+    }
+
+    await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user_id: userId, bundle_team_id: team.id, label: "Default" }),
+    });
+
+    return team.id;
+  } catch (e) {
+    console.error("Bundle team create exception:", e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
+/**
  * GET /api/connect/:platform — Generate a Bundle.social OAuth URL.
  * The user is redirected to this URL to connect their account (Plaid-style
  * handoff), then sent back to redirectUrl once the platform OAuth completes.
@@ -372,12 +428,15 @@ async function handleConnect(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResponse("Bundle not configured", 501, origin);
   }
 
   const bsPlatform = bundlePlatform(platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
+
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
   try {
     const res = await fetch("https://api.bundle.social/api/v1/social-account/connect", {
@@ -385,13 +444,13 @@ async function handleConnect(
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
       body: JSON.stringify({
         type: bsPlatform,
-        teamId: env.BUNDLE_TEAM_ID,
+        teamId,
         redirectUrl: `${FREESURF.URLS.post}/`,
       }),
     });
     const data = (await res.json()) as any;
     if (!res.ok || !data.url) {
-      console.error(`Bundle connect failed (${platform}, team=${env.BUNDLE_TEAM_ID}):`, res.status, JSON.stringify(data));
+      console.error(`Bundle connect failed (${platform}, team=${teamId}):`, res.status, JSON.stringify(data));
       return errorResponse(data.message || "Failed to generate connect URL", res.status || 502, origin);
     }
     return json({ url: data.url }, 200, headers);
@@ -413,13 +472,16 @@ async function handleBundleAccounts(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return json([], 200, headers);
   }
 
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return json([], 200, headers);
+
   try {
     const res = await fetch(
-      `https://api.bundle.social/api/v1/social-account?teamId=${env.BUNDLE_TEAM_ID}`,
+      `https://api.bundle.social/api/v1/social-account?teamId=${teamId}`,
       { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
     );
     const data = (await res.json()) as any;
@@ -447,7 +509,7 @@ async function handleBundleAnalytics(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResponse("Bundle not configured", 501, origin);
   }
 
@@ -457,12 +519,15 @@ async function handleBundleAnalytics(
   const bsPlatform = bundlePlatform(platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
 
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
   try {
     let endpoint: string;
     if (type === "post" && postId) {
       endpoint = `https://api.bundle.social/api/v1/analytics/post?postId=${postId}&platformType=${bsPlatform}`;
     } else {
-      endpoint = `https://api.bundle.social/api/v1/analytics/social-account?teamId=${env.BUNDLE_TEAM_ID}&platformType=${bsPlatform}`;
+      endpoint = `https://api.bundle.social/api/v1/analytics/social-account?teamId=${teamId}&platformType=${bsPlatform}`;
     }
     const res = await fetch(endpoint, {
       headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
@@ -483,7 +548,7 @@ async function handleCommentImport(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
   let body: { postId: string; platform: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -491,11 +556,14 @@ async function handleCommentImport(
   const bsPlatform = bundlePlatform(body.platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
 
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
   try {
     const res = await fetch("https://api.bundle.social/api/v1/comment/import", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId: env.BUNDLE_TEAM_ID, postId: body.postId, socialAccountType: bsPlatform }),
+      body: JSON.stringify({ teamId, postId: body.postId, socialAccountType: bsPlatform }),
     });
     return json(await res.json(), res.status, headers);
   } catch { return json({ error: "Comment import failed" }, 502, headers); }
@@ -509,14 +577,17 @@ async function handleComments(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
   const postId = url.searchParams.get("postId");
   if (!postId) return errorResponse("postId required", 400, origin);
 
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
   try {
     const res = await fetch(
-      `https://api.bundle.social/api/v1/comment/import/comments?teamId=${env.BUNDLE_TEAM_ID}&postId=${postId}`,
+      `https://api.bundle.social/api/v1/comment/import/comments?teamId=${teamId}&postId=${postId}`,
       { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
     );
     return json(await res.json(), res.status, headers);
@@ -532,16 +603,19 @@ async function handleMediaUpload(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
   let body: { url: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
   try {
     const res = await fetch("https://api.bundle.social/api/v1/upload/from-url", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId: env.BUNDLE_TEAM_ID, url: body.url }),
+      body: JSON.stringify({ teamId, url: body.url }),
     });
     return json(await res.json(), res.status, headers);
   } catch { return json({ error: "Upload failed" }, 502, headers); }
@@ -556,7 +630,7 @@ async function handlePostImport(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
   let body: { platform: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -564,11 +638,14 @@ async function handlePostImport(
   const bsPlatform = bundlePlatform(body.platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
 
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
   try {
     const res = await fetch("https://api.bundle.social/api/v1/post-import", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId: env.BUNDLE_TEAM_ID, socialAccountType: bsPlatform }),
+      body: JSON.stringify({ teamId, socialAccountType: bsPlatform }),
     });
     return json(await res.json(), res.status, headers);
   } catch { return json({ error: "Import failed" }, 502, headers); }
@@ -660,17 +737,19 @@ async function handlePost(
   // API keys), falling back to direct adapters when Bundle isn't configured or
   // a platform post fails. When direct credentials exist (e.g. own X keys), we
   // prefer them so we can migrate off Bundle gradually.
-  const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.BUNDLE_TEAM_ID);
+  const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.SUPABASE_SERVICE_ROLE_KEY);
+  const bundleTeamId = bundleConfigured ? await getOrCreateBundleTeam(user.sub, env) : null;
+
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {
       const preferDirect =
-        !bundleConfigured || (platform === "x" && hasDirectXCreds(env, userTokens));
+        !bundleConfigured || !bundleTeamId || (platform === "x" && hasDirectXCreds(env, userTokens));
 
       if (preferDirect) {
         return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
       }
 
-      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls);
+      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId);
       if (providerResult.success) return providerResult;
 
       // Fall back to a direct adapter (e.g. Bluesky app password, env vars)
@@ -823,10 +902,11 @@ async function postViaProvider(
   platform: Platform,
   text: string,
   env: Env,
-  mediaUrls?: string[]
+  mediaUrls: string[] | undefined,
+  teamId: string
 ): Promise<PlatformPostResult> {
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) {
-    return { platform, success: false, error: "Bundle.social not configured (set BUNDLE_TEAM_ID + SOCIAL_API_PROVIDER_KEY)" };
+  if (!env.SOCIAL_API_PROVIDER_KEY || !teamId) {
+    return { platform, success: false, error: "Bundle.social not configured" };
   }
 
   // Map our platform names to Bundle.social's ALL CAPS format
@@ -846,7 +926,7 @@ async function postViaProvider(
         "x-api-key": env.SOCIAL_API_PROVIDER_KEY,
       },
       body: JSON.stringify({
-        teamId: env.BUNDLE_TEAM_ID,
+        teamId,
         title: text.slice(0, 80),
         status: "SCHEDULED",
         postDate: now,
