@@ -391,10 +391,12 @@ async function handleConnect(
     });
     const data = (await res.json()) as any;
     if (!res.ok || !data.url) {
+      console.error(`Bundle connect failed (${platform}):`, res.status, JSON.stringify(data));
       return errorResponse(data.message || "Failed to generate connect URL", res.status || 502, origin);
     }
     return json({ url: data.url }, 200, headers);
-  } catch {
+  } catch (e) {
+    console.error(`Bundle connect exception (${platform}):`, e instanceof Error ? e.message : String(e));
     return errorResponse("Connect unavailable", 502, origin);
   }
 }
