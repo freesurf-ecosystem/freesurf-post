@@ -358,7 +358,9 @@ async function handleSaveToken(
 }
 
 /**
- * GET /api/connect/:platform — Return Bundle.social connection portal URL.
+ * GET /api/connect/:platform — Generate a Bundle.social OAuth URL.
+ * The user is redirected to this URL to connect their account (Plaid-style
+ * handoff), then sent back to redirectUrl once the platform OAuth completes.
  */
 async function handleConnect(
   request: Request,
@@ -371,24 +373,29 @@ async function handleConnect(
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.BUNDLE_TEAM_ID) {
-    return json({ url: "https://bundle.social/dashboard" }, 200, headers);
+    return errorResponse("Bundle not configured", 501, origin);
   }
 
-  try {
-    // Bundle portal link — optionally pre-filtered by platform type
-    const bsPlatform = bundlePlatform(platform);
-    const body: Record<string, string> = { teamId: env.BUNDLE_TEAM_ID };
-    if (bsPlatform) body.platformType = bsPlatform;
+  const bsPlatform = bundlePlatform(platform);
+  if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
 
-    const res = await fetch("https://api.bundle.social/api/v1/social-account/portal-link", {
+  try {
+    const res = await fetch("https://api.bundle.social/api/v1/social-account/connect", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        type: bsPlatform,
+        teamId: env.BUNDLE_TEAM_ID,
+        redirectUrl: `${FREESURF.URLS.post}/`,
+      }),
     });
     const data = (await res.json()) as any;
-    return json({ url: data.url || "https://bundle.social/dashboard" }, 200, headers);
+    if (!res.ok || !data.url) {
+      return errorResponse(data.message || "Failed to generate connect URL", res.status || 502, origin);
+    }
+    return json({ url: data.url }, 200, headers);
   } catch {
-    return json({ url: "https://bundle.social/dashboard" }, 200, headers);
+    return errorResponse("Connect unavailable", 502, origin);
   }
 }
 
