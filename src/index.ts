@@ -266,6 +266,11 @@ async function handleApi(
     return handleGetAnalyticsTrends(request, env, origin, h);
   }
 
+  // --- Usage API (per-platform post counts for billing/tabulation) ---
+  if (url.pathname === "/api/usage" && request.method === "GET") {
+    return handleUsage(request, env, origin, h);
+  }
+
   return errorResponse("Not found", 404, origin);
 }
 
@@ -2075,6 +2080,45 @@ async function handleGetAnalyticsTrends(
   } catch (error) {
     console.error("Trends fetch error:", error);
     return errorResponse("Failed to fetch trends", 500, origin);
+  }
+}
+
+/**
+ * GET /api/usage — per-platform post counts for billing/tabulation.
+ */
+async function handleUsage(
+  request: Request,
+  env: Env,
+  origin: string,
+  headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+
+  try {
+    const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=platforms`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    if (!res.ok) return errorResponse("Failed to fetch usage", 500, origin);
+
+    const posts = (await res.json()) as Array<{ platforms?: string[] }>;
+    const counts: Record<string, number> = {};
+    for (const p of posts) {
+      for (const platform of p.platforms || []) {
+        counts[platform] = (counts[platform] || 0) + 1;
+      }
+    }
+    return json({ usage: counts }, 200, headers);
+  } catch {
+    return errorResponse("Usage unavailable", 502, origin);
   }
 }
 
