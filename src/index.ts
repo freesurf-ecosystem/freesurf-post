@@ -743,10 +743,18 @@ async function handlePost(
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {
       const preferDirect =
-        !bundleConfigured || !bundleTeamId || (platform === "x" && hasDirectXCreds(env, userTokens));
+        !bundleConfigured || (platform === "x" && hasDirectXCreds(env, userTokens));
 
       if (preferDirect) {
         return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
+      }
+
+      if (!bundleTeamId) {
+        return {
+          platform,
+          success: false,
+          error: "Couldn't set up your posting team (Bundle team limit reached — try again or upgrade).",
+        };
       }
 
       const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId);
