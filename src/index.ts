@@ -859,8 +859,11 @@ async function postViaProvider(
 
     const data = (await res.json()) as any;
     if (!res.ok) {
+      console.error(`Bundle post failed (${platform}):`, res.status, JSON.stringify(data));
       return { platform, success: false, error: `Bundle error: ${data.message || res.status}` };
     }
+
+    console.log(`Bundle post success (${platform}):`, JSON.stringify({ id: data.id, externalData: data.externalData }));
 
     // Extract permalink from externalData
     const extData = data.externalData?.[bsPlatform];
@@ -871,6 +874,7 @@ async function postViaProvider(
       postUrl: extData?.permalink || extData?.id,
     };
   } catch (e) {
+    console.error(`Bundle post exception (${platform}):`, e instanceof Error ? e.message : String(e));
     return { platform, success: false, error: e instanceof Error ? e.message : "Bundle error" };
   }
 }
