@@ -2,6 +2,10 @@
 
 Internal reference dump of what Bundle.social's API does — per platform and endpoint — so we can cross-reference while building our own direct adapters and keep Bundle as a fallback.
 
+> **Primary reference:** `https://info.bundle.social/llms.txt` — the full, machine-readable
+> index of every Bundle doc. Point an agent (or yourself) here first; fetch individual pages
+> from it for authoritative endpoint/param details.
+
 Source: `https://info.bundle.social/llms.txt` + the api-reference pages.
 Companion docs: `BUNDLE_INTEGRATION.md` (strategy), `SOCIAL_API_REFERENCE.md`
 (auth + endpoints per platform), `X_API_COSTS.md`.
@@ -19,6 +23,7 @@ Companion docs: `BUNDLE_INTEGRATION.md` (strategy), `SOCIAL_API_REFERENCE.md`
   `teamId` is required on most endpoints (posts, uploads, connect). Create a team per customer/brand.
 - **Rate limits**: per-**team** daily posting caps (per platform); org-level monthly caps; `429` on burst. See `BUNDLE_INTEGRATION.md` for the tier table.
 - **Webhooks**: org-level, real-time `post.published` / `post.failed` + comment events, signature-verified, auto-disable.
+- **Credits (metered X)**: X actions (posting, analytics reads, imports, deletes) draw from a prepaid credit balance — `get credit balance` + `quote a metered X action` let you check/estimate cost before running them. Other platforms are flat-rate under the plan.
 - **Base URL**: `https://api.bundle.social`, paths under `/api/v1`.
 
 ---
@@ -185,9 +190,36 @@ of an image already in the library (video cover).
 
 ---
 
+## Our Worker → Bundle mapping
+
+Status: ✅ wired · ⏳ planned · — not started.
+
+| Capability | Bundle endpoint | Our Worker endpoint | Status |
+|---|---|---|---|
+| Connect account (OAuth) | `social-account/connect` | `GET /api/connect/:platform` | ✅ |
+| Connect (hosted portal) | `create portal link` | — | — |
+| List accounts | list social accounts | `GET /api/bundle-accounts` | ✅ (rough) |
+| Disconnect account | `disconnect` | — | ⏳ |
+| Channel selection | `set/unset/refresh-channel` | — | ⏳ |
+| Create post | `create post` | `POST /api/post` | ✅ (text-only) |
+| Retry post | `retry post` | — | ⏳ |
+| Post by reference key | `get post by reference key` | — | ⏳ |
+| Upload file (multipart) | `create upload` | — | ⏳ |
+| Upload from URL | `create upload from URL` | `POST /api/media` | ✅ |
+| Profile analytics | `get social account analytics` | `GET /api/analytics/:platform?type=profile` | ✅ |
+| Post analytics | `get post analytics` | `GET /api/analytics/:platform?type=post` | ✅ |
+| Bulk analytics | `get bulk post analytics` | — | ⏳ |
+| Import comments | `start comment import` | `POST /api/comments/import` | ✅ |
+| List comments | `get fetched comments` | `GET /api/comments` | ✅ |
+| Create comment/reply | `create comment` | `POST /api/reply` | ⏳ |
+| Moderate comment | `run action on fetched comment` | — | ⏳ |
+| Credit balance | `get credit balance` | — | ⏳ |
+| Quote X action | `quote a metered X action` | — | ⏳ |
+
 ## To-do (fill in later)
 
+- [x] Map each endpoint group → our equivalent (see "Our Worker → Bundle mapping" above).
 - [ ] Fetch the individual platform pages (Instagram/TikTok/YouTube/LinkedIn) for full constraint detail.
-- [ ] Map each endpoint group → our equivalent (schema tables + Worker endpoints).
 - [ ] Capture webhook event payloads + signature verification.
 - [ ] Capture the exact `misc.*` operation list per platform (YouTube playlists, Google Business, etc.).
+- [ ] Add media (multipart upload → `uploadIds`), comment create, channel selection, disconnect, and X credits to the Worker.
