@@ -449,20 +449,47 @@ function renderAccounts() {
   $("#account-list").innerHTML = PLATFORMS.map((p) => {
     const profiles = platformMap.get(p.key) || [];
     const count = profiles.length;
+    const handle = profiles.map((pp) => pp.handle || pp.label).filter(Boolean).join(", ");
     return `<div class="account-item">
       <div class="account-item-info">
         <div class="account-item-name">${p.name}</div>
         <div class="account-item-status${count ? " connected" : ""}">
-          ${count ? `${count} profile${count > 1 ? "s" : ""} connected${profiles[0]?.handle ? ` · ${profiles.map((pp) => pp.handle || pp.label).join(", ")}` : ""}` : p.note || "Not connected"}
+          ${count ? (handle || "Connected") : p.note || "Not connected"}
         </div>
       </div>
-      <button class="btn btn-sm ${count ? "btn-ghost" : "btn-secondary"}" data-connect="${p.key}">${count ? "+ Add" : "Connect"}</button>
+      ${count
+        ? `<button class="btn btn-sm btn-ghost" data-disconnect="${p.key}">Disconnect</button>`
+        : `<button class="btn btn-sm btn-secondary" data-connect="${p.key}">Connect</button>`}
     </div>`;
   }).join("");
 
   $$("[data-connect]").forEach((btn) => {
     btn.addEventListener("click", () => connectPlatform(btn.dataset.connect));
   });
+  $$("[data-disconnect]").forEach((btn) => {
+    btn.addEventListener("click", () => disconnectPlatform(btn.dataset.disconnect));
+  });
+}
+
+async function disconnectPlatform(key) {
+  if (!session?.access_token) return;
+  if (!confirm(`Disconnect ${key}? This removes the account from your posting team.`)) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/disconnect/${key}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.ok) {
+      await fetchProfiles();
+      renderAccounts();
+      renderPlatformChips();
+    } else {
+      const err = await res.json();
+      alert(err.error || "Failed to disconnect");
+    }
+  } catch {
+    alert("Network error.");
+  }
 }
 
 function connectPlatform(key) {
@@ -1393,6 +1420,20 @@ async function init() {
   renderPlatformChips();
   await refreshAuth();
   await fetchScheduled();
+
+  // Re-render accounts now that profiles are loaded (connection state + handles)
+  renderAccounts();
+  renderPlatformChips();
+
+  // Handle Bundle OAuth connect callback (?success=true / ?error=...)
+  const params = new URLSearchParams(location.search);
+  if (params.get("success") === "true") {
+    history.replaceState(null, "", location.pathname);
+    showView("accounts");
+  } else if (params.get("error")) {
+    history.replaceState(null, "", location.pathname);
+    alert("Account connection failed.");
+  }
   
   // Initialize new feature views
   if ($("#view-drafts")) fetchDrafts();

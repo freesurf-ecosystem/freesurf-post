@@ -138,6 +138,12 @@ async function handleApi(
     return handleConnect(request, env, connectMatch[1], origin, h);
   }
 
+  // --- POST /api/disconnect/:platform — disconnect a Bundle social account ---
+  const disconnectMatch = url.pathname.match(/^\/api\/disconnect\/([a-z]+)$/);
+  if (disconnectMatch && request.method === "POST") {
+    return handleDisconnect(request, env, disconnectMatch[1], origin, h);
+  }
+
   // --- GET /api/bundle-accounts — list Bundle-connected accounts ---
   if (url.pathname === "/api/bundle-accounts" && request.method === "GET") {
     return handleBundleAccounts(request, env, origin, h);
@@ -487,12 +493,53 @@ async function handleBundleAccounts(
     const data = (await res.json()) as any;
     const accounts = (data.items || data || []).map((a: any) => ({
       platform: (a.type || "").toLowerCase(),
-      handle: a.name || a.handle || a.username || "",
-      connected: a.status === "CONNECTED" || a.isConnected,
+      handle: a.username || a.displayName || a.userUsername || "",
+      connected: true,
     }));
     return json(accounts, 200, headers);
   } catch {
     return json([], 200, headers);
+  }
+}
+
+/**
+ * POST /api/disconnect/:platform — Disconnect a Bundle social account.
+ */
+async function handleDisconnect(
+  request: Request,
+  env: Env,
+  platform: string,
+  origin: string,
+  headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return errorResponse("Bundle not configured", 501, origin);
+  }
+
+  const bsPlatform = bundlePlatform(platform);
+  if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
+
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
+  try {
+    const res = await fetch("https://api.bundle.social/api/v1/social-account/disconnect", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ type: bsPlatform, teamId }),
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) {
+      console.error(`Bundle disconnect failed (${platform}, team=${teamId}):`, res.status, JSON.stringify(data));
+      return errorResponse(data.message || "Disconnect failed", res.status || 502, origin);
+    }
+    return json({ disconnected: true }, 200, headers);
+  } catch (e) {
+    console.error(`Bundle disconnect exception (${platform}):`, e instanceof Error ? e.message : String(e));
+    return errorResponse("Disconnect unavailable", 502, origin);
   }
 }
 
