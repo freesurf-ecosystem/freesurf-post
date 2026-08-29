@@ -335,7 +335,15 @@
 
       <!-- Accounts -->
       <section id="view-accounts" class="view hidden">
-        <div class="card"><div class="card-header"><div><h2 class="card-title">Connected accounts</h2><p class="card-subtitle">Connect your profiles to start cross-posting.</p></div></div>
+        <div class="card">
+          <div class="card-header">
+            <div><h2 class="card-title">Teams</h2><p class="card-subtitle">Organize your social accounts into teams (e.g. Personal, Business).</p></div>
+            <button class="btn btn-primary btn-sm" id="btn-create-team">Create team</button>
+          </div>
+          <div class="account-list" id="team-list"></div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header"><div><h2 class="card-title">Connected accounts</h2><p class="card-subtitle">Accounts on the active team. Connect your profiles to start cross-posting.</p></div></div>
           <div class="account-list" id="account-list"></div>
         </div>
       </section>

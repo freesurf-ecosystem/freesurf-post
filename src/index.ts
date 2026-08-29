@@ -144,6 +144,22 @@ async function handleApi(
     return handleDisconnect(request, env, disconnectMatch[1], origin, h);
   }
 
+  // --- Teams API ---
+  if (url.pathname === "/api/teams" && request.method === "GET") {
+    return handleGetTeams(request, env, origin, h);
+  }
+  if (url.pathname === "/api/teams" && request.method === "POST") {
+    return handleCreateTeam(request, env, origin, h);
+  }
+  const teamActivateMatch = url.pathname.match(/^\/api\/teams\/([a-f0-9-]+)\/activate$/);
+  if (teamActivateMatch && request.method === "POST") {
+    return handleActivateTeam(request, env, teamActivateMatch[1], origin, h);
+  }
+  const teamDeleteMatch = url.pathname.match(/^\/api\/teams\/([a-f0-9-]+)$/);
+  if (teamDeleteMatch && request.method === "DELETE") {
+    return handleDeleteTeam(request, env, teamDeleteMatch[1], origin, h);
+  }
+
   // --- GET /api/bundle-accounts — list Bundle-connected accounts ---
   if (url.pathname === "/api/bundle-accounts" && request.method === "GET") {
     return handleBundleAccounts(request, env, origin, h);
@@ -371,16 +387,15 @@ async function handleSaveToken(
 async function getOrCreateBundleTeam(userId: string, env: Env): Promise<string | null> {
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+  };
 
   try {
     const lookRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&limit=1&select=bundle_team_id`,
-      {
-        headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-      }
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&is_active=eq.true&limit=1&select=bundle_team_id`,
+      { headers: authHeaders }
     );
     if (lookRes.ok) {
       const rows = (await lookRes.json()) as Array<{ bundle_team_id: string }>;
@@ -402,14 +417,15 @@ async function getOrCreateBundleTeam(userId: string, env: Env): Promise<string |
       return null;
     }
 
+    await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&is_active=eq.true`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: false }),
+    });
     await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams`, {
       method: "POST",
-      headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ user_id: userId, bundle_team_id: team.id, label: "Default" }),
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, bundle_team_id: team.id, label: "Default", is_active: true }),
     });
 
     return team.id;
@@ -540,6 +556,148 @@ async function handleDisconnect(
   } catch (e) {
     console.error(`Bundle disconnect exception (${platform}):`, e instanceof Error ? e.message : String(e));
     return errorResponse("Disconnect unavailable", 502, origin);
+  }
+}
+
+/**
+ * GET /api/teams — List the user's Bundle teams.
+ */
+async function handleGetTeams(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json({ teams: [] }, 200, headers);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&order=created_at.asc&select=*`,
+      { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
+    );
+    if (!res.ok) return json({ teams: [] }, 200, headers);
+    const teams = (await res.json()) as any[];
+    return json({
+      teams: teams.map((t) => ({
+        id: t.id,
+        label: t.label,
+        bundle_team_id: t.bundle_team_id,
+        is_active: t.is_active,
+      })),
+    }, 200, headers);
+  } catch {
+    return json({ teams: [] }, 200, headers);
+  }
+}
+
+/**
+ * POST /api/teams — Create a new Bundle team. Body: { label }
+ */
+async function handleCreateTeam(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+
+  let body: { label: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  const label = (body.label || "").trim() || "Default";
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+
+  try {
+    const createRes = await fetch("https://api.bundle.social/api/v1/team", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ name: label }),
+    });
+    const team = (await createRes.json()) as any;
+    if (!createRes.ok || !team.id) {
+      return errorResponse(team.message || "Team creation failed", createRes.status || 502, origin);
+    }
+
+    await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&is_active=eq.true`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: false }),
+    });
+    const insRes = await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams`, {
+      method: "POST",
+      headers: { ...authHeaders, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ user_id: user.sub, bundle_team_id: team.id, label, is_active: true }),
+    });
+    const [row] = (await insRes.json()) as any[];
+    return json({ team: { id: row?.id, label: row?.label, bundle_team_id: row?.bundle_team_id, is_active: true } }, 201, headers);
+  } catch (e) {
+    console.error("Team create exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Team creation failed", 502, origin);
+  }
+}
+
+/**
+ * POST /api/teams/:id/activate — Set a team as the active one.
+ */
+async function handleActivateTeam(
+  request: Request, env: Env, id: string, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&is_active=eq.true`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: false }),
+    });
+    await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${id}&user_id=eq.${user.sub}`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: true }),
+    });
+    return json({ ok: true }, 200, headers);
+  } catch {
+    return errorResponse("Activate failed", 500, origin);
+  }
+}
+
+/**
+ * DELETE /api/teams/:id — Delete a team (Bundle + our mapping).
+ */
+async function handleDeleteTeam(
+  request: Request, env: Env, id: string, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  try {
+    const getRes = await fetch(
+      `${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${id}&user_id=eq.${user.sub}&select=bundle_team_id`,
+      { headers: authHeaders }
+    );
+    const rows = (await getRes.json()) as any[];
+    const bundleTeamId = rows[0]?.bundle_team_id;
+    if (bundleTeamId) {
+      await fetch(`https://api.bundle.social/api/v1/team/${bundleTeamId}`, {
+        method: "DELETE",
+        headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      });
+    }
+    await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${id}&user_id=eq.${user.sub}`, {
+      method: "DELETE",
+      headers: authHeaders,
+    });
+    return json({ deleted: true }, 200, headers);
+  } catch (e) {
+    console.error("Team delete exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Delete failed", 500, origin);
   }
 }
 

@@ -119,10 +119,12 @@ CREATE TABLE IF NOT EXISTS post_bundle_teams (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   bundle_team_id TEXT NOT NULL,
   label TEXT NOT NULL DEFAULT 'Default',
+  is_active BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_post_bundle_teams_user ON post_bundle_teams(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_post_bundle_teams_active ON post_bundle_teams(user_id) WHERE is_active = TRUE;
 
 -- ============================================================================
 -- FUNCTIONS AND TRIGGERS
