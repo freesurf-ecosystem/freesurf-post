@@ -135,13 +135,13 @@ async function handleApi(
   // --- GET /api/connect/:platform — get Bundle connection URL ---
   const connectMatch = url.pathname.match(/^\/api\/connect\/([a-z]+)$/);
   if (connectMatch && request.method === "GET") {
-    return handleConnect(request, env, connectMatch[1], origin, h);
+    return handleConnect(request, env, connectMatch[1], origin, h, url);
   }
 
   // --- POST /api/disconnect/:platform — disconnect a Bundle social account ---
   const disconnectMatch = url.pathname.match(/^\/api\/disconnect\/([a-z]+)$/);
   if (disconnectMatch && request.method === "POST") {
-    return handleDisconnect(request, env, disconnectMatch[1], origin, h);
+    return handleDisconnect(request, env, disconnectMatch[1], origin, h, url);
   }
 
   // --- Teams API ---
@@ -159,10 +159,18 @@ async function handleApi(
   if (teamDeleteMatch && request.method === "DELETE") {
     return handleDeleteTeam(request, env, teamDeleteMatch[1], origin, h);
   }
+  if (teamDeleteMatch && request.method === "PATCH") {
+    return handleRenameTeam(request, env, teamDeleteMatch[1], origin, h);
+  }
 
   // --- GET /api/bundle-accounts — list Bundle-connected accounts ---
   if (url.pathname === "/api/bundle-accounts" && request.method === "GET") {
-    return handleBundleAccounts(request, env, origin, h);
+    return handleBundleAccounts(request, env, origin, h, url);
+  }
+
+  // --- GET /api/bundle-posts — list recent Bundle posts ---
+  if (url.pathname === "/api/bundle-posts" && request.method === "GET") {
+    return handleBundlePosts(request, env, origin, h, url);
   }
 
   // --- GET /api/analytics/:platform — proxy Bundle analytics ---
@@ -470,7 +478,8 @@ async function handleConnect(
   env: Env,
   platform: string,
   origin: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  url?: URL
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
@@ -482,7 +491,7 @@ async function handleConnect(
   const bsPlatform = bundlePlatform(platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
 
-  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  const teamId = await resolveBundleTeamId(user.sub, url?.searchParams.get("teamId") || undefined, env);
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
   try {
@@ -514,7 +523,8 @@ async function handleBundleAccounts(
   request: Request,
   env: Env,
   origin: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  url?: URL
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
@@ -523,7 +533,7 @@ async function handleBundleAccounts(
     return json([], 200, headers);
   }
 
-  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  const teamId = await resolveBundleTeamId(user.sub, url?.searchParams.get("teamId") || undefined, env);
   if (!teamId) return json([], 200, headers);
 
   try {
@@ -544,6 +554,62 @@ async function handleBundleAccounts(
 }
 
 /**
+ * GET /api/bundle-posts — List recent posts from Bundle (probe the provider
+ * rather than trying to reconstruct a post URL ourselves).
+ * Query params: ?teamId=<our team id>&limit=20
+ */
+async function handleBundlePosts(
+  request: Request,
+  env: Env,
+  origin: string,
+  headers: Record<string, string>,
+  url?: URL
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return json({ posts: [] }, 200, headers);
+  }
+
+  const teamId = await resolveBundleTeamId(user.sub, url?.searchParams.get("teamId") || undefined, env);
+  if (!teamId) return json({ posts: [] }, 200, headers);
+
+  const limit = url?.searchParams.get("limit") || "20";
+  try {
+    const res = await fetch(
+      `https://api.bundle.social/api/v1/post?teamId=${teamId}&limit=${encodeURIComponent(limit)}`,
+      { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
+    );
+    const data = (await res.json()) as any;
+    if (!res.ok) {
+      console.error("Bundle list posts failed:", res.status, JSON.stringify(data));
+      return json({ posts: [] }, 200, headers);
+    }
+
+    const list = data.items || data.posts || data.data || data;
+    const posts = (Array.isArray(list) ? list : []).map((p: any) => {
+      const platforms = Array.isArray(p.socialAccountTypes)
+        ? p.socialAccountTypes.map((s: string) => String(s).toLowerCase())
+        : [];
+      const bsPlatform = String(p.socialAccountTypes?.[0] || "").toUpperCase();
+      return {
+        id: p.id,
+        status: p.status,
+        createdAt: p.createdAt || p.postDate || p.created_at,
+        platforms,
+        text: p.title || p.data?.text || "",
+        url: extractBundlePostUrl(p, bsPlatform),
+      };
+    });
+    return json({ posts }, 200, headers);
+  } catch (e) {
+    console.error("Bundle list posts exception:", e instanceof Error ? e.message : String(e));
+    return json({ posts: [] }, 200, headers);
+  }
+}
+
+/**
  * POST /api/disconnect/:platform — Disconnect a Bundle social account.
  */
 async function handleDisconnect(
@@ -551,7 +617,8 @@ async function handleDisconnect(
   env: Env,
   platform: string,
   origin: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  url?: URL
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
@@ -563,7 +630,7 @@ async function handleDisconnect(
   const bsPlatform = bundlePlatform(platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
 
-  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  const teamId = await resolveBundleTeamId(user.sub, url?.searchParams.get("teamId") || undefined, env);
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
   try {
@@ -687,6 +754,37 @@ async function handleActivateTeam(
     return json({ ok: true }, 200, headers);
   } catch {
     return errorResponse("Activate failed", 500, origin);
+  }
+}
+
+/**
+ * PATCH /api/teams/:id — Rename a team (updates our label only; keeps the Bundle id).
+ */
+async function handleRenameTeam(
+  request: Request, env: Env, id: string, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { label: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  const label = (body.label || "").trim();
+  if (!label) return errorResponse("Label required", 400, origin);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${id}&user_id=eq.${user.sub}`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ label }),
+    });
+    if (!res.ok) return errorResponse("Rename failed", res.status || 500, origin);
+    return json({ ok: true }, 200, headers);
+  } catch (e) {
+    console.error("Team rename exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Rename failed", 500, origin);
   }
 }
 
@@ -1133,6 +1231,21 @@ async function postToPlatform(
 }
 
 /**
+ * Extract a permalink from a Bundle post/externalData payload.
+ */
+function extractBundlePostUrl(data: any, bsPlatform: string): string | undefined {
+  const ext = data?.externalData?.[bsPlatform] || data?.externalData || {};
+  if (!ext || typeof ext !== "object") return undefined;
+  const candidates = [ext.permalink, ext.postUrl, ext.url, ext.link, ext.statusUrl];
+  for (const c of candidates) if (typeof c === "string" && c) return c;
+  if (bsPlatform === "TWITTER") {
+    const id = ext.id || ext.tweetId || ext.postId;
+    if (typeof id === "string" && id) return `https://x.com/i/status/${id}`;
+  }
+  return undefined;
+}
+
+/**
  * Post via Bundle.social as fallback when direct platform keys aren't available.
  * Maps our platform names to Bundle.social's platform format.
  */
@@ -1183,13 +1296,32 @@ async function postViaProvider(
 
     console.log(`Bundle post success (${platform}):`, JSON.stringify({ id: data.id, externalData: data.externalData }));
 
-    // Extract permalink from externalData
-    const extData = data.externalData?.[bsPlatform];
+    // Extract a permalink from externalData (often empty right after create)
+    let postUrl = extractBundlePostUrl(data, bsPlatform);
+
+    // Best-effort: fetch the full post to get the published permalink.
+    if (!postUrl) {
+      try {
+        const detailRes = await fetch(`https://api.bundle.social/api/v1/post/${data.id}`, {
+          headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+        });
+        if (detailRes.ok) {
+          const detail = (await detailRes.json()) as any;
+          console.log(`Bundle post detail (${platform}):`, JSON.stringify({ id: data.id, externalData: detail.externalData }));
+          postUrl = extractBundlePostUrl(detail, bsPlatform);
+        } else {
+          console.error(`Bundle post detail failed (${platform}):`, detailRes.status);
+        }
+      } catch (e) {
+        console.error(`Bundle post detail exception (${platform}):`, e instanceof Error ? e.message : String(e));
+      }
+    }
+
     return {
       platform,
       success: true,
       postId: data.id,
-      postUrl: extData?.permalink || extData?.id,
+      postUrl,
     };
   } catch (e) {
     console.error(`Bundle post exception (${platform}):`, e instanceof Error ? e.message : String(e));

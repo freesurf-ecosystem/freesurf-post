@@ -1,5 +1,61 @@
 # Bundle.social Integration Strategy
 
+## Migrating map
+
+| Platform | Sandbox/Staging Access | Production Posting Access | Key Review Hurdle |
+|---|---|---|---|
+| Instagram / Facebook | Instant | 14 – 20 Days | Strict screencast audit & business details |
+| TikTok | Instant | 1 – 4 Weeks | Company paperwork & full flow video |
+| LinkedIn | Instant | 1 – 2 Weeks (Profile) / Months (Company) | Restricted product application |
+| Google Business | None | 7 – 14 Days | Account age check (60+ days verified) |
+| Pinterest | Instant | 3 – 7 Days | Video submission of functional app |
+| YouTube | Instant | Instant (Restricted Quotas) | Manual audit only if requesting quota lift |
+| Twitter/X | Instant | Instant | Paid tier selection dictates volume capabilities |
+| Snapchat | Instant | 1 – 2 Weeks | Human review of app functionality |
+| Threads, Reddit | Instant | Instant | Completely automated developer onboarding |
+| Slack, Discord | Instant | Instant | Self-service bot token generation |
+| Mastodon, Bluesky | Instant | Instant | Open network / Instance-level generation |
+
+To add later:
+wordpress
+medium
+dev.to
+hashnode
+skool
+whop
+
+decentralized
+Nostr
+Lemmy
+warpcast
+dribble
+mewe
+
+live stream
+twitch
+kick
+
+messaging
+telegram
+what's app?
+
+## URLs
+
+* Instagram & Facebook (Meta Graph API): Meta for Developers Portal. [Meta App Review Dashboard](https://developers.facebook.com/documentation/resp-plat-initiatives/individual-processes/app-review/submission-guide).
+* TikTok: the TikTok for Developers Portal (https://developers.tiktok.com/)
+* LinkedIn: LinkedIn Developer Portal (https://developer.linkedin.com/).
+* Pinterest: Pinterest Developer Platform.
+* Google Business Profile: inside the Google Cloud Console, the Google Business Profile API.
+* Twitter/X: X Developer Portal.
+* YouTube: Google Cloud Console YouTube Data API page.
+* Threads: inside the Meta Developer Dashboard.
+* Snapchat: Snap Kit Developer Portal.
+* Reddit: Reddit App Preferences (https://www.reddit.com/prefs/apps)
+* Slack: Slack API Portal.
+* Discord: Discord Developer Portal (https://discord.com/developers/applications).
+* Mastodon: Because it is decentralized, applications are built directly on whichever instance you host your account on. Navigate to your server's settings page: https://[your-instance-domain]/settings/applications.
+* Bluesky: No specific portal developer sign-up is required. You can generate immediate code-based security credentials directly inside your standard profile account settings under the Bluesky App Passwords Management Panel.
+
 ## All 15 Bundle platforms
 
 | Bundle platform | cnxt-to-post name | Posting | Analytics | Comments | Reels/Stories |
@@ -96,12 +152,6 @@ What Bundle.social absorbs for us today, and what we'd own to go direct
 - App credentials (client_id/secret) don't expire; they're static until rotated.
 - The real frictions are: **one-time app review** (days–weeks) and **occasional re-auth**.
 
-### To graduate (rough order)
 
-1. Keep a **provider interface** seam — so any backend swaps in without UI changes. This is the whole game.
-2. Bluesky + X first (we already have direct adapters/OAuth).
-3. Meta (FB/IG/Threads) — register app, business verification, permission review.
-4. TikTok — register app, Content Posting API review.
-5. Token refresh worker + "reconnect" UX.
-6. Bundle stays as fallback: on direct-adapter failure, route through Bundle.
+
 

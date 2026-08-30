@@ -61,8 +61,9 @@ async function fetchProfiles() {
     const data = await res.json();
     connectedProfiles = data.profiles || [];
 
-    // Also fetch Bundle-connected accounts
-    const bundleRes = await fetch(`${API_BASE}/api/bundle-accounts`, {
+    // Also fetch Bundle-connected accounts (for the selected team)
+    const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
+    const bundleRes = await fetch(`${API_BASE}/api/bundle-accounts${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const bundleData = await bundleRes.json();
@@ -291,7 +292,12 @@ function showView(name) {
   
   // Update sidebar nav
   $$(".sidebar-nav-item").forEach((l) => l.classList.toggle("sidebar-nav-item-active", l.dataset.view === name));
+
+  // Reflect the view in the URL hash for deep linking (#accounts, #analytics, …)
+  try { history.replaceState(null, "", `#${name}`); } catch {}
 }
+
+const PROTECTED_VIEWS = new Set(["compose", "history", "accounts"]);
 
 // ── Old topbar navigation (for reference) ──
 $$(".nav-link").forEach((link) => {
@@ -384,7 +390,7 @@ btnPost.addEventListener("click", async () => {
               : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
             }
           </span>
-          <span><strong>${r.platform}</strong>: ${r.success ? `<a href="${r.postUrl}" target="_blank">View →</a>` : r.error}</span>
+          <span><strong>${r.platform}</strong>: ${r.success ? (r.postUrl ? `<a href="${r.postUrl}" target="_blank">View →</a>` : "Posted") : r.error}</span>
         </div>`;
       }
       const ok = data.results.filter((r) => r.success).length;
@@ -473,9 +479,10 @@ function renderAccounts() {
 
 async function disconnectPlatform(key) {
   if (!session?.access_token) return;
-  if (!confirm(`Disconnect ${key}? This removes the account from your posting team.`)) return;
+  if (!confirm(`Disconnect ${key}? This removes the account from the selected team.`)) return;
   try {
-    const res = await fetch(`${API_BASE}/api/disconnect/${key}`, {
+    const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
+    const res = await fetch(`${API_BASE}/api/disconnect/${key}${teamQ}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -495,6 +502,7 @@ async function disconnectPlatform(key) {
 // ── Teams ──
 
 let teams = [];
+let accountsTeamId = "";
 
 async function fetchTeams() {
   if (!session?.access_token) { teams = []; renderTeams(); return; }
@@ -513,21 +521,28 @@ function renderTeams() {
   if (!teams.length) {
     container.innerHTML = `<div class="account-item"><div class="account-item-info"><div class="account-item-name">No teams yet</div><div class="account-item-status">Create a team to start organizing your accounts.</div></div></div>`;
     if ($("#post-team")) $("#post-team").innerHTML = `<option value="">No teams yet</option>`;
+    if ($("#accounts-team")) $("#accounts-team").innerHTML = `<option value="">No teams yet</option>`;
     return;
   }
-  container.innerHTML = teams.map((t) => `
-    <div class="account-item">
-      <div class="account-item-info">
-        <div class="account-item-name">${escapeHtml(t.label)}${t.is_active ? ' <span class="history-platform-badge">Active</span>' : ""}</div>
-        <div class="account-item-status">${t.is_active ? "Posts and connects go to this team" : ""}</div>
+  container.innerHTML = teams.map((t) => {
+    const selected = accountsTeamId ? accountsTeamId === t.id : t.is_active;
+    return `
+    <div class="account-item${selected ? " team-selected" : ""}">
+      <div class="account-item-info account-item-selectable" data-team-select="${t.id}">
+        <div class="account-item-name">${escapeHtml(t.label)}${t.is_active ? ' <span class="history-platform-badge">Default</span>' : ""}</div>
+        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"}</div>
       </div>
       <div style="display:flex;gap:8px;">
-        ${t.is_active ? "" : `<button class="btn btn-sm btn-secondary" data-activate-team="${t.id}">Use this</button>`}
+        <button class="btn btn-sm btn-ghost" data-edit-team="${t.id}" title="Rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+        ${t.is_active ? "" : `<button class="btn btn-sm btn-secondary" data-activate-team="${t.id}">Set default</button>`}
         <button class="btn btn-sm btn-ghost" data-delete-team="${t.id}">Delete</button>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
+  $$("[data-team-select]").forEach((el) => el.addEventListener("click", () => selectTeamForView(el.dataset.teamSelect)));
   $$("[data-activate-team]").forEach((btn) => btn.addEventListener("click", () => activateTeam(btn.dataset.activateTeam)));
+  $$("[data-edit-team]").forEach((btn) => btn.addEventListener("click", () => editTeam(btn.dataset.editTeam)));
   $$("[data-delete-team]").forEach((btn) => btn.addEventListener("click", () => deleteTeam(btn.dataset.deleteTeam)));
 
   // Populate the compose team selector (active team preselected)
@@ -535,6 +550,16 @@ function renderTeams() {
     $("#post-team").innerHTML = teams.map((t) =>
       `<option value="${t.id}" ${t.is_active ? "selected" : ""}>${escapeHtml(t.label)}</option>`
     ).join("");
+  }
+
+  // Populate the accounts team selector (viewing scope; default = active team)
+  if ($("#accounts-team")) {
+    if (accountsTeamId && !teams.some((t) => t.id === accountsTeamId)) accountsTeamId = "";
+    $("#accounts-team").innerHTML =
+      `<option value="" ${accountsTeamId ? "" : "selected"}>Active team (default)</option>` +
+      teams.map((t) =>
+        `<option value="${t.id}" ${accountsTeamId === t.id ? "selected" : ""}>${escapeHtml(t.label)}</option>`
+      ).join("");
   }
 }
 
@@ -572,6 +597,35 @@ async function activateTeam(id) {
   } catch { alert("Network error."); }
 }
 
+async function editTeam(id) {
+  const team = teams.find((t) => t.id === id);
+  if (!team) return;
+  const label = prompt("Team name:", team.label);
+  if (!label?.trim() || label.trim() === team.label) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/teams/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ label: label.trim() }),
+    });
+    if (res.ok) {
+      await fetchTeams();
+      renderAccounts();
+    } else {
+      const err = await res.json();
+      alert(err.error || "Failed to rename team");
+    }
+  } catch { alert("Network error."); }
+}
+
+async function selectTeamForView(id) {
+  accountsTeamId = id;
+  if ($("#accounts-team")) $("#accounts-team").value = id;
+  renderTeams();
+  await fetchProfiles();
+  renderAccounts();
+}
+
 async function deleteTeam(id) {
   if (!confirm("Delete this team? Its connected accounts will be removed too.")) return;
   try {
@@ -587,6 +641,12 @@ async function deleteTeam(id) {
 }
 
 $("#btn-create-team").addEventListener("click", createTeam);
+$("#accounts-team")?.addEventListener("change", async (e) => {
+  accountsTeamId = e.target.value || "";
+  renderTeams();
+  await fetchProfiles();
+  renderAccounts();
+});
 
 function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);
@@ -611,7 +671,8 @@ function connectPlatform(key) {
 async function fetchConnectUrl(platform) {
   if (!session?.access_token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/connect/${platform}`, {
+    const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
+    const res = await fetch(`${API_BASE}/api/connect/${platform}${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
@@ -1440,6 +1501,35 @@ async function fetchAnalytics() {
   } catch (error) {
     console.error("Failed to fetch analytics:", error);
   }
+
+  fetchRecentPosts();
+}
+
+async function fetchRecentPosts() {
+  const container = $("#recent-posts-list");
+  if (!container || !session?.access_token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/bundle-posts`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    const posts = data.posts || [];
+    if (!posts.length) {
+      container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No recent posts from Bundle.social yet.</p></div>`;
+      return;
+    }
+    container.innerHTML = posts.map((p) => `
+      <div class="account-item">
+        <div class="account-item-info">
+          <div class="account-item-name">${escapeHtml(p.text || "(no text)")}</div>
+          <div class="account-item-status">${escapeHtml((p.platforms || []).join(", ") || p.status || "")}${p.createdAt ? ` · ${fmtDate(p.createdAt)}` : ""}</div>
+        </div>
+        ${p.url ? `<a class="btn btn-sm btn-ghost" href="${p.url}" target="_blank">View</a>` : ""}
+      </div>
+    `).join("");
+  } catch {
+    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">Could not load recent posts.</p></div>`;
+  }
 }
 
 function renderAnalytics(data) {
@@ -1510,6 +1600,7 @@ function escapeHtml(text) {
 // ── Init ──
 
 async function init() {
+  const initialHash = location.hash.replace("#", "");
   loadHistory();
   renderHistory();
   renderAccounts();
@@ -1522,14 +1613,24 @@ async function init() {
   renderPlatformChips();
   fetchTeams();
 
-  // Handle Bundle OAuth connect callback (?success=true / ?error=...)
+  // Handle Bundle OAuth connect callback (Bundle sends ?success=<platform>-callback or ?success=true)
   const params = new URLSearchParams(location.search);
-  if (params.get("success") === "true") {
+  if (params.get("success")) {
     history.replaceState(null, "", location.pathname);
+    await fetchTeams();
+    await fetchProfiles();
+    renderAccounts();
+    renderPlatformChips();
     showView("accounts");
   } else if (params.get("error")) {
     history.replaceState(null, "", location.pathname);
     alert("Account connection failed.");
+  }
+
+  // Deep-link routing via URL hash (e.g. #accounts)
+  if (initialHash && $(`#view-${initialHash}`)) {
+    if (!session && PROTECTED_VIEWS.has(initialHash)) showView("welcome");
+    else showView(initialHash);
   }
   
   // Initialize new feature views
