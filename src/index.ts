@@ -200,6 +200,11 @@ async function handleApi(
     return handleMediaUpload(request, env, origin, h);
   }
 
+  // --- POST /api/media/upload — multipart file upload to Bundle ---
+  if (url.pathname === "/api/media/upload" && request.method === "POST") {
+    return handleMediaUploadFile(request, env, origin, h);
+  }
+
   // --- POST /api/import — start Bundle post history import ---
   if (url.pathname === "/api/import" && request.method === "POST") {
     return handlePostImport(request, env, origin, h);
@@ -1029,6 +1034,48 @@ async function handleMediaUpload(
 }
 
 /**
+ * POST /api/media/upload — Upload a file to Bundle (multipart/form-data).
+ * Form fields: file (binary), teamId (optional).
+ */
+async function handleMediaUploadFile(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+
+  let form: FormData;
+  try { form = await request.formData(); } catch { return errorResponse("Invalid form data", 400, origin); }
+
+  const file = form.get("file");
+  if (!file || typeof file === "string") return errorResponse("No file", 400, origin);
+
+  const teamId = await resolveBundleTeamId(user.sub, (form.get("teamId") as string) || undefined, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
+  const fd = new FormData();
+  fd.append("teamId", teamId);
+  fd.append("file", file, file.name);
+
+  try {
+    const res = await fetch("https://api.bundle.social/api/v1/upload/", {
+      method: "POST",
+      headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: fd,
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) {
+      console.error(`Bundle upload failed (team=${teamId}):`, res.status, JSON.stringify(data));
+      return errorResponse(data.message || "Upload failed", res.status || 502, origin);
+    }
+    return json({ uploadId: data.id, ...data }, 200, headers);
+  } catch (e) {
+    console.error("Bundle upload exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Upload failed", 502, origin);
+  }
+}
+
+/**
  * POST /api/import — Start Bundle post history import.
  * Body: { platform }
  */
@@ -1362,7 +1409,10 @@ async function postViaProvider(
         postDate: now,
         socialAccountTypes: [bsPlatform],
         data: {
-          [bsPlatform]: { text },
+          [bsPlatform]: {
+            text,
+            ...(mediaUrls?.length ? { uploadIds: mediaUrls } : {}),
+          },
         },
       }),
     });

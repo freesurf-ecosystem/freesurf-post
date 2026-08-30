@@ -380,8 +380,8 @@ btnPost.addEventListener("click", async () => {
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
 
   const mediaPlatforms = PLATFORMS.filter((p) => p.requiresMedia && platforms.includes(p.key)).map((p) => p.name);
-  if (mediaPlatforms.length) {
-    showFeedback(`${mediaPlatforms.join(", ")} require${mediaPlatforms.length === 1 ? "s" : ""} a video or image. Media uploads are coming soon.`, "error");
+  if (mediaPlatforms.length && !uploadedMedia.length) {
+    showFeedback(`${mediaPlatforms.join(", ")} require${mediaPlatforms.length === 1 ? "s" : ""} a video or image.`, "error");
     return;
   }
 
@@ -390,10 +390,35 @@ btnPost.addEventListener("click", async () => {
   clearFeedback();
 
   try {
+    const teamId = $("#post-team")?.value || undefined;
+
+    // Upload any attached media to Bundle first (scoped to the selected team)
+    const uploadIds = [];
+    for (const m of uploadedMedia) {
+      if (m.uploadId) { uploadIds.push(m.uploadId); continue; }
+      const fd = new FormData();
+      fd.append("file", m.file);
+      if (teamId) fd.append("teamId", teamId);
+      const upRes = await fetch(`${API_BASE}/api/media/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: fd,
+      });
+      const upData = await upRes.json();
+      if (!upRes.ok || !upData.uploadId) {
+        showFeedback(upData.error || "Media upload failed.", "error");
+        btnPost.disabled = false;
+        btnPost.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Post`;
+        return;
+      }
+      m.uploadId = upData.uploadId;
+      uploadIds.push(upData.uploadId);
+    }
+
     const res = await fetch(`${API_BASE}/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, teamId: $("#post-team")?.value || undefined }),
+      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined }),
     });
     const data = await res.json();
 
@@ -419,6 +444,8 @@ btnPost.addEventListener("click", async () => {
       textarea.value = "";
       charCount.textContent = "0 / 300";
       charCount.className = "char-count";
+      uploadedMedia = [];
+      renderMediaPreview();
     } else {
       showFeedback(data.error || "Post failed.", "error");
     }
