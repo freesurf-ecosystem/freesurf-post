@@ -14,10 +14,10 @@ const PLATFORMS = [
   { key: "x",         name: "X",          oauth: true },
   { key: "linkedin",  name: "LinkedIn",   oauth: true },
   { key: "facebook",  name: "Facebook",   oauth: true },
-  { key: "instagram", name: "Instagram",  oauth: true },
+  { key: "instagram", name: "Instagram",  oauth: true, requiresMedia: "media" },
   { key: "threads",   name: "Threads",    oauth: true },
-  { key: "tiktok",    name: "TikTok",     oauth: true, requiresMedia: true },
-  { key: "youtube",   name: "YouTube",    oauth: true, requiresMedia: true },
+  { key: "tiktok",    name: "TikTok",     oauth: true, requiresMedia: "video" },
+  { key: "youtube",   name: "YouTube",    oauth: true, requiresMedia: "video" },
 ];
 
 // Platforms that need a selected Page/Channel/Organization after OAuth
@@ -379,10 +379,16 @@ btnPost.addEventListener("click", async () => {
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
 
-  const mediaPlatforms = PLATFORMS.filter((p) => p.requiresMedia && platforms.includes(p.key)).map((p) => p.name);
-  if (mediaPlatforms.length && !uploadedMedia.length) {
-    showFeedback(`${mediaPlatforms.join(", ")} require${mediaPlatforms.length === 1 ? "s" : ""} a video or image.`, "error");
-    return;
+  for (const p of PLATFORMS) {
+    if (!p.requiresMedia || !platforms.includes(p.key)) continue;
+    const ok = p.requiresMedia === "video"
+      ? uploadedMedia.some((m) => m.type === "video")
+      : uploadedMedia.length > 0;
+    if (!ok) {
+      const req = p.requiresMedia === "video" ? "a video" : "an image or video";
+      showFeedback(`${p.name} requires ${req}.`, "error");
+      return;
+    }
   }
 
   btnPost.disabled = true;
@@ -613,6 +619,7 @@ function renderTeams() {
   if (!teams.length) {
     container.innerHTML = `<div class="account-item"><div class="account-item-info"><div class="account-item-name">No teams yet</div><div class="account-item-status">Create a team to start organizing your accounts.</div></div></div>`;
     if ($("#post-team")) $("#post-team").innerHTML = `<option value="">No teams yet</option>`;
+    updateAccountsTeamLabel();
     return;
   }
   container.innerHTML = teams.map((t) => {
@@ -642,6 +649,18 @@ function renderTeams() {
       `<option value="${t.id}" ${t.is_active ? "selected" : ""}>${escapeHtml(t.label)}</option>`
     ).join("");
   }
+  updateAccountsTeamLabel();
+}
+
+function updateAccountsTeamLabel() {
+  const el = $("#accounts-team-label");
+  if (!el) return;
+  const team = accountsTeamId
+    ? teams.find((t) => t.id === accountsTeamId)
+    : teams.find((t) => t.is_active);
+  el.textContent = team
+    ? `Accounts connected to "${team.label}". Click a team above to switch.`
+    : "Create a team above to start connecting accounts.";
 }
 
 async function createTeam() {
@@ -950,17 +969,13 @@ if (mediaDropzone && mediaInput) {
 
 function handleMediaUpload(files) {
   files.forEach((file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      uploadedMedia.push({
-        file,
-        url: e.target.result,
-        type: file.type.startsWith("image/") ? "image" : "video"
-      });
-      renderMediaPreview();
-    };
-    reader.readAsDataURL(file);
+    uploadedMedia.push({
+      file,
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith("image/") ? "image" : "video"
+    });
   });
+  renderMediaPreview();
 }
 
 function renderMediaPreview() {
@@ -977,7 +992,7 @@ function renderMediaPreview() {
     <div class="media-preview-item">
       ${media.type === "image" 
         ? `<img src="${media.url}" alt="Uploaded media" />`
-        : `<video src="${media.url}" muted></video>`}
+        : `<video src="${media.url}" muted preload="metadata"></video>`}
       <button class="media-preview-remove" data-index="${index}">×</button>
     </div>
   `).join("");
