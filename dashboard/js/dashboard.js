@@ -753,7 +753,7 @@ async function deleteTeam(id) {
 
 $("#btn-create-team").addEventListener("click", createTeam);
 
-function connectPlatform(key) {
+async function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);
   if (!platform) return;
 
