@@ -21,7 +21,7 @@ const PLATFORMS = [
 ];
 
 // Platforms that need a selected Page/Channel/Organization after OAuth
-const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "instagram", "youtube"]);
+const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
 
 // ── State ──
 let session = null;
@@ -63,7 +63,8 @@ async function fetchProfiles() {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
-    connectedProfiles = data.profiles || [];
+    // Bluesky now connects via Bundle too; ignore any legacy local app-password token.
+    connectedProfiles = (data.profiles || []).filter((p) => p.platform !== "bluesky");
 
     // Also fetch Bundle-connected accounts (for the selected team)
     const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
@@ -625,6 +626,7 @@ function renderTeams() {
     if ($("#post-team")) $("#post-team").innerHTML = `<option value="">No teams yet</option>`;
     if ($("#analytics-team")) $("#analytics-team").innerHTML = `<option value="">No teams yet</option>`;
     updateAccountsTeamLabel();
+    updatePostTeamHandles();
     return;
   }
   container.innerHTML = teams.map((t) => {
@@ -664,6 +666,7 @@ function renderTeams() {
       ).join("");
   }
   updateAccountsTeamLabel();
+  updatePostTeamHandles();
 }
 
 function updateAccountsTeamLabel() {
@@ -673,6 +676,26 @@ function updateAccountsTeamLabel() {
     ? teams.find((t) => t.id === accountsTeamId)
     : teams.find((t) => t.is_active);
   el.textContent = team ? `Connected accounts of ${team.label}` : "Connected accounts";
+}
+
+async function updatePostTeamHandles() {
+  const el = $("#post-team-handles");
+  if (!el) return;
+  if (!session?.access_token) { el.textContent = ""; return; }
+  const teamId = $("#post-team")?.value || "";
+  const teamQ = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  try {
+    const res = await fetch(`${API_BASE}/api/bundle-accounts${teamQ}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const accounts = (await res.json()) || [];
+    const labels = accounts
+      .filter((a) => a.handle)
+      .map((a) => `${PLATFORMS.find((p) => p.key === a.platform)?.name || a.platform} @${a.handle}`);
+    el.textContent = labels.length ? labels.join("  ·  ") : "No accounts connected";
+  } catch {
+    el.textContent = "";
+  }
 }
 
 async function createTeam() {
@@ -752,37 +775,14 @@ async function deleteTeam(id) {
 }
 
 $("#btn-create-team").addEventListener("click", createTeam);
+$("#post-team")?.addEventListener("change", updatePostTeamHandles);
 
 async function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);
   if (!platform) return;
 
-  if (key === "bluesky") {
-    const label = prompt("Profile name (e.g. 'Personal' or 'Company'):", "Personal");
-    if (!label) return;
-    const handle = prompt("Bluesky handle (e.g. you.bsky.social):");
-    const password = prompt("App Password (from bsky.app/settings/app-passwords):");
-    if (handle && password) {
-      try {
-        const res = await fetch(`${API_BASE}/api/profiles/token`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ platform: key, label, handle, accessToken: password }),
-        });
-        if (res.ok) {
-          await fetchProfiles();
-          renderAccounts();
-          renderPlatformChips();
-        } else {
-          const err = await res.json();
-          alert(err.error || "Failed to save Bluesky account");
-        }
-      } catch { alert("Network error."); }
-    }
-  } else {
-    // Redirect to Bundle.social portal for OAuth (X included — no free tier)
-    fetchConnectUrl(key);
-  }
+  // All platforms connect via Bundle.social (including Bluesky), so accounts stay team-scoped.
+  fetchConnectUrl(key);
 }
 
 async function fetchConnectUrl(platform) {

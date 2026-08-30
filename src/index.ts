@@ -520,6 +520,7 @@ async function handleConnect(
         teamId,
         redirectUrl: `${FREESURF.URLS.post}/`,
         ...(platform === "instagram" ? { instagramConnectionMethod: "INSTAGRAM" } : {}),
+        ...(platform === "facebook" ? { withBusinessScope: true } : {}),
       }),
     });
     const data = (await res.json()) as any;
