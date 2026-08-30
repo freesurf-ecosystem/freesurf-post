@@ -101,6 +101,10 @@ function renderAuthUI() {
   const sidebar = $("#sidebar");
   if (sidebar) sidebar.classList.toggle("hidden", !signedIn);
 
+  // Hide the hamburger menu on the landing page (it only makes sense when signed in)
+  const menuBtn = $("#mobile-menu-btn");
+  if (menuBtn) menuBtn.classList.toggle("hidden", !signedIn);
+
   // Show/hide nav items based on auth
   const topbarNav = $("#topbar-nav");
   if (topbarNav) {
@@ -342,8 +346,8 @@ function renderPlatformChips() {
   container.innerHTML = PLATFORMS.map((p) => {
     const acc = composeAccounts.find((a) => a.platform === p.key);
     const handle = acc?.handle;
-    return `<label class="platform-chip" data-platform="${p.key}">
-      ${p.name}${handle ? ` @${handle}` : ""}
+    return `<label class="platform-chip${handle ? " connected" : ""}" data-platform="${p.key}">
+      ${handle ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${handle ? ` @${handle}` : ""}
       <input type="checkbox" />
     </label>`;
   }).join("");
