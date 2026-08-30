@@ -800,7 +800,8 @@ async function fetchConnectUrl(platform) {
     });
     const data = await res.json();
     if (data.url) {
-      window.open(data.url, "_blank");
+      // Same-tab redirect so the app reloads fresh (and accounts refresh) after OAuth.
+      window.location.href = data.url;
     }
   } catch {
     alert("Unable to connect. Open https://bundle.social/dashboard to connect accounts.");
