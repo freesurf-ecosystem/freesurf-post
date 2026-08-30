@@ -86,8 +86,8 @@
     radial-gradient(ellipse 1000px 580px at 42% 81%, rgba(0, 0, 0, 1), transparent 70%),
     radial-gradient(ellipse 900px 520px at 68% 83%, rgba(0, 0, 0, 1), transparent 70%),
     radial-gradient(ellipse 980px 560px at 90% 82%, rgba(0, 0, 0, 1), transparent 70%),
-    linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -142,8 +142,8 @@ body::before {
     radial-gradient(ellipse 1000px 580px at 42% 81%, rgba(255, 255, 255, 1), transparent 70%),
     radial-gradient(ellipse 900px 520px at 68% 83%, rgba(255, 255, 255, 1), transparent 70%),
     radial-gradient(ellipse 980px 560px at 90% 82%, rgba(255, 255, 255, 1), transparent 70%),
-    linear-gradient(rgba(0, 0, 0, 0.22) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.22) 1px, transparent 1px);
+    linear-gradient(rgba(0, 0, 0, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 22px 22px, 22px 22px;
   background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat;
   z-index: 0;

@@ -10,7 +10,7 @@ const SUPABASE_ANON_KEY = config.AUTH.SUPABASE_ANON_KEY;
 
 // ── Platform config ──
 const PLATFORMS = [
-  { key: "bluesky",   name: "Bluesky",   oauth: false, note: "App Password — no registration needed" },
+  { key: "bluesky",   name: "Bluesky",   oauth: false },
   { key: "x",         name: "X",          oauth: true },
   { key: "linkedin",  name: "LinkedIn",   oauth: true },
   { key: "facebook",  name: "Facebook",   oauth: true },
@@ -51,6 +51,7 @@ async function refreshAuth() {
     session = data.session;
   } catch { session = null; }
   await fetchProfiles();
+  await fetchTeams();
   renderAuthUI();
 }
 
@@ -601,6 +602,9 @@ async function disconnectPlatform(key) {
 
 let teams = [];
 let accountsTeamId = "";
+let analyticsTeamId = "";
+let recentPostsAll = [];
+let recentPostsShown = 5;
 
 async function fetchTeams() {
   if (!session?.access_token) { teams = []; renderTeams(); return; }
@@ -619,6 +623,7 @@ function renderTeams() {
   if (!teams.length) {
     container.innerHTML = `<div class="account-item"><div class="account-item-info"><div class="account-item-name">No teams yet</div><div class="account-item-status">Create a team to start organizing your accounts.</div></div></div>`;
     if ($("#post-team")) $("#post-team").innerHTML = `<option value="">No teams yet</option>`;
+    if ($("#analytics-team")) $("#analytics-team").innerHTML = `<option value="">No teams yet</option>`;
     updateAccountsTeamLabel();
     return;
   }
@@ -649,18 +654,25 @@ function renderTeams() {
       `<option value="${t.id}" ${t.is_active ? "selected" : ""}>${escapeHtml(t.label)}</option>`
     ).join("");
   }
+
+  // Populate the analytics team selector
+  if ($("#analytics-team")) {
+    $("#analytics-team").innerHTML =
+      `<option value="" ${analyticsTeamId ? "" : "selected"}>All teams</option>` +
+      teams.map((t) =>
+        `<option value="${t.id}" ${analyticsTeamId === t.id ? "selected" : ""}>${escapeHtml(t.label)}</option>`
+      ).join("");
+  }
   updateAccountsTeamLabel();
 }
 
 function updateAccountsTeamLabel() {
-  const el = $("#accounts-team-label");
+  const el = $("#accounts-card-title");
   if (!el) return;
   const team = accountsTeamId
     ? teams.find((t) => t.id === accountsTeamId)
     : teams.find((t) => t.is_active);
-  el.textContent = team
-    ? `Accounts connected to "${team.label}". Click a team above to switch.`
-    : "Create a team above to start connecting accounts.";
+  el.textContent = team ? `Connected accounts of ${team.label}` : "Connected accounts";
 }
 
 async function createTeam() {
@@ -751,9 +763,21 @@ function connectPlatform(key) {
     const handle = prompt("Bluesky handle (e.g. you.bsky.social):");
     const password = prompt("App Password (from bsky.app/settings/app-passwords):");
     if (handle && password) {
-      connectedProfiles.push({ platform: key, label, handle, id: crypto.randomUUID() });
-      renderAccounts();
-      renderPlatformChips();
+      try {
+        const res = await fetch(`${API_BASE}/api/profiles/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ platform: key, label, handle, accessToken: password }),
+        });
+        if (res.ok) {
+          await fetchProfiles();
+          renderAccounts();
+          renderPlatformChips();
+        } else {
+          const err = await res.json();
+          alert(err.error || "Failed to save Bluesky account");
+        }
+      } catch { alert("Network error."); }
     }
   } else {
     // Redirect to Bundle.social portal for OAuth (X included — no free tier)
@@ -1595,8 +1619,7 @@ async function fetchAnalytics() {
 }
 
 async function fetchRecentPosts() {
-  const container = $("#recent-posts-list");
-  if (!container || !session?.access_token) return;
+  if (!session?.access_token) return;
 
   // Local history (this browser) folded in front of Bundle's recent posts
   const local = (postHistory || []).map((p) => ({
@@ -1609,42 +1632,59 @@ async function fetchRecentPosts() {
   }));
 
   try {
-    const res = await fetch(`${API_BASE}/api/bundle-posts`, {
+    const teamQ = analyticsTeamId ? `?teamId=${encodeURIComponent(analyticsTeamId)}` : "";
+    const res = await fetch(`${API_BASE}/api/bundle-posts${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
-    const bundle = data.posts || [];
-    const posts = [...local, ...bundle];
-    if (!posts.length) {
-      container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No recent posts yet.</p></div>`;
-      return;
-    }
-    container.innerHTML = posts.map((p) => `
-      <div class="account-item">
-        <div class="account-item-info">
-          <div class="account-item-name">${escapeHtml(p.text || "(no text)")}</div>
-          <div class="account-item-status">${escapeHtml((p.platforms || []).join(", ") || p.status || "")}${p.createdAt ? ` · ${fmtDate(p.createdAt)}` : ""}</div>
-        </div>
-        ${p.url ? `<a class="btn btn-sm btn-ghost" href="${p.url}" target="_blank">View</a>` : ""}
-      </div>
-    `).join("");
+    recentPostsAll = [...local, ...(data.posts || [])];
   } catch {
-    const posts = local;
-    if (!posts.length) {
-      container.innerHTML = `<div class="empty-state"><p class="empty-state-text">Could not load recent posts.</p></div>`;
-      return;
-    }
-    container.innerHTML = posts.map((p) => `
-      <div class="account-item">
-        <div class="account-item-info">
-          <div class="account-item-name">${escapeHtml(p.text || "(no text)")}</div>
-          <div class="account-item-status">${escapeHtml((p.platforms || []).join(", ") || p.status || "")}${p.createdAt ? ` · ${fmtDate(p.createdAt)}` : ""}</div>
-        </div>
-        ${p.url ? `<a class="btn btn-sm btn-ghost" href="${p.url}" target="_blank">View</a>` : ""}
+    recentPostsAll = local;
+  }
+
+  recentPostsShown = 5;
+  renderRecentPosts();
+}
+
+function renderRecentPosts() {
+  const container = $("#recent-posts-list");
+  const loadMore = $("#btn-load-more-posts");
+  if (!container) return;
+
+  const posts = recentPostsAll || [];
+  if (!posts.length) {
+    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No recent posts yet.</p></div>`;
+    if (loadMore) loadMore.classList.add("hidden");
+    return;
+  }
+
+  const visible = posts.slice(0, recentPostsShown);
+  container.innerHTML = visible.map((p) => `
+    <div class="account-item">
+      <div class="account-item-info">
+        <div class="account-item-name">${escapeHtml(p.text || "(no text)")}</div>
+        <div class="account-item-status">${escapeHtml((p.platforms || []).join(", ") || p.status || "")}${p.createdAt ? ` · ${fmtDate(p.createdAt)}` : ""}</div>
       </div>
-    `).join("");
+      ${p.url ? `<a class="btn btn-sm btn-ghost" href="${p.url}" target="_blank">View</a>` : ""}
+    </div>
+  `).join("");
+
+  if (loadMore) {
+    const remaining = Math.max(0, posts.length - recentPostsShown);
+    loadMore.classList.toggle("hidden", remaining === 0);
+    loadMore.textContent = `Load more (${remaining} left)`;
   }
 }
+
+$("#analytics-team")?.addEventListener("change", (e) => {
+  analyticsTeamId = e.target.value || "";
+  fetchRecentPosts();
+});
+
+$("#btn-load-more-posts")?.addEventListener("click", () => {
+  recentPostsShown += 5;
+  renderRecentPosts();
+});
 
 function renderAnalytics(data) {
   const summaryContainer = $("#analytics-summary");
@@ -1736,8 +1776,9 @@ async function init() {
     renderPlatformChips();
     showView("accounts");
   } else if (params.get("error")) {
+    console.error("Connect callback error:", params.get("error"));
     history.replaceState(null, "", location.pathname);
-    alert("Account connection failed.");
+    alert(`Account connection failed: ${params.get("error")}`);
   }
 
   // Deep-link routing via URL hash (e.g. #accounts)
@@ -1777,6 +1818,7 @@ function switchView(viewName) {
   $(".sidebar-overlay")?.classList.remove("active");
   
   // Refresh data for the view
+  if (viewName === "compose") fetchTeams();
   if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); }
   if (viewName === "drafts") fetchDrafts();
   if (viewName === "hashtags") fetchHashtagGroups();

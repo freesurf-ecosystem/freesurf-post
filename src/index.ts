@@ -519,6 +519,7 @@ async function handleConnect(
         type: bsPlatform,
         teamId,
         redirectUrl: `${FREESURF.URLS.post}/`,
+        ...(platform === "instagram" ? { instagramConnectionMethod: "INSTAGRAM" } : {}),
       }),
     });
     const data = (await res.json()) as any;

@@ -295,12 +295,7 @@
                 <h3 class="preview-title">Preview</h3>
                 <span class="preview-count" id="preview-count">0 platforms</span>
               </div>
-              <div class="preview-list" id="preview-list">
-                <div class="preview-empty">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-                  <p>Select platforms to see preview</p>
-                </div>
-              </div>
+              <div class="preview-list" id="preview-list"></div>
             </div>
           </div>
         </div>
@@ -335,7 +330,7 @@
           <div class="account-list" id="team-list"></div>
         </div>
         <div class="card" style="margin-top:16px;">
-          <div class="card-header"><div><h2 class="card-title">Connected accounts</h2><p class="card-subtitle" id="accounts-team-label">Accounts on your active team. Click a team above to view its connections.</p></div></div>
+          <div class="card-header"><div><h2 class="card-title" id="accounts-card-title">Connected accounts</h2></div></div>
           <div class="account-list" id="account-list"></div>
         </div>
       </section>
@@ -440,8 +435,11 @@
             </div>
           </div>
           <div id="analytics-content">
-            <div class="card-header"><div><h2 class="card-title">Recent posts</h2><p class="card-subtitle">Latest posts from your connected accounts.</p></div></div>
+            <div class="card-header"><div><h2 class="card-title">Recent posts</h2><p class="card-subtitle">Latest posts from your connected accounts.</p></div>
+              <select id="analytics-team" class="form-select" style="max-width:200px;"></select>
+            </div>
             <div class="account-list" id="recent-posts-list"></div>
+            <div style="margin-top:12px;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
             <div class="analytics-summary" id="analytics-summary"></div>
             <div class="analytics-platforms" id="analytics-platforms"></div>
           </div>
