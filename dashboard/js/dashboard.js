@@ -26,6 +26,7 @@ const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
 // ── State ──
 let session = null;
 let connectedProfiles = []; // { platform, label, handle, id }[]
+let composeAccounts = [];   // accounts for the team selected in the compose dropdown
 let postHistory = [];
 let scheduledPosts = [];
 let currentView = "compose";
@@ -338,12 +339,12 @@ $$(".sidebar-nav-item").forEach((link) => {
 
 function renderPlatformChips() {
   const container = $("#platform-toggles");
-  const connectedSet = new Set(connectedProfiles.map((p) => p.platform));
   container.innerHTML = PLATFORMS.map((p) => {
-    const connected = connectedSet.has(p.key);
-    return `<label class="platform-chip ${connected ? "selected" : ""}" data-platform="${p.key}">
-      ${p.name}${connected ? ` (${connectedProfiles.filter((cp) => cp.platform === p.key).length})` : ""}
-      <input type="checkbox" ${connected ? "checked" : ""} />
+    const acc = composeAccounts.find((a) => a.platform === p.key);
+    const handle = acc?.handle;
+    return `<label class="platform-chip ${handle ? "selected" : ""}" data-platform="${p.key}">
+      ${p.name}${handle ? ` @${handle}` : ""}
+      <input type="checkbox" ${handle ? "checked" : ""} />
     </label>`;
   }).join("");
 
@@ -355,6 +356,12 @@ function renderPlatformChips() {
       updatePlatformPreviews();
     });
   });
+}
+
+function updatePlatformPreviews() {
+  const selected = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  const count = $("#preview-count");
+  if (count) count.textContent = `${selected.length} platform${selected.length === 1 ? "" : "s"}`;
 }
 
 // ── Compose ──
@@ -626,7 +633,7 @@ function renderTeams() {
     if ($("#post-team")) $("#post-team").innerHTML = `<option value="">No teams yet</option>`;
     if ($("#analytics-team")) $("#analytics-team").innerHTML = `<option value="">No teams yet</option>`;
     updateAccountsTeamLabel();
-    updatePostTeamHandles();
+    updatePostTeamAccounts();
     return;
   }
   container.innerHTML = teams.map((t) => {
@@ -666,7 +673,7 @@ function renderTeams() {
       ).join("");
   }
   updateAccountsTeamLabel();
-  updatePostTeamHandles();
+  updatePostTeamAccounts();
 }
 
 function updateAccountsTeamLabel() {
@@ -678,24 +685,19 @@ function updateAccountsTeamLabel() {
   el.textContent = team ? `Connected accounts of ${team.label}` : "Connected accounts";
 }
 
-async function updatePostTeamHandles() {
-  const el = $("#post-team-handles");
-  if (!el) return;
-  if (!session?.access_token) { el.textContent = ""; return; }
+async function updatePostTeamAccounts() {
+  if (!session?.access_token) { composeAccounts = []; renderPlatformChips(); return; }
   const teamId = $("#post-team")?.value || "";
   const teamQ = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
   try {
     const res = await fetch(`${API_BASE}/api/bundle-accounts${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    const accounts = (await res.json()) || [];
-    const labels = accounts
-      .filter((a) => a.handle)
-      .map((a) => `${PLATFORMS.find((p) => p.key === a.platform)?.name || a.platform} @${a.handle}`);
-    el.textContent = labels.length ? labels.join("  ·  ") : "No accounts connected";
+    composeAccounts = (await res.json()) || [];
   } catch {
-    el.textContent = "";
+    composeAccounts = [];
   }
+  renderPlatformChips();
 }
 
 async function createTeam() {
@@ -775,7 +777,7 @@ async function deleteTeam(id) {
 }
 
 $("#btn-create-team").addEventListener("click", createTeam);
-$("#post-team")?.addEventListener("change", updatePostTeamHandles);
+$("#post-team")?.addEventListener("change", updatePostTeamAccounts);
 
 async function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);
