@@ -16,8 +16,8 @@ const PLATFORMS = [
   { key: "facebook",  name: "Facebook",   oauth: true },
   { key: "instagram", name: "Instagram",  oauth: true },
   { key: "threads",   name: "Threads",    oauth: true },
-  { key: "tiktok",    name: "TikTok",     oauth: true },
-  { key: "youtube",   name: "YouTube",    oauth: true },
+  { key: "tiktok",    name: "TikTok",     oauth: true, requiresMedia: true },
+  { key: "youtube",   name: "YouTube",    oauth: true, requiresMedia: true },
 ];
 
 // Platforms that need a selected Page/Channel/Organization after OAuth
@@ -378,6 +378,12 @@ btnPost.addEventListener("click", async () => {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
+
+  const mediaPlatforms = PLATFORMS.filter((p) => p.requiresMedia && platforms.includes(p.key)).map((p) => p.name);
+  if (mediaPlatforms.length) {
+    showFeedback(`${mediaPlatforms.join(", ")} require${mediaPlatforms.length === 1 ? "s" : ""} a video or image. Media uploads are coming soon.`, "error");
+    return;
+  }
 
   btnPost.disabled = true;
   btnPost.textContent = "Posting…";

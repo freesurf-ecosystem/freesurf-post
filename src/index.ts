@@ -547,27 +547,23 @@ async function handleBundleAccounts(
 
   try {
     const res = await fetch(
-      `https://api.bundle.social/api/v1/social-account?teamId=${teamId}`,
+      `https://api.bundle.social/api/v1/team/${teamId}`,
       { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
     );
     const rawText = await res.text();
-    console.log(`Bundle social-account (team=${teamId}) status=${res.status}:`, rawText.slice(0, 2000));
+    console.log(`Bundle team (team=${teamId}) status=${res.status}:`, rawText.slice(0, 2000));
     const data = JSON.parse(rawText) as any;
-    const accounts = (data.items || data.data || data || []).map((a: any) => {
-      const channels = Array.isArray(a.channels)
-        ? a.channels.map((c: any) => ({
-            id: c.id || c.channelId || c.externalId || "",
-            name: c.name || c.title || c.displayName || c.username || c.handle || c.id || "",
-          }))
-        : [];
-      return {
-        platform: bundlePlatformToKey(a.type),
-        handle: a.username || a.displayName || a.userUsername || "",
-        connected: true,
-        channels,
-        selectedChannelId: a.channelId || a.externalId || a.selectedChannelId || "",
-      };
-    });
+    const socialAccounts = Array.isArray(data.socialAccounts) ? data.socialAccounts : [];
+    const accounts = socialAccounts.map((a: any) => ({
+      platform: bundlePlatformToKey(a.type),
+      handle: a.username || a.displayName || a.userUsername || "",
+      connected: true,
+      channels: (Array.isArray(a.channels) ? a.channels : []).map((c: any) => ({
+        id: c.id || "",
+        name: c.name || c.username || c.id || "",
+      })),
+      selectedChannelId: a.externalId || "",
+    }));
     return json(accounts, 200, headers);
   } catch (e) {
     console.error("Bundle accounts exception:", e instanceof Error ? e.message : String(e));
