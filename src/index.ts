@@ -543,7 +543,7 @@ async function handleBundleAccounts(
     );
     const data = (await res.json()) as any;
     const accounts = (data.items || data || []).map((a: any) => ({
-      platform: (a.type || "").toLowerCase(),
+      platform: bundlePlatformToKey(a.type),
       handle: a.username || a.displayName || a.userUsername || "",
       connected: true,
     }));
@@ -590,7 +590,7 @@ async function handleBundlePosts(
     const list = data.items || data.posts || data.data || data;
     const posts = (Array.isArray(list) ? list : []).map((p: any) => {
       const platforms = Array.isArray(p.socialAccountTypes)
-        ? p.socialAccountTypes.map((s: string) => String(s).toLowerCase())
+        ? p.socialAccountTypes.map((s: string) => bundlePlatformToKey(String(s)))
         : [];
       const bsPlatform = String(p.socialAccountTypes?.[0] || "").toUpperCase();
       return {
@@ -1489,6 +1489,17 @@ function bundlePlatform(key: string): string | null {
     tiktok: "TIKTOK", youtube: "YOUTUBE",
   };
   return m[key] || null;
+}
+
+/** Reverse of bundlePlatform: Bundle platform name → our key ("TWITTER" → "x"). */
+function bundlePlatformToKey(platform: string): string {
+  const m: Record<string, string> = {
+    bluesky: "bluesky", twitter: "x", x: "x", linkedin: "linkedin",
+    facebook: "facebook", instagram: "instagram", threads: "threads",
+    tiktok: "tiktok", youtube: "youtube",
+  };
+  const k = String(platform || "").toLowerCase();
+  return m[k] || k;
 }
 
 /**

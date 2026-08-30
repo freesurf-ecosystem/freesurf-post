@@ -91,7 +91,7 @@ function renderAuthUI() {
   const topbarNav = $("#topbar-nav");
   if (topbarNav) {
     topbarNav.querySelectorAll(".nav-link").forEach((l) => {
-      if (l.dataset.view === "compose" || l.dataset.view === "history" || l.dataset.view === "accounts") {
+      if (l.dataset.view === "compose" || l.dataset.view === "accounts") {
         l.style.display = signedIn ? "" : "none";
       }
     });
@@ -297,12 +297,12 @@ function showView(name) {
   try { history.replaceState(null, "", `#${name}`); } catch {}
 }
 
-const PROTECTED_VIEWS = new Set(["compose", "history", "accounts"]);
+const PROTECTED_VIEWS = new Set(["compose", "accounts"]);
 
 // ── Old topbar navigation (for reference) ──
 $$(".nav-link").forEach((link) => {
   link.addEventListener("click", () => {
-    if (!session && (link.dataset.view === "compose" || link.dataset.view === "history" || link.dataset.view === "accounts")) {
+    if (!session && (link.dataset.view === "compose" || link.dataset.view === "accounts")) {
       showView("welcome");
       return;
     }
@@ -313,7 +313,7 @@ $$(".nav-link").forEach((link) => {
 // ── Sidebar navigation ──
 $$(".sidebar-nav-item").forEach((link) => {
   link.addEventListener("click", () => {
-    if (!session && (link.dataset.view === "compose" || link.dataset.view === "history" || link.dataset.view === "accounts")) {
+    if (!session && (link.dataset.view === "compose" || link.dataset.view === "accounts")) {
       showView("welcome");
       return;
     }
@@ -415,26 +415,10 @@ btnPost.addEventListener("click", async () => {
 function showFeedback(msg, type) { feedback.className = `feedback ${type} visible`; feedback.textContent = msg; }
 function clearFeedback() { feedback.className = "feedback"; feedback.innerHTML = ""; }
 
-// ── History ──
+// ── History (kept in localStorage, surfaced in Analytics) ──
 
 function saveHistory() { try { localStorage.setItem("freesurf-post-history", JSON.stringify(postHistory.slice(0, 50))); } catch {} }
 function loadHistory() { try { postHistory = JSON.parse(localStorage.getItem("freesurf-post-history") || "[]"); } catch { postHistory = []; } }
-
-function renderHistory() {
-  if (!postHistory.length) {
-    $("#history-list").innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><p class="empty-state-text">Post history is in progress.</p></div>`;
-    return;
-  }
-  $("#history-list").innerHTML = postHistory.map((p) => `
-    <div class="history-item">
-      <div class="history-text">${esc(p.text)}</div>
-      <div class="history-meta">
-        <div class="history-platforms">${p.results.map((r) => `<span class="history-platform-badge${r.success ? "" : " failed"}">${r.platform}</span>`).join("")}</div>
-        <span class="history-date">${fmtDate(p.postedAt)}</span>
-        ${p.results.filter((r) => r.success && r.postUrl).map((r) => `<a href="${r.postUrl}" target="_blank" class="history-link">${r.platform} →</a>`).join("")}
-      </div>
-    </div>`).join("");
-}
 
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 function fmtDate(iso) {
@@ -521,7 +505,6 @@ function renderTeams() {
   if (!teams.length) {
     container.innerHTML = `<div class="account-item"><div class="account-item-info"><div class="account-item-name">No teams yet</div><div class="account-item-status">Create a team to start organizing your accounts.</div></div></div>`;
     if ($("#post-team")) $("#post-team").innerHTML = `<option value="">No teams yet</option>`;
-    if ($("#accounts-team")) $("#accounts-team").innerHTML = `<option value="">No teams yet</option>`;
     return;
   }
   container.innerHTML = teams.map((t) => {
@@ -550,16 +533,6 @@ function renderTeams() {
     $("#post-team").innerHTML = teams.map((t) =>
       `<option value="${t.id}" ${t.is_active ? "selected" : ""}>${escapeHtml(t.label)}</option>`
     ).join("");
-  }
-
-  // Populate the accounts team selector (viewing scope; default = active team)
-  if ($("#accounts-team")) {
-    if (accountsTeamId && !teams.some((t) => t.id === accountsTeamId)) accountsTeamId = "";
-    $("#accounts-team").innerHTML =
-      `<option value="" ${accountsTeamId ? "" : "selected"}>Active team (default)</option>` +
-      teams.map((t) =>
-        `<option value="${t.id}" ${accountsTeamId === t.id ? "selected" : ""}>${escapeHtml(t.label)}</option>`
-      ).join("");
   }
 }
 
@@ -620,7 +593,6 @@ async function editTeam(id) {
 
 async function selectTeamForView(id) {
   accountsTeamId = id;
-  if ($("#accounts-team")) $("#accounts-team").value = id;
   renderTeams();
   await fetchProfiles();
   renderAccounts();
@@ -641,12 +613,6 @@ async function deleteTeam(id) {
 }
 
 $("#btn-create-team").addEventListener("click", createTeam);
-$("#accounts-team")?.addEventListener("change", async (e) => {
-  accountsTeamId = e.target.value || "";
-  renderTeams();
-  await fetchProfiles();
-  renderAccounts();
-});
 
 function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);
@@ -1508,14 +1474,26 @@ async function fetchAnalytics() {
 async function fetchRecentPosts() {
   const container = $("#recent-posts-list");
   if (!container || !session?.access_token) return;
+
+  // Local history (this browser) folded in front of Bundle's recent posts
+  const local = (postHistory || []).map((p) => ({
+    id: p.id,
+    status: "posted",
+    createdAt: p.postedAt,
+    platforms: (p.results || []).map((r) => r.platform),
+    text: p.text,
+    url: (p.results || []).find((r) => r.success && r.postUrl)?.postUrl,
+  }));
+
   try {
     const res = await fetch(`${API_BASE}/api/bundle-posts`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
-    const posts = data.posts || [];
+    const bundle = data.posts || [];
+    const posts = [...local, ...bundle];
     if (!posts.length) {
-      container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No recent posts from Bundle.social yet.</p></div>`;
+      container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No recent posts yet.</p></div>`;
       return;
     }
     container.innerHTML = posts.map((p) => `
@@ -1528,7 +1506,20 @@ async function fetchRecentPosts() {
       </div>
     `).join("");
   } catch {
-    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">Could not load recent posts.</p></div>`;
+    const posts = local;
+    if (!posts.length) {
+      container.innerHTML = `<div class="empty-state"><p class="empty-state-text">Could not load recent posts.</p></div>`;
+      return;
+    }
+    container.innerHTML = posts.map((p) => `
+      <div class="account-item">
+        <div class="account-item-info">
+          <div class="account-item-name">${escapeHtml(p.text || "(no text)")}</div>
+          <div class="account-item-status">${escapeHtml((p.platforms || []).join(", ") || p.status || "")}${p.createdAt ? ` · ${fmtDate(p.createdAt)}` : ""}</div>
+        </div>
+        ${p.url ? `<a class="btn btn-sm btn-ghost" href="${p.url}" target="_blank">View</a>` : ""}
+      </div>
+    `).join("");
   }
 }
 
@@ -1602,7 +1593,6 @@ function escapeHtml(text) {
 async function init() {
   const initialHash = location.hash.replace("#", "");
   loadHistory();
-  renderHistory();
   renderAccounts();
   renderPlatformChips();
   await refreshAuth();
