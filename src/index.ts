@@ -564,7 +564,11 @@ async function handleBundleAccounts(
       { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
     );
     const rawText = await res.text();
-    console.log(`Bundle team (team=${teamId}) status=${res.status}:`, rawText.slice(0, 2000));
+    if (!res.ok) {
+      console.error(`Bundle team (team=${teamId}) status=${res.status}:`, rawText.slice(0, 500));
+      return json([], 200, headers);
+    }
+    console.log(`Bundle team (team=${teamId}) status=200:`, rawText.slice(0, 2000));
     const data = JSON.parse(rawText) as any;
     const socialAccounts = Array.isArray(data.socialAccounts) ? data.socialAccounts : [];
     const accounts = socialAccounts.map((a: any) => ({
