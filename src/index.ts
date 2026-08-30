@@ -144,6 +144,12 @@ async function handleApi(
     return handleDisconnect(request, env, disconnectMatch[1], origin, h, url);
   }
 
+  // --- POST /api/channel/:platform — set/refresh/unset a platform channel/page ---
+  const channelMatch = url.pathname.match(/^\/api\/channel\/([a-z]+)$/);
+  if (channelMatch && request.method === "POST") {
+    return handleChannel(request, env, channelMatch[1], origin, h, url);
+  }
+
   // --- Teams API ---
   if (url.pathname === "/api/teams" && request.method === "GET") {
     return handleGetTeams(request, env, origin, h);
@@ -542,11 +548,22 @@ async function handleBundleAccounts(
       { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
     );
     const data = (await res.json()) as any;
-    const accounts = (data.items || data || []).map((a: any) => ({
-      platform: bundlePlatformToKey(a.type),
-      handle: a.username || a.displayName || a.userUsername || "",
-      connected: true,
-    }));
+    console.log("Bundle social-account response:", JSON.stringify(data).slice(0, 1200));
+    const accounts = (data.items || data || []).map((a: any) => {
+      const channels = Array.isArray(a.channels)
+        ? a.channels.map((c: any) => ({
+            id: c.id || c.channelId || c.externalId || "",
+            name: c.name || c.title || c.displayName || c.username || c.handle || c.id || "",
+          }))
+        : [];
+      return {
+        platform: bundlePlatformToKey(a.type),
+        handle: a.username || a.displayName || a.userUsername || "",
+        connected: true,
+        channels,
+        selectedChannelId: a.channelId || a.externalId || a.selectedChannelId || "",
+      };
+    });
     return json(accounts, 200, headers);
   } catch {
     return json([], 200, headers);
@@ -648,6 +665,67 @@ async function handleDisconnect(
   } catch (e) {
     console.error(`Bundle disconnect exception (${platform}):`, e instanceof Error ? e.message : String(e));
     return errorResponse("Disconnect unavailable", 502, origin);
+  }
+}
+
+/**
+ * POST /api/channel/:platform — Set / refresh / unset a platform channel (page).
+ * Body: { action: "set"|"refresh"|"unset", channelId?, teamId? }
+ * Required for LinkedIn orgs, Facebook pages, Instagram-via-Facebook, YouTube channels.
+ */
+async function handleChannel(
+  request: Request,
+  env: Env,
+  platform: string,
+  origin: string,
+  headers: Record<string, string>,
+  url?: URL
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return errorResponse("Bundle not configured", 501, origin);
+  }
+
+  const bsPlatform = bundlePlatform(platform);
+  if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
+
+  let body: { action?: string; channelId?: string; teamId?: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+
+  const teamId = await resolveBundleTeamId(user.sub, body.teamId || url?.searchParams.get("teamId") || undefined, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
+  const action = body.action || "set";
+  try {
+    let endpoint: string;
+    const payload: any = { type: bsPlatform, teamId };
+
+    if (action === "refresh") {
+      endpoint = "https://api.bundle.social/api/v1/social-account/refresh-channels";
+    } else if (action === "unset") {
+      endpoint = "https://api.bundle.social/api/v1/social-account/unset-channel";
+    } else {
+      endpoint = "https://api.bundle.social/api/v1/social-account/set-channel";
+      if (!body.channelId) return errorResponse("channelId required", 400, origin);
+      payload.channelId = body.channelId;
+    }
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) {
+      console.error(`Bundle channel ${action} failed (${platform}, team=${teamId}):`, res.status, JSON.stringify(data));
+      return errorResponse(data.message || "Channel update failed", res.status || 502, origin);
+    }
+    return json({ ok: true, account: data }, 200, headers);
+  } catch (e) {
+    console.error("Channel update exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Channel update failed", 502, origin);
   }
 }
 

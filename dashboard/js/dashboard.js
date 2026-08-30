@@ -20,6 +20,9 @@ const PLATFORMS = [
   { key: "youtube",   name: "YouTube",    oauth: true },
 ];
 
+// Platforms that need a selected Page/Channel/Organization after OAuth
+const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "instagram", "youtube"]);
+
 // ── State ──
 let session = null;
 let connectedProfiles = []; // { platform, label, handle, id }[]
@@ -69,7 +72,14 @@ async function fetchProfiles() {
     const bundleData = await bundleRes.json();
     for (const acc of bundleData || []) {
       if (!connectedProfiles.some((p) => p.platform === acc.platform && p.handle === acc.handle)) {
-        connectedProfiles.push({ platform: acc.platform, label: acc.handle || acc.platform, handle: acc.handle, id: `bundle-${acc.platform}` });
+        connectedProfiles.push({
+          platform: acc.platform,
+          label: acc.handle || acc.platform,
+          handle: acc.handle,
+          id: `bundle-${acc.platform}`,
+          channels: acc.channels || [],
+          selectedChannelId: acc.selectedChannelId || "",
+        });
       }
     }
   } catch {
@@ -439,14 +449,30 @@ function renderAccounts() {
   $("#account-list").innerHTML = PLATFORMS.map((p) => {
     const profiles = platformMap.get(p.key) || [];
     const count = profiles.length;
+    const prof = profiles[0] || {};
+    const channels = prof.channels || [];
+    const selectedChannel = channels.find((c) => c.id === prof.selectedChannelId);
     const handle = profiles.map((pp) => pp.handle || pp.label).filter(Boolean).join(", ");
+    const status = count
+      ? (selectedChannel?.name || handle || "Connected")
+      : (p.note || "Not connected");
+
+    const channelUi = count && CHANNEL_PLATFORMS.has(p.key)
+      ? (channels.length
+          ? `<select class="form-select channel-select" data-channel-select="${p.key}" style="max-width:200px;">
+              <option value="">No page selected</option>
+              ${channels.map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === prof.selectedChannelId ? "selected" : ""}>${escapeHtml(c.name || c.id)}</option>`).join("")}
+            </select>
+            <button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">↻</button>`
+          : `<button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">Refresh pages</button>`)
+      : "";
+
     return `<div class="account-item">
       <div class="account-item-info">
         <div class="account-item-name">${p.name}</div>
-        <div class="account-item-status${count ? " connected" : ""}">
-          ${count ? (handle || "Connected") : p.note || "Not connected"}
-        </div>
+        <div class="account-item-status${count ? " connected" : ""}">${status}</div>
       </div>
+      ${channelUi}
       ${count
         ? `<button class="btn btn-sm btn-ghost" data-disconnect="${p.key}">Disconnect</button>`
         : `<button class="btn btn-sm btn-secondary" data-connect="${p.key}">Connect</button>`}
@@ -459,6 +485,54 @@ function renderAccounts() {
   $$("[data-disconnect]").forEach((btn) => {
     btn.addEventListener("click", () => disconnectPlatform(btn.dataset.disconnect));
   });
+  $$("[data-channel-select]").forEach((sel) => {
+    sel.addEventListener("change", () => setChannel(sel.dataset.channelSelect, sel.value));
+  });
+  $$("[data-refresh-channels]").forEach((btn) => {
+    btn.addEventListener("click", () => refreshChannels(btn.dataset.refreshChannels));
+  });
+}
+
+async function setChannel(platform, channelId) {
+  if (!session?.access_token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/channel/${platform}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        action: channelId ? "set" : "unset",
+        channelId: channelId || undefined,
+        teamId: accountsTeamId || undefined,
+      }),
+    });
+    if (res.ok) {
+      await fetchProfiles();
+      renderAccounts();
+      renderPlatformChips();
+    } else {
+      const err = await res.json();
+      alert(err.error || "Failed to set page");
+    }
+  } catch { alert("Network error."); }
+}
+
+async function refreshChannels(platform) {
+  if (!session?.access_token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/channel/${platform}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ action: "refresh", teamId: accountsTeamId || undefined }),
+    });
+    if (res.ok) {
+      await fetchProfiles();
+      renderAccounts();
+      renderPlatformChips();
+    } else {
+      const err = await res.json();
+      alert(err.error || "Failed to refresh pages");
+    }
+  } catch { alert("Network error."); }
 }
 
 async function disconnectPlatform(key) {
