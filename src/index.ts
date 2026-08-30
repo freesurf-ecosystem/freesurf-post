@@ -179,6 +179,12 @@ async function handleApi(
     return handleBundlePosts(request, env, origin, h, url);
   }
 
+  // --- GET /api/post/:id — get a single Bundle post (status/externalData) ---
+  const postDetailMatch = url.pathname.match(/^\/api\/post\/([a-f0-9-]+)$/);
+  if (postDetailMatch && request.method === "GET") {
+    return handleGetPost(request, env, postDetailMatch[1], origin, h);
+  }
+
   // --- GET /api/analytics/:platform — proxy Bundle analytics ---
   const analyticsMatch = url.pathname.match(/^\/api\/analytics\/([a-z]+)$/);
   if (analyticsMatch && request.method === "GET") {
@@ -633,6 +639,29 @@ async function handleBundlePosts(
 }
 
 /**
+ * GET /api/post/:id — Get a single Bundle post (status + externalData) for diagnostics.
+ */
+async function handleGetPost(
+  request: Request, env: Env, id: string, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Bundle not configured", 501, origin);
+
+  try {
+    const res = await fetch(`https://api.bundle.social/api/v1/post/${id}`, {
+      headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+    });
+    const data = (await res.json()) as any;
+    console.log(`Bundle post detail (${id}) status=${res.status}:`, JSON.stringify(data).slice(0, 2000));
+    return json(data, res.status, headers);
+  } catch (e) {
+    console.error("Bundle post lookup exception:", e instanceof Error ? e.message : String(e));
+    return json({ error: "Post lookup failed" }, 502, headers);
+  }
+}
+
+/**
  * POST /api/disconnect/:platform — Disconnect a Bundle social account.
  */
 async function handleDisconnect(
@@ -1068,6 +1097,7 @@ async function handleMediaUploadFile(
       console.error(`Bundle upload failed (team=${teamId}):`, res.status, JSON.stringify(data));
       return errorResponse(data.message || "Upload failed", res.status || 502, origin);
     }
+    console.log(`Bundle upload success (team=${teamId}):`, JSON.stringify({ id: data.id, type: data.type, mime: data.mime, fileSize: data.fileSize }));
     return json({ uploadId: data.id, ...data }, 200, headers);
   } catch (e) {
     console.error("Bundle upload exception:", e instanceof Error ? e.message : String(e));

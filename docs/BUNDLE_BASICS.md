@@ -16,7 +16,27 @@
 | Slack, Discord | Instant | Instant | Self-service bot token generation |
 | Mastodon, Bluesky | Instant | Instant | Open network / Instance-level generation |
 
-To add later:
+## Current listed
+- bluesky
+- X
+- Linkedin
+- Facebook
+- Instagram
+- Threads
+- Tiktok
+- Youtube
+
+## Other bundle.socials
+- Reddit
+- Pinterest
+- Slack
+- Discord
+- Google Business
+- Snapchat
+- Mastodon
+
+
+## Outside of bundle.social
 wordpress
 medium
 dev.to
