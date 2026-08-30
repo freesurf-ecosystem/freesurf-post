@@ -70,6 +70,7 @@ async function fetchProfiles() {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const bundleData = await bundleRes.json();
+    console.log("bundle-accounts", { teamId: accountsTeamId || "(active)", status: bundleRes.status, data: bundleData });
     for (const acc of bundleData || []) {
       if (!connectedProfiles.some((p) => p.platform === acc.platform && p.handle === acc.handle)) {
         connectedProfiles.push({

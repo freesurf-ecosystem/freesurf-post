@@ -540,16 +540,20 @@ async function handleBundleAccounts(
   }
 
   const teamId = await resolveBundleTeamId(user.sub, url?.searchParams.get("teamId") || undefined, env);
-  if (!teamId) return json([], 200, headers);
+  if (!teamId) {
+    console.error("Bundle accounts: no team id resolved for", user.sub);
+    return json([], 200, headers);
+  }
 
   try {
     const res = await fetch(
       `https://api.bundle.social/api/v1/social-account?teamId=${teamId}`,
       { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
     );
-    const data = (await res.json()) as any;
-    console.log("Bundle social-account response:", JSON.stringify(data).slice(0, 1200));
-    const accounts = (data.items || data || []).map((a: any) => {
+    const rawText = await res.text();
+    console.log(`Bundle social-account (team=${teamId}) status=${res.status}:`, rawText.slice(0, 2000));
+    const data = JSON.parse(rawText) as any;
+    const accounts = (data.items || data.data || data || []).map((a: any) => {
       const channels = Array.isArray(a.channels)
         ? a.channels.map((c: any) => ({
             id: c.id || c.channelId || c.externalId || "",
@@ -565,7 +569,8 @@ async function handleBundleAccounts(
       };
     });
     return json(accounts, 200, headers);
-  } catch {
+  } catch (e) {
+    console.error("Bundle accounts exception:", e instanceof Error ? e.message : String(e));
     return json([], 200, headers);
   }
 }
