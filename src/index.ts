@@ -436,6 +436,31 @@ async function getOrCreateBundleTeam(userId: string, env: Env): Promise<string |
 }
 
 /**
+ * Resolve the Bundle team id for a post: use the explicitly-selected team
+ * (post_bundle_teams.id) if provided, otherwise the user's active team.
+ */
+async function resolveBundleTeamId(userId: string, teamId: string | undefined, env: Env): Promise<string | null> {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  if (!teamId) return getOrCreateBundleTeam(userId, env);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+  };
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${teamId}&user_id=eq.${userId}&select=bundle_team_id`,
+      { headers: authHeaders }
+    );
+    const rows = (await res.json()) as Array<{ bundle_team_id: string }>;
+    return rows[0]?.bundle_team_id || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * GET /api/connect/:platform — Generate a Bundle.social OAuth URL.
  * The user is redirected to this URL to connect their account (Plaid-style
  * handoff), then sent back to redirectUrl once the platform OAuth completes.
@@ -943,7 +968,7 @@ async function handlePost(
   // a platform post fails. When direct credentials exist (e.g. own X keys), we
   // prefer them so we can migrate off Bundle gradually.
   const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.SUPABASE_SERVICE_ROLE_KEY);
-  const bundleTeamId = bundleConfigured ? await getOrCreateBundleTeam(user.sub, env) : null;
+  const bundleTeamId = bundleConfigured ? await resolveBundleTeamId(user.sub, body.teamId, env) : null;
 
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {

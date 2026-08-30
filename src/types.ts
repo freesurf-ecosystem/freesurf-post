@@ -11,6 +11,8 @@ export interface PostRequest {
   mediaUrls?: string[];
   /** For X: reply to tweet ID */
   replyTo?: string;
+  /** Which team (post_bundle_teams.id) to post to — defaults to the active team */
+  teamId?: string;
 }
 
 /** Result of posting to a single platform */

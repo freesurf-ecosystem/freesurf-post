@@ -370,7 +370,7 @@ btnPost.addEventListener("click", async () => {
     const res = await fetch(`${API_BASE}/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text }),
+      body: JSON.stringify({ platforms, text, teamId: $("#post-team")?.value || undefined }),
     });
     const data = await res.json();
 
@@ -512,6 +512,7 @@ function renderTeams() {
   const container = $("#team-list");
   if (!teams.length) {
     container.innerHTML = `<div class="account-item"><div class="account-item-info"><div class="account-item-name">No teams yet</div><div class="account-item-status">Create a team to start organizing your accounts.</div></div></div>`;
+    if ($("#post-team")) $("#post-team").innerHTML = `<option value="">No teams yet</option>`;
     return;
   }
   container.innerHTML = teams.map((t) => `
@@ -528,6 +529,13 @@ function renderTeams() {
 
   $$("[data-activate-team]").forEach((btn) => btn.addEventListener("click", () => activateTeam(btn.dataset.activateTeam)));
   $$("[data-delete-team]").forEach((btn) => btn.addEventListener("click", () => deleteTeam(btn.dataset.deleteTeam)));
+
+  // Populate the compose team selector (active team preselected)
+  if ($("#post-team")) {
+    $("#post-team").innerHTML = teams.map((t) =>
+      `<option value="${t.id}" ${t.is_active ? "selected" : ""}>${escapeHtml(t.label)}</option>`
+    ).join("");
+  }
 }
 
 async function createTeam() {
