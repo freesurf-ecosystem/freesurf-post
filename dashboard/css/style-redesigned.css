@@ -66,28 +66,28 @@
 /* Dark mode grid + clouds */
 [data-theme="dark"] body::before {
   background-image:
-    radial-gradient(ellipse 900px 520px at 10% 4%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 860px 500px at 38% 3%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 960px 540px at 64% 5%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 880px 500px at 90% 4%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 940px 540px at 6% 22%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 1000px 560px at 32% 21%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 900px 500px at 58% 23%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 1020px 580px at 84% 22%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 980px 560px at 12% 41%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 880px 500px at 40% 43%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 1040px 600px at 66% 41%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 920px 520px at 90% 42%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 1000px 580px at 8% 62%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 940px 540px at 34% 61%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 880px 500px at 60% 63%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 1020px 600px at 86% 62%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 920px 540px at 14% 82%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 1000px 580px at 42% 81%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 900px 520px at 68% 83%, rgba(0, 0, 0, 1), transparent 70%),
-    radial-gradient(ellipse 980px 560px at 90% 82%, rgba(0, 0, 0, 1), transparent 70%),
-    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+    radial-gradient(ellipse 680px 420px at 8% 6%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 620px 400px at 36% 5%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 720px 440px at 62% 7%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 640px 410px at 88% 6%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 700px 440px at 5% 26%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 760px 460px at 32% 25%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 660px 410px at 58% 27%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 780px 470px at 84% 26%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 740px 460px at 10% 46%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 640px 410px at 38% 47%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 800px 480px at 64% 45%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 680px 420px at 90% 47%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 760px 470px at 7% 66%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 700px 440px at 33% 65%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 640px 410px at 60% 67%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 780px 480px at 86% 66%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 680px 430px at 12% 87%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 760px 470px at 40% 85%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 660px 420px at 66% 87%, rgba(0, 0, 0, 1), transparent 70%),
+    radial-gradient(ellipse 740px 460px at 90% 86%, rgba(0, 0, 0, 1), transparent 70%),
+    linear-gradient(rgba(255, 255, 255, 1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 1) 1px, transparent 1px);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -122,28 +122,28 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse 900px 520px at 10% 4%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 860px 500px at 38% 3%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 960px 540px at 64% 5%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 880px 500px at 90% 4%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 940px 540px at 6% 22%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 1000px 560px at 32% 21%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 900px 500px at 58% 23%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 1020px 580px at 84% 22%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 980px 560px at 12% 41%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 880px 500px at 40% 43%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 1040px 600px at 66% 41%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 920px 520px at 90% 42%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 1000px 580px at 8% 62%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 940px 540px at 34% 61%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 880px 500px at 60% 63%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 1020px 600px at 86% 62%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 920px 540px at 14% 82%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 1000px 580px at 42% 81%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 900px 520px at 68% 83%, rgba(255, 255, 255, 1), transparent 70%),
-    radial-gradient(ellipse 980px 560px at 90% 82%, rgba(255, 255, 255, 1), transparent 70%),
-    linear-gradient(rgba(0, 0, 0, 0.5) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 1px, transparent 1px);
+    radial-gradient(ellipse 680px 420px at 8% 6%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 620px 400px at 36% 5%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 720px 440px at 62% 7%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 640px 410px at 88% 6%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 700px 440px at 5% 26%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 760px 460px at 32% 25%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 660px 410px at 58% 27%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 780px 470px at 84% 26%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 740px 460px at 10% 46%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 640px 410px at 38% 47%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 800px 480px at 64% 45%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 680px 420px at 90% 47%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 760px 470px at 7% 66%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 700px 440px at 33% 65%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 640px 410px at 60% 67%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 780px 480px at 86% 66%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 680px 430px at 12% 87%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 760px 470px at 40% 85%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 660px 420px at 66% 87%, rgba(255, 255, 255, 1), transparent 70%),
+    radial-gradient(ellipse 740px 460px at 90% 86%, rgba(255, 255, 255, 1), transparent 70%),
+    linear-gradient(rgba(0, 0, 0, 1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 1) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 22px 22px, 22px 22px;
   background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat;
   z-index: 0;
@@ -1768,6 +1768,8 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--text);
   transition: all var(--transition);
 }
 
@@ -1782,6 +1784,8 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--text);
   background: var(--surface);
   cursor: pointer;
 }
