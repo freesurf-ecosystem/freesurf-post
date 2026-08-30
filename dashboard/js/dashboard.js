@@ -368,6 +368,17 @@ function updatePlatformPreviews() {
   if (count) count.textContent = `${selected.length} platform${selected.length === 1 ? "" : "s"}`;
 }
 
+function hasLink(text) {
+  if (!text) return false;
+  const tlds = "com|org|net|io|co|ai|dev|app|me|tv|gg|xyz|ly|to|so|info|biz|edu|gov|us|uk|ca|au|de|fr|it|es|nl|se|no|dk|fi|pl|br|mx|in|jp|cn";
+  return new RegExp(`(https?:\\/\\/[^\\s]+|www\\.[^\\s]+|[\\w-]+\\.(?:${tlds})\\b)`, "i").test(text);
+}
+
+function updateLinkWarning(text) {
+  const el = $("#link-warning");
+  if (el) el.classList.toggle("hidden", !hasLink(text));
+}
+
 // ── Compose ──
 
 const textarea = $("#post-text");
@@ -383,6 +394,7 @@ textarea.addEventListener("input", () => {
   else if (len > CHAR_SOFT_LIMIT) charCount.classList.add("warning");
   btnPost.disabled = len === 0 || len > CHAR_HARD_LIMIT;
   updatePlatformPreviews();
+  updateLinkWarning(textarea.value);
 });
 
 btnPost.addEventListener("click", async () => {
@@ -783,6 +795,76 @@ async function deleteTeam(id) {
 $("#btn-create-team").addEventListener("click", createTeam);
 $("#post-team")?.addEventListener("change", updatePostTeamAccounts);
 
+// ── API Keys ──
+
+async function fetchKeys() {
+  const container = $("#api-keys-list");
+  if (!container || !session?.access_token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/keys`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    const keys = data.keys || [];
+    if (!keys.length) {
+      container.innerHTML = `<div class="account-item"><div class="account-item-info"><div class="account-item-status">No API keys yet. Create one to post programmatically.</div></div></div>`;
+      return;
+    }
+    container.innerHTML = keys.map((k) => `
+      <div class="account-item">
+        <div class="account-item-info">
+          <div class="account-item-name">${escapeHtml(k.name)}</div>
+          <div class="account-item-status">${k.revoked_at ? "Revoked" : "Active"} · created ${fmtDate(k.created_at)}${k.last_used_at ? ` · used ${fmtDate(k.last_used_at)}` : ""}</div>
+        </div>
+        ${k.revoked_at ? "" : `<button class="btn btn-sm btn-ghost" data-revoke-key="${k.id}">Revoke</button>`}
+      </div>
+    `).join("");
+    $$("[data-revoke-key]").forEach((btn) => btn.addEventListener("click", () => revokeKey(btn.dataset.revokeKey)));
+  } catch {
+    container.innerHTML = `<div class="account-item"><div class="account-item-status">Could not load API keys.</div></div>`;
+  }
+}
+
+async function createKey() {
+  if (!session?.access_token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/keys`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ name: "Default key" }),
+    });
+    const data = await res.json();
+    if (res.ok && data.key) {
+      const result = $("#api-key-result");
+      result.innerHTML = `
+        <div class="feedback success visible" style="word-break:break-all;margin:0;">
+          Copy your key now — it won't be shown again:<br>
+          <code>${escapeHtml(data.key)}</code>
+        </div>
+        <button class="btn btn-sm btn-secondary" id="btn-copy-key" style="margin-top:8px;">Copy</button>`;
+      $("#btn-copy-key").addEventListener("click", () => {
+        navigator.clipboard?.writeText(data.key).then(() => alert("Copied!"));
+      });
+      fetchKeys();
+    } else {
+      alert(data.error || "Failed to create key");
+    }
+  } catch { alert("Network error."); }
+}
+
+async function revokeKey(id) {
+  if (!confirm("Revoke this API key? Apps using it will stop working.")) return;
+  try {
+    await fetch(`${API_BASE}/api/keys/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    fetchKeys();
+  } catch { alert("Network error."); }
+}
+
+$("#btn-create-key")?.addEventListener("click", createKey);
+
 async function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);
   if (!platform) return;
@@ -885,6 +967,7 @@ function renderDayPosts() {
   html += `
     <div class="schedule-form">
       <textarea id="sched-text" placeholder="What do you want to post?" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:10px;font:inherit;font-size:0.875rem;resize:vertical;"></textarea>
+      <div id="sched-link-warning" class="link-warning hidden" style="margin:4px 0 0;">Contains a link — X charges $0.20 instead of $0.015</div>
       <div id="sched-platforms" style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;"></div>
       <div class="schedule-form-row">
         <input type="datetime-local" id="sched-time" value="${calSelected}T09:00" style="flex:1;" />
@@ -892,6 +975,12 @@ function renderDayPosts() {
       </div>
     </div>`;
   container.innerHTML = html;
+
+  // Link warning for scheduled posts
+  $("#sched-text")?.addEventListener("input", (e) => {
+    const w = $("#sched-link-warning");
+    if (w) w.classList.toggle("hidden", !hasLink(e.target.value));
+  });
 
   // Platform chips for the schedule form (connected accounts pre-selected)
   const schedPlatforms = $("#sched-platforms");
@@ -1846,7 +1935,7 @@ function switchView(viewName) {
   
   // Refresh data for the view
   if (viewName === "compose") fetchTeams();
-  if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); }
+  if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); fetchKeys(); }
   if (viewName === "drafts") fetchDrafts();
   if (viewName === "hashtags") fetchHashtagGroups();
   if (viewName === "replies") fetchSavedReplies();

@@ -1999,3 +1999,10 @@ input:-webkit-autofill:focus {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.25; }
 }
+
+.link-warning {
+  font-size: 0.75rem;
+  color: var(--warning);
+  font-weight: 500;
+  margin-left: 8px;
+}

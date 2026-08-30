@@ -276,6 +276,7 @@
                 <div class="platform-toggles" id="platform-toggles"></div>
                 <div class="compose-actions">
                   <span class="char-count" id="char-count">0 / 300</span>
+                  <span id="link-warning" class="link-warning hidden">Contains a link — X charges $0.20 instead of $0.015</span>
                   <button class="btn btn-primary" id="btn-post" disabled>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                     Post
@@ -331,6 +332,13 @@
         <div class="card" style="margin-top:16px;">
           <div class="card-header"><div><h2 class="card-title" id="accounts-card-title">Connected accounts</h2></div></div>
           <div class="account-list" id="account-list"></div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header"><div><h2 class="card-title">API keys</h2><p class="card-subtitle">Use these to post from your own apps.</p></div>
+            <button class="btn btn-primary btn-sm" id="btn-create-key">Create key</button>
+          </div>
+          <div class="account-list" id="api-keys-list"></div>
+          <div id="api-key-result" style="margin-top:12px;"></div>
         </div>
       </section>
 

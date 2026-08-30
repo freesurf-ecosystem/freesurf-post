@@ -61,7 +61,7 @@ function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
   };
 }
 
@@ -74,6 +74,72 @@ function json(data: unknown, status = 200, extraHeaders: Record<string, string> 
 
 function errorResponse(message: string, status: number, origin: string) {
   return json({ error: message }, status, corsHeaders(origin));
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function generateApiKey(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const b64 = btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, "");
+  return `fsp_live_${b64}`;
+}
+
+/** Loose link detection for UX + a stored hint (billing uses Bundle's quote later). */
+function detectHasLink(text: string): boolean {
+  if (!text) return false;
+  const tlds = "com|org|net|io|co|ai|dev|app|me|tv|gg|xyz|ly|to|so|info|biz|edu|gov|us|uk|ca|au|de|fr|it|es|nl|se|no|dk|fi|pl|br|mx|in|jp|cn";
+  return new RegExp(`(https?:\\/\\/[^\\s]+|www\\.[^\\s]+|[\\w-]+\\.(?:${tlds})\\b)`, "i").test(text);
+}
+
+/**
+ * Authenticate a request as either a JWT (dashboard) or an API key (fsp_...).
+ * Returns { sub } or null.
+ */
+async function authenticateRequest(request: Request, env: Env): Promise<{ sub: string } | null> {
+  const authHeader = request.headers.get("Authorization") || "";
+  const apiKeyHeader = request.headers.get("X-API-Key") || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const token = apiKeyHeader || bearer;
+
+  // API key path
+  if (token.startsWith("fsp_") && env.SUPABASE_SERVICE_ROLE_KEY) {
+    const hash = await sha256Hex(token);
+    const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_api_keys?key_hash=eq.${hash}&revoked_at=is.null&select=id,user_id`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    if (!res.ok) return null;
+    const rows = (await res.json()) as Array<{ id: string; user_id: string }>;
+    const key = rows[0];
+    if (!key?.user_id) return null;
+    try {
+      await fetch(`${supabaseUrl}/rest/v1/post_api_keys?id=eq.${key.id}`, {
+        method: "PATCH",
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ last_used_at: new Date().toISOString() }),
+      });
+    } catch { /* best-effort */ }
+    return { sub: key.user_id };
+  }
+
+  // JWT path (dashboard)
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, authHeader);
+  return user ? { sub: user.sub } : null;
 }
 
 export default {
@@ -167,6 +233,18 @@ async function handleApi(
   }
   if (teamDeleteMatch && request.method === "PATCH") {
     return handleRenameTeam(request, env, teamDeleteMatch[1], origin, h);
+  }
+
+  // --- API keys ---
+  if (url.pathname === "/api/keys" && request.method === "GET") {
+    return handleListKeys(request, env, origin, h);
+  }
+  if (url.pathname === "/api/keys" && request.method === "POST") {
+    return handleCreateKey(request, env, origin, h);
+  }
+  const keyDeleteMatch = url.pathname.match(/^\/api\/keys\/([a-f0-9-]+)$/);
+  if (keyDeleteMatch && request.method === "DELETE") {
+    return handleRevokeKey(request, env, keyDeleteMatch[1], origin, h);
   }
 
   // --- GET /api/bundle-accounts — list Bundle-connected accounts ---
@@ -944,6 +1022,111 @@ async function handleDeleteTeam(
 }
 
 /**
+ * GET /api/keys — List the user's API keys (metadata only, never the secret).
+ */
+async function handleListKeys(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json({ keys: [] }, 200, headers);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_api_keys?user_id=eq.${user.sub}&order=created_at.desc&select=id,name,created_at,last_used_at,revoked_at,key_hash`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    if (!res.ok) return json({ keys: [] }, 200, headers);
+    const rows = (await res.json()) as any[];
+    return json({
+      keys: rows.map((k: any) => ({
+        id: k.id,
+        name: k.name,
+        created_at: k.created_at,
+        last_used_at: k.last_used_at,
+        revoked_at: k.revoked_at,
+        hint: k.key_hash.slice(0, 8),
+      })),
+    }, 200, headers);
+  } catch {
+    return json({ keys: [] }, 200, headers);
+  }
+}
+
+/**
+ * POST /api/keys — Create an API key. Returns the raw key exactly once.
+ */
+async function handleCreateKey(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { name?: string };
+  try { body = (await request.json()) as any; } catch { body = {}; }
+  const name = (body.name || "Default key").trim() || "Default key";
+
+  const rawKey = generateApiKey();
+  const hash = await sha256Hex(rawKey);
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_api_keys`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({ user_id: user.sub, name, key_hash: hash }),
+    });
+    if (!res.ok) return errorResponse("Failed to create key", res.status || 500, origin);
+    const [row] = (await res.json()) as any[];
+    return json({ id: row?.id, name: row?.name, key: rawKey, created_at: row?.created_at }, 201, headers);
+  } catch (e) {
+    console.error("Create key exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Failed to create key", 500, origin);
+  }
+}
+
+/**
+ * DELETE /api/keys/:id — Revoke an API key (soft delete).
+ */
+async function handleRevokeKey(
+  request: Request, env: Env, id: string, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_api_keys?id=eq.${id}&user_id=eq.${user.sub}`, {
+      method: "PATCH",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ revoked_at: new Date().toISOString() }),
+    });
+    if (!res.ok) return errorResponse("Failed to revoke key", res.status || 500, origin);
+    return json({ revoked: true }, 200, headers);
+  } catch (e) {
+    console.error("Revoke key exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Failed to revoke key", 500, origin);
+  }
+}
+
+/**
  * GET /api/analytics/:platform — Proxy Bundle.social analytics.
  * Query params: ?type=profile or ?type=post&postId=xxx
  */
@@ -1161,11 +1344,8 @@ async function handlePost(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  // Auth
-  const user = await validateSupabaseJWT(
-    env.SUPABASE_JWT_SECRET,
-    request.headers.get("Authorization")
-  );
+  // Auth (JWT or API key)
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   // Parse body
@@ -1317,6 +1497,7 @@ async function persistPostHistory(
         media_urls: mediaUrls || [],
         platforms: results.map((r) => r.platform),
         results,
+        has_link: detectHasLink(text),
         posted_at: new Date().toISOString(),
       }),
     });
@@ -1503,7 +1684,7 @@ async function handleSchedule(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[] };
@@ -1525,7 +1706,7 @@ async function handleSchedule(
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], scheduled_at: body.scheduledAt }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), scheduled_at: body.scheduledAt }),
     });
     if (!res.ok) return errorResponse("Failed to schedule post", 500, origin);
     const [scheduled] = (await res.json()) as any[];
