@@ -342,9 +342,9 @@ function renderPlatformChips() {
   container.innerHTML = PLATFORMS.map((p) => {
     const acc = composeAccounts.find((a) => a.platform === p.key);
     const handle = acc?.handle;
-    return `<label class="platform-chip ${handle ? "selected" : ""}" data-platform="${p.key}">
+    return `<label class="platform-chip" data-platform="${p.key}">
       ${p.name}${handle ? ` @${handle}` : ""}
-      <input type="checkbox" ${handle ? "checked" : ""} />
+      <input type="checkbox" />
     </label>`;
   }).join("");
 

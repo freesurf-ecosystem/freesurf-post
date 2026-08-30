@@ -66,26 +66,26 @@
 /* Dark mode grid + clouds */
 [data-theme="dark"] body::before {
   background-image:
-    radial-gradient(ellipse 680px 420px at 8% 6%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 640px 400px at 36% 5%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 700px 440px at 62% 7%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 660px 410px at 88% 6%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 690px 440px at 5% 26%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 730px 460px at 32% 25%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 660px 410px at 58% 27%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 750px 470px at 84% 26%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 710px 460px at 10% 46%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 650px 410px at 38% 47%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 770px 480px at 64% 45%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 680px 420px at 90% 47%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 730px 470px at 7% 66%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 690px 440px at 33% 65%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 650px 410px at 60% 67%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 750px 480px at 86% 66%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 680px 430px at 12% 87%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 730px 470px at 40% 85%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 660px 420px at 66% 87%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 710px 460px at 90% 86%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 8% 6%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 36% 5%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 230px at 62% 7%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 88% 6%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 5% 26%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 240px at 32% 25%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 58% 27%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 84% 26%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 240px at 10% 46%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 38% 47%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 360px 250px at 64% 45%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 90% 47%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 250px at 7% 66%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 33% 65%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 60% 67%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 250px at 86% 66%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 12% 87%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 240px at 40% 85%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 66% 87%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 240px at 90% 86%, rgba(0, 0, 0, 1) 45%, transparent 100%),
     linear-gradient(rgba(255, 255, 255, 1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 1) 1px, transparent 1px);
 }
@@ -122,26 +122,26 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse 680px 420px at 8% 6%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 640px 400px at 36% 5%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 700px 440px at 62% 7%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 660px 410px at 88% 6%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 690px 440px at 5% 26%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 730px 460px at 32% 25%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 660px 410px at 58% 27%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 750px 470px at 84% 26%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 710px 460px at 10% 46%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 650px 410px at 38% 47%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 770px 480px at 64% 45%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 680px 420px at 90% 47%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 730px 470px at 7% 66%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 690px 440px at 33% 65%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 650px 410px at 60% 67%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 750px 480px at 86% 66%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 680px 430px at 12% 87%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 730px 470px at 40% 85%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 660px 420px at 66% 87%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 710px 460px at 90% 86%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 8% 6%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 36% 5%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 230px at 62% 7%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 88% 6%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 5% 26%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 240px at 32% 25%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 58% 27%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 84% 26%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 240px at 10% 46%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 38% 47%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 360px 250px at 64% 45%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 90% 47%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 250px at 7% 66%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 33% 65%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 60% 67%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 250px at 86% 66%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 230px at 12% 87%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 240px at 40% 85%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 66% 87%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 240px at 90% 86%, rgba(255, 255, 255, 1) 45%, transparent 100%),
     linear-gradient(rgba(0, 0, 0, 1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 0, 0, 1) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 22px 22px, 22px 22px;
@@ -196,6 +196,7 @@ a:hover { text-decoration: underline; }
   border-radius: 50%;
   flex-shrink: 0;
   margin-left: 6px;
+  animation: blink 2.4s ease-in-out infinite;
 }
 
 .mobile-menu-btn {
@@ -259,6 +260,7 @@ a:hover { text-decoration: underline; }
   border-radius: 50%;
   flex-shrink: 0;
   margin-left: 6px;
+  animation: blink 2.4s ease-in-out infinite;
 }
 
 .sidebar-close {
@@ -287,6 +289,7 @@ a:hover { text-decoration: underline; }
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
 }
 
 .sidebar-nav-item {
@@ -625,13 +628,12 @@ a:hover { text-decoration: underline; }
   background: radial-gradient(ellipse at 50% 25%, var(--surface) 0%, var(--surface) 35%, transparent 100%);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-lg);
   transition: all var(--transition);
 }
 
 .feature-card:hover {
-  border-color: var(--brand);
   box-shadow: var(--shadow);
   transform: translateY(-4px);
 }
@@ -1218,6 +1220,10 @@ a:hover { text-decoration: underline; }
     padding: 48px 16px;
   }
   
+  .hero-content {
+    padding: 32px 16px;
+  }
+  
   .hero-title {
     font-size: 2rem;
   }
@@ -1241,6 +1247,15 @@ a:hover { text-decoration: underline; }
   
   .card {
     padding: 20px;
+  }
+  
+  .account-item {
+    flex-wrap: wrap;
+  }
+  
+  .account-item .channel-select {
+    flex: 1 1 100%;
+    max-width: 100%;
   }
   
   .compose-toolbar {
@@ -1953,4 +1968,9 @@ input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px var(--surface) inset !important;
   -webkit-text-fill-color: var(--text) !important;
   box-shadow: 0 0 0 1000px var(--surface) inset !important;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
 }
