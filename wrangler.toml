@@ -16,6 +16,10 @@ not_found_handling = "single-page-application"
 binding = "RATE_LIMITS"
 id = "0a83c67d64d5484e96cb732f64e19c89"
 
+# Cron: process due scheduled posts every minute
+[triggers]
+crons = ["* * * * *"]
+
 [vars]
 ENVIRONMENT = "production"
 

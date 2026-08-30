@@ -93,7 +93,7 @@ export default {
     }
 
     // --- Cron: process scheduled posts ---
-    if (request.headers.get("X-Cron-Trigger") === "process-scheduled") {
+    if (request.headers.get("X-Cron-Trigger")) {
       return handleCron(env);
     }
 
@@ -2800,11 +2800,22 @@ async function handleCron(env: Env): Promise<Response> {
 
     for (const queuedPost of postsToPost) {
       try {
-        // Post to platforms
+        // Resolve the user's active Bundle team for Bundle-based platforms
+        const bundleTeamId = env.SOCIAL_API_PROVIDER_KEY
+          ? await resolveBundleTeamId(queuedPost.user_id, undefined, env)
+          : null;
+
         const results: PlatformPostResult[] = await Promise.all(
-          queuedPost.platforms.map((platform: Platform) =>
-            postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls)
-          )
+          (queuedPost.platforms || []).map(async (platform: Platform) => {
+            if (bundleTeamId) {
+              const providerResult = await postViaProvider(
+                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId
+              );
+              if (providerResult.success) return providerResult;
+            }
+            // Fall back to a direct adapter (Bluesky app password / env vars)
+            return postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls);
+          })
         );
 
         // Mark the post as published with its results
