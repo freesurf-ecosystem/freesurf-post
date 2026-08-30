@@ -885,13 +885,33 @@ function renderDayPosts() {
   html += `
     <div class="schedule-form">
       <textarea id="sched-text" placeholder="What do you want to post?" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:10px;font:inherit;font-size:0.875rem;resize:vertical;"></textarea>
+      <div id="sched-platforms" style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;"></div>
       <div class="schedule-form-row">
         <input type="datetime-local" id="sched-time" value="${calSelected}T09:00" style="flex:1;" />
         <button class="btn btn-sm btn-primary" id="btn-schedule">Schedule</button>
       </div>
-      <div style="font-size:0.75rem;color:var(--text-muted);">Select platforms in the Compose tab first, or they will default to your connected platforms.</div>
     </div>`;
   container.innerHTML = html;
+
+  // Platform chips for the schedule form (connected accounts pre-selected)
+  const schedPlatforms = $("#sched-platforms");
+  if (schedPlatforms) {
+    schedPlatforms.innerHTML = PLATFORMS.map((p) => {
+      const acc = composeAccounts.find((a) => a.platform === p.key);
+      const handle = acc?.handle;
+      return `<label class="platform-chip${handle ? " connected selected" : ""}" data-sched-platform="${p.key}">
+        ${handle ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${handle ? ` @${handle}` : ""}
+        <input type="checkbox" ${handle ? "checked" : ""} />
+      </label>`;
+    }).join("");
+    schedPlatforms.querySelectorAll(".platform-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const cb = chip.querySelector("input");
+        cb.checked = !cb.checked;
+        chip.classList.toggle("selected", cb.checked);
+      });
+    });
+  }
 
   // Cancel buttons
   container.querySelectorAll("[data-cancel]").forEach((btn) => {
@@ -922,8 +942,8 @@ async function schedulePost() {
   if (!text) return;
   if (!timeInput) return;
 
-  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
-  if (!platforms.length) { alert("Select at least one platform in the Compose tab."); return; }
+  const platforms = Array.from($$("#sched-platforms .platform-chip.selected")).map((c) => c.dataset.schedPlatform);
+  if (!platforms.length) { alert("Select at least one platform."); return; }
 
   try {
     const res = await fetch(`${API_BASE}/api/schedule`, {
