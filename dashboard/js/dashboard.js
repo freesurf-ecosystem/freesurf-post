@@ -1011,55 +1011,12 @@ function renderDayPosts() {
     html += `<p style="color:var(--text-muted);font-size:0.875rem;">No posts scheduled for this day.</p>`;
   }
 
-  // Schedule form
-  html += `
-    <div class="schedule-form">
-      <textarea id="sched-text" placeholder="What do you want to post?" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:10px;font:inherit;font-size:0.875rem;resize:vertical;"></textarea>
-      <div id="sched-link-warning" class="link-warning hidden" style="margin:4px 0 0;">Contains a link — X charges $0.20 instead of $0.015</div>
-      <div id="sched-platforms" style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;"></div>
-      <div class="schedule-form-row">
-        <input type="datetime-local" id="sched-time" value="${calSelected}T09:00" style="flex:1;" />
-        <button class="btn btn-sm btn-primary" id="btn-schedule">Schedule</button>
-      </div>
-    </div>`;
   container.innerHTML = html;
-
-  // Link warning for scheduled posts
-  $("#sched-text")?.addEventListener("input", (e) => {
-    const w = $("#sched-link-warning");
-    if (w) w.classList.toggle("hidden", !hasLink(e.target.value));
-  });
-
-  // Platform chips for the schedule form (connected accounts pre-selected)
-  const schedPlatforms = $("#sched-platforms");
-  if (schedPlatforms) {
-    schedPlatforms.innerHTML = PLATFORMS.map((p) => {
-      const acc = composeAccounts.find((a) => a.platform === p.key);
-      const handle = acc?.handle;
-      return `<label class="platform-chip${handle ? " connected selected" : ""}" data-sched-platform="${p.key}">
-        ${handle ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${handle ? ` @${handle}` : ""}
-        <input type="checkbox" ${handle ? "checked" : ""} />
-      </label>`;
-    }).join("");
-    schedPlatforms.querySelectorAll(".platform-chip").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        const cb = chip.querySelector("input");
-        cb.checked = !cb.checked;
-        chip.classList.toggle("selected", cb.checked);
-      });
-    });
-  }
 
   // Cancel buttons
   container.querySelectorAll("[data-cancel]").forEach((btn) => {
     btn.addEventListener("click", async () => cancelScheduled(btn.dataset.cancel));
   });
-
-  // Schedule button
-  const schedBtn = $("#btn-schedule");
-  if (schedBtn) {
-    schedBtn.addEventListener("click", schedulePost);
-  }
 }
 
 async function fetchScheduled() {

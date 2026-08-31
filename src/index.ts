@@ -563,6 +563,38 @@ async function resolveBundleTeamId(userId: string, teamId: string | undefined, e
 }
 
 /**
+ * Resolve a Bundle team id from either a team id or a team label (scoped to the user).
+ * teamId (internal uuid) wins if provided; team (label) is looked up by name.
+ */
+async function resolveTeamId(
+  userId: string,
+  teamId: string | undefined,
+  teamLabel: string | undefined,
+  env: Env
+): Promise<string | null> {
+  if (teamId) return resolveBundleTeamId(userId, teamId, env);
+  if (teamLabel && env.SUPABASE_SERVICE_ROLE_KEY) {
+    const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+    try {
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&label=eq.${encodeURIComponent(teamLabel)}&select=bundle_team_id&limit=1`,
+        {
+          headers: {
+            apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+        }
+      );
+      const rows = (await res.json()) as Array<{ bundle_team_id: string }>;
+      return rows[0]?.bundle_team_id || null;
+    } catch {
+      return null;
+    }
+  }
+  return getOrCreateBundleTeam(userId, env);
+}
+
+/**
  * GET /api/connect/:platform — Generate a Bundle.social OAuth URL.
  * The user is redirected to this URL to connect their account (Plaid-style
  * handoff), then sent back to redirectUrl once the platform OAuth completes.
@@ -1411,7 +1443,7 @@ async function handlePost(
   // a platform post fails. When direct credentials exist (e.g. own X keys), we
   // prefer them so we can migrate off Bundle gradually.
   const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.SUPABASE_SERVICE_ROLE_KEY);
-  const bundleTeamId = bundleConfigured ? await resolveBundleTeamId(user.sub, body.teamId, env) : null;
+  const bundleTeamId = bundleConfigured ? await resolveTeamId(user.sub, body.teamId, body.team, env) : null;
 
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {

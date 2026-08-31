@@ -13,6 +13,8 @@ export interface PostRequest {
   replyTo?: string;
   /** Which team (post_bundle_teams.id) to post to — defaults to the active team */
   teamId?: string;
+  /** Alternative: post to a team by its label (e.g. "Personal"). teamId wins if both set. */
+  team?: string;
 }
 
 /** Result of posting to a single platform */

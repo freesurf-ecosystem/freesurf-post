@@ -1137,6 +1137,7 @@ a:hover { text-decoration: underline; }
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
+  max-width: 560px;
 }
 
 .calendar-header {
