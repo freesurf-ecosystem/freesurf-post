@@ -621,6 +621,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             <div>
               <h2 class="card-title">X fees</h2>
               <p class="card-subtitle">Prepaid credits for X metered posting. X charges $0.015 for a plain/media post and $0.20 for a post containing a link.</p>
+              <p class="api-text" style="margin-top:10px;">When you top up, the payment fee is deducted from what you add — e.g. a $10 card top-up becomes about <strong>$9.41</strong> in available balance (2.9% + $0.30), and sales tax may apply where required. Store purchases (Apple/Google) deduct their 15–30% the same way.</p>
             </div>
           </div>
           <div class="fees-balance" id="fees-balance">
@@ -651,7 +652,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
           </table>
           <p class="limits-note">Source: X and bundle.social</p>
 
-          <h3 style="margin:32px 0 8px;font-size:1rem;">Other fees</h3>
+          <h3 style="margin:32px 0 8px;font-size:1rem;">Transaction fees</h3>
           <table class="limits-table">
             <thead><tr><th>Fee</th><th class="num">Cost</th></tr></thead>
             <tbody>
@@ -662,7 +663,6 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             </tbody>
           </table>
           <p class="limits-note">Stripe and store fees apply on top of the X posting cost. Standard published rates.</p>
-          <p class="api-text" style="margin-top:10px;">When you top up, the payment fee is deducted from what you add — e.g. a $10 card top-up becomes about <strong>$9.41</strong> in available balance (2.9% + $0.30), and sales tax may apply where required. Store purchases (Apple/Google) deduct their 15–30% the same way.</p>
         </div>
       </section>
     </main>
