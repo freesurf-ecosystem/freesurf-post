@@ -1,0 +1,93 @@
+# FreeSurf Post — API
+
+Base URL: https://post.freesurf.tools
+
+Free, open-source cross-posting API. Write once, publish to X, LinkedIn, Facebook,
+Instagram, Threads, TikTok, YouTube, and Bluesky from your own apps.
+
+## Authentication
+
+Two ways to authenticate:
+
+1. **API key** (recommended for apps): send `Authorization: Bearer fsp_live_...`
+   or `X-API-Key: fsp_live_...`. Generate and revoke keys in the dashboard
+   (API tab). Keys are scoped to your account.
+2. **Supabase JWT**: the dashboard's own session token (`Authorization: Bearer <JWT>`).
+
+## Endpoints
+
+- [Post now](#post-now) — `POST /api/post`
+- [Schedule](#schedule) — `POST /api/schedule`
+- [Scheduled posts](#scheduled-posts) — `GET /api/scheduled`, `DELETE /api/scheduled/:id`
+- [Teams](#teams) — `GET /api/teams`, `POST /api/teams`
+- [API keys](#api-keys) — `GET /api/keys`, `POST /api/keys`, `DELETE /api/keys/:id`
+
+## Post now
+
+`POST /api/post`
+
+```json
+{
+  "platforms": ["x", "linkedin"],
+  "text": "Hello world",
+  "mediaUrls": [],
+  "teamId": null
+}
+```
+
+- `platforms` (required): array of platform keys.
+- `text` (required): post body.
+- `mediaUrls` (optional): Bundle upload ids (from `POST /api/media/upload`).
+- `teamId` (optional): your team id; defaults to your active team.
+
+Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postUrl": "..." }], "postedAt": "..." }`
+
+## Schedule
+
+`POST /api/schedule`
+
+```json
+{
+  "platforms": ["x"],
+  "text": "Later post",
+  "scheduledAt": "2026-08-31T14:00:00Z"
+}
+```
+
+`scheduledAt` must be a future ISO 8601 timestamp. Posts publish within ~5 minutes
+of that time via a cron worker.
+
+## Scheduled posts
+
+`GET /api/scheduled` — list your scheduled posts.
+`DELETE /api/scheduled/:id` — cancel a scheduled post.
+
+## Teams
+
+`GET /api/teams` — list your teams (id, label, is_active).
+`POST /api/teams` — create a team (`{ "label": "Personal" }`).
+
+## API keys
+
+`GET /api/keys` — list your keys (metadata only, never the secret).
+`POST /api/keys` — create a key (`{ "name": "..." }`); returns the raw key once.
+`DELETE /api/keys/:id` — revoke a key.
+
+## Platform keys
+
+| Key       | Platform   |
+|-----------|------------|
+| `x`       | X / Twitter |
+| `linkedin`| LinkedIn   |
+| `facebook`| Facebook   |
+| `instagram` | Instagram |
+| `threads` | Threads    |
+| `tiktok`  | TikTok     |
+| `youtube` | YouTube    |
+| `bluesky` | Bluesky    |
+
+## X metered pricing
+
+X is billed per action: $0.015 for a plain text/media post, $0.20 for a post
+containing a URL. We detect links and pass the exact X fees through at cost
+(plus Stripe fees/taxes).

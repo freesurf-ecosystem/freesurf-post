@@ -333,19 +333,50 @@
           <div class="card-header"><div><h2 class="card-title" id="accounts-card-title">Connected accounts</h2></div></div>
           <div class="account-list" id="account-list"></div>
         </div>
-        <div class="card" style="margin-top:16px;">
-          <div class="card-header"><div><h2 class="card-title">API keys</h2><p class="card-subtitle">Use these to post from your own apps.</p></div>
-            <button class="btn btn-primary btn-sm" id="btn-create-key">Create key</button>
-          </div>
-          <div class="account-list" id="api-keys-list"></div>
-          <div id="api-key-result" style="margin-top:12px;"></div>
-        </div>
       </section>
 
       <!-- API Docs -->
       <section id="view-docs" class="view hidden">
-        <div class="card"><div class="card-header"><div><h2 class="card-title">API Reference</h2><p class="card-subtitle">Use the FreeSurf Post API from your own apps.</p></div></div>
-          <div class="empty-state"><p class="empty-state-text">API reference is in progress.</p></div>
+        <div class="card">
+          <div class="card-header"><div><h2 class="card-title">API Reference</h2><p class="card-subtitle">Post and schedule from your own apps.</p></div></div>
+
+          <details class="api-section" open>
+            <summary>Authentication</summary>
+            <p class="api-text">Generate an API key below, then send it as <code>Authorization: Bearer fsp_live_…</code> or <code>X-API-Key: fsp_live_…</code>. Keys are scoped to your account and can be revoked anytime.</p>
+          </details>
+
+          <details class="api-section" open>
+            <summary>Posting</summary>
+            <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/post \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platforms":["x","linkedin"],"text":"Hello from the API"}'</code></pre>
+            <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, optional <code>mediaUrls</code>, optional <code>teamId</code>.</p>
+          </details>
+
+          <details class="api-section">
+            <summary>Scheduling</summary>
+            <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/schedule \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platforms":["x"],"text":"Later post","scheduledAt":"2026-08-31T14:00:00Z"}'</code></pre>
+            <p class="api-text"><code>scheduledAt</code> must be a future ISO timestamp. Posts publish within ~5 minutes of that time.</p>
+          </details>
+
+          <details class="api-section">
+            <summary>List / cancel scheduled posts</summary>
+            <pre class="api-code"><code>curl https://post.freesurf.tools/api/scheduled \
+  -H "Authorization: Bearer fsp_live_..."
+
+curl -X DELETE https://post.freesurf.tools/api/scheduled/POST_ID \
+  -H "Authorization: Bearer fsp_live_..."</code></pre>
+          </details>
+
+          <div class="card-header" style="margin-top:24px;"><div><h2 class="card-title">API keys</h2><p class="card-subtitle">Use these to post from your own apps.</p></div>
+            <button class="btn btn-primary btn-sm" id="btn-create-key">Create key</button>
+          </div>
+          <div class="account-list" id="api-keys-list"></div>
+          <div id="api-key-result" style="margin-top:12px;"></div>
         </div>
       </section>
 

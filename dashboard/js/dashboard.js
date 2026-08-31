@@ -1935,7 +1935,8 @@ function switchView(viewName) {
   
   // Refresh data for the view
   if (viewName === "compose") fetchTeams();
-  if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); fetchKeys(); }
+  if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); }
+  if (viewName === "docs") fetchKeys();
   if (viewName === "drafts") fetchDrafts();
   if (viewName === "hashtags") fetchHashtagGroups();
   if (viewName === "replies") fetchSavedReplies();
