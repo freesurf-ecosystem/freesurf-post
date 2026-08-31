@@ -565,13 +565,15 @@ a:hover { text-decoration: underline; }
   padding: 64px 24px;
   text-align: center;
   color: var(--text);
-  background: var(--surface);
 }
 
 .hero-content {
   max-width: 620px;
   margin: 0 auto;
   padding: 48px 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
 }
 
 .hero-badge {

@@ -576,8 +576,9 @@ function tzOffsetMs(date, tz) {
   } catch { return 0; }
 }
 function wallClockToUTC(wallStr, tz) {
-  let d = new Date(`${wallStr}:00Z`);
-  for (let i = 0; i < 3; i++) d = new Date(d.getTime() - tzOffsetMs(d, tz));
+  const target = new Date(`${wallStr}:00Z`);
+  let d = target;
+  for (let i = 0; i < 3; i++) d = new Date(target.getTime() - tzOffsetMs(d, tz));
   return d;
 }
 function localDateStr(date, tz) {
@@ -1205,7 +1206,6 @@ async function cancelScheduled(id) {
 
 $("#cal-prev").addEventListener("click", () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } calSelected = null; renderCalendar(); });
 $("#cal-next").addEventListener("click", () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } calSelected = null; renderCalendar(); });
-$("#cal-today").addEventListener("click", () => { calYear = new Date().getFullYear(); calMonth = new Date().getMonth(); calSelected = new Date().toISOString().slice(0,10); renderCalendar(); });
 
 // ── Media Upload ──
 
