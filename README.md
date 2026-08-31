@@ -1,124 +1,63 @@
-# cnxt to post
+# FreeSurf Post
 
-**Compose once, publish everywhere.** Free cross-posting to Bluesky, LinkedIn, Facebook, Instagram, TikTok, and X — from a single dashboard or API.
+**Write once, publish everywhere.** A free cross-posting tool for freelancers and small
+businesses — compose a post once and send it to X, Bluesky, LinkedIn, Facebook, Instagram,
+Threads, TikTok, and YouTube from a single dashboard or API.
 
-Schedule services like Buffer and Hootsuite charge $6–$99/month. Individual platform apps make you copy-paste between tabs. cnxt to post lets you write once and publish to every platform simultaneously — for free — with your own API keys.
+Built by [FreeSurf](https://freesurf.tools), for people who post the same update to many
+platforms and don't want to pay $6–$99/month for tools like Buffer or Hootsuite.
 
----
+## What it does
 
-## Why
+- **One dashboard** — compose, add media, pick platforms and teams, and post or schedule.
+- **One API** — `POST /api/post` and `POST /api/schedule` from your own apps with a simple
+  API key.
+- **Multi-team** — keep accounts separate (e.g. personal vs. a client/brand) and always post
+  to the right team.
+- **Scheduling** — pick a time and timezone; posts go out automatically.
+- **X fees** — prepaid credits cover X's per-post API cost ($0.015 plain, $0.20 with a link).
 
-Posting the same update across platforms shouldn't require six different apps or a monthly subscription. Each platform's API is well-documented and mostly free. The only hard part is wiring them all together.
+## Try it
 
-cnxt to post does that wiring once, exposes it as a simple REST API, and gives you a clean dashboard on top. Use the hosted version for free, or call the API from your own apps.
+Visit [post.freesurf.tools](https://post.freesurf.tools), sign in, connect your accounts, and
+start posting. The full API reference lives at
+[post.freesurf.tools/llms.txt](https://post.freesurf.tools/llms.txt).
 
-## Supported Platforms
+## Supported platforms
 
-| Platform | Post | Read Metrics | API Cost |
-|---|---|---|---|
-| Bluesky | Done | Done | Free |
-| X (Twitter) | Done | Done | Paid (BYOK or credits) |
-| LinkedIn | Done | Done | Free |
-| Facebook | Done | Done | Free |
-| Instagram | Done | Done | Free |
-| Threads | Done | Done | Free |
-| TikTok | Done | Done | Free |
-| YouTube | Planned | Planned | Free |
+X (Twitter), Bluesky, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube — all wired up.
+Reddit, Pinterest, Slack, Discord, and Google Business are connectable but not yet enabled for
+posting.
 
-## Architecture
+## Project structure
 
 ```
-┌──────────────────────────────────────┐
-│  Dashboard (Cloudflare Pages)         │  post.cnxt.to
-│  Compose · History · Accounts · API   │
-├──────────────────────────────────────┤
-│  Worker API (Cloudflare Workers)      │
-│  POST /api/post                       │
-│  GET  /api/metrics/:platform/:postId  │
-├──────────────────────────────────────┤
-│  Auth: Supabase JWT (shared cnxt)     │
-│  Rate limiting: Cloudflare KV         │
-├──────────────────────────────────────┤
-│  Platform Adapters                    │
-│  Bluesky · X · LinkedIn · Facebook    │
-│  Instagram · TikTok                   │
-└──────────────────────────────────────┘
+freesurf-post/
+├── src/                  # Cloudflare Worker (TypeScript)
+│   ├── index.ts          # Router, auth, posting, scheduling, teams, credits
+│   ├── auth.ts           # Supabase JWT validation
+│   ├── types.ts          # Shared types
+│   └── platforms/        # Direct adapters (used as we move off Bundle)
+├── dashboard/            # Web UI (landing + app)
+├── supabase/             # Database schema (setup, api_keys, credits)
+├── docs/                 # Architecture + Bundle dependency notes
+└── wrangler.toml         # Cloudflare Worker config
 ```
 
-## Quick Start
+## Architecture (short version)
 
-### Use the hosted dashboard
+The dashboard is a static site; the Cloudflare Worker is the API. It talks to Supabase for
+storage and to [bundle.social](https://bundle.social) to actually publish to the platforms
+(they hold the platform OAuth tokens today). We're gradually building our own platform
+adapters so we can move off bundle.social over time — see `docs/BUNDLE_DEPENDENCIES.md` for
+that roadmap.
 
-Visit [post.cnxt.to](https://post.cnxt.to), sign in with your cnxt account, connect your social profiles, and start cross-posting.
-
-### Call the API from your own app
-
-```js
-const res = await fetch("https://post.cnxt.to/api/post", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${userSupabaseJwt}`,
-  },
-  body: JSON.stringify({
-    platforms: ["bluesky", "linkedin"],
-    text: "Hello from my app!",
-  }),
-});
-```
-
-Full API reference: [API_REFERENCE.md](./API_REFERENCE.md)
-
-### Deploy your own
+## Local development
 
 ```bash
-git clone https://github.com/ah8571/cnxt-to-post
-cd cnxt-to-post
 npm install
-npx wrangler kv:namespace create RATE_LIMITS   # copy ID to wrangler.toml
-npx wrangler secret put SUPABASE_JWT_SECRET     # from Supabase dashboard
-npx wrangler secret put BLUESKY_HANDLE          # per-platform secrets
-npx wrangler deploy
-```
-
-## X / Twitter Pricing
-
-X is the only platform that charges for API access. Two options:
-
-- **BYOK (free):** Bring your own X API keys from developer.x.com. You pay X directly, we never touch your keys.
-- **Credits (convenience):** Prepaid credits for occasional posters who don't want to manage API keys.
-
-All other platforms are free via their standard APIs.
-
-## Project Structure
-
-```
-cnxt-to-post/
-├── src/                    # Cloudflare Worker (TypeScript)
-│   ├── index.ts            # Main router, auth, rate limiting
-│   ├── auth.ts             # Supabase JWT validation
-│   ├── types.ts            # Shared types
-│   └── platforms/          # Per-platform adapters
-│       ├── bluesky.ts
-│       ├── x.ts            # OAuth 1.0a via Web Crypto
-│       ├── linkedin.ts
-│       ├── facebook.ts
-│       ├── instagram.ts
-│       └── tiktok.ts
-├── dashboard/              # Web UI (Cloudflare Pages)
-│   ├── index.html
-│   ├── css/style.css
-│   └── js/dashboard.js
-├── social/                 # Standalone Node.js scripts
-│   ├── *-post.mjs          # Posting per platform
-│   ├── *-metrics.mjs       # Metrics per platform
-│   └── auth/               # Auth flows per platform
-├── API_REFERENCE.md         # Full API documentation
-├── docs/                    # Additional documentation
-│   ├── SOCIAL_API_REFERENCE.md  # Per-platform API cheat sheet
-│   ├── ROADMAP.md               # Development roadmap
-│   └── To do's.md
-└── wrangler.toml            # Cloudflare Worker config
+npx wrangler dev        # serve the Worker + dashboard locally
+npx wrangler deploy     # deploy to Cloudflare
 ```
 
 ## License
@@ -127,4 +66,5 @@ GNU General Public License v3.0 — see [LICENSE](./LICENSE).
 
 ---
 
-Part of the [cnxt](https://cnxt.to) ecosystem — free tools for creators and freelancers.
+Part of the [FreeSurf](https://freesurf.tools) ecosystem — free, open-source tools for
+independent workers.
