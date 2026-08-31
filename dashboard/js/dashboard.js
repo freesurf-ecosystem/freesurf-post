@@ -1931,7 +1931,6 @@ async function init() {
   // Initialize new feature views
   if ($("#view-drafts")) fetchDrafts();
   if ($("#view-hashtags")) fetchHashtagGroups();
-  if ($("#view-replies")) fetchSavedReplies();
   if ($("#view-queue")) fetchQueue();
   if ($("#view-analytics")) fetchAnalytics();
 }
@@ -1964,7 +1963,6 @@ function switchView(viewName) {
   if (viewName === "docs") fetchKeys();
   if (viewName === "drafts") fetchDrafts();
   if (viewName === "hashtags") fetchHashtagGroups();
-  if (viewName === "replies") fetchSavedReplies();
   if (viewName === "queue") fetchQueue();
   if (viewName === "analytics") fetchAnalytics();
 }

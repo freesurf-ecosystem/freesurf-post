@@ -49,13 +49,9 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
           <span>Hashtags</span>
         </button>
-        <button class="sidebar-nav-item" data-view="replies">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <span>Replies</span>
-        </button>
         <button class="sidebar-nav-item" data-view="inbox">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          <span>Inbox</span>
+          <span>Comments</span>
         </button>
         <button class="sidebar-nav-item" data-view="analytics">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -498,34 +494,12 @@ bluesky   Bluesky</code></pre>
         </div>
       </section>
 
-      <!-- Saved Replies -->
-      <section id="view-replies" class="view hidden">
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h2 class="card-title">Saved Replies</h2>
-              <p class="card-subtitle">Quick reply templates for common responses.</p>
-            </div>
-            <button class="btn btn-primary btn-sm" id="btn-create-reply">Create Reply</button>
-          </div>
-          <div id="saved-replies" class="saved-replies">
-            <div class="empty-state">
-              <div class="empty-state-icon">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              </div>
-              <p class="empty-state-text">No saved replies yet. Create one to get started.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Queue -->
-      <!-- Unified Inbox -->
+      <!-- Comments -->
       <section id="view-inbox" class="view hidden">
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Unified Inbox</h2>
+              <h2 class="card-title">Comments</h2>
               <p class="card-subtitle">All comments in one place.</p>
             </div>
           </div>
@@ -534,8 +508,21 @@ bluesky   Bluesky</code></pre>
               <div class="empty-state-icon">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
               </div>
-              <p class="empty-state-text">Unified inbox is in progress.</p>
+              <p class="empty-state-text">Comments are coming soon.</p>
             </div>
+          </div>
+          <div class="card-header" style="margin-top:24px;">
+            <div>
+              <h2 class="card-title">Automated replies</h2>
+              <p class="card-subtitle">Set automatic responses to common comments.</p>
+            </div>
+          </div>
+          <div class="account-item" style="opacity:0.45;pointer-events:none;">
+            <div class="account-item-info">
+              <div class="account-item-name">Automated reply rules</div>
+              <div class="account-item-status">Coming soon</div>
+            </div>
+            <button class="btn btn-sm btn-secondary" disabled>Configure</button>
           </div>
         </div>
       </section>
