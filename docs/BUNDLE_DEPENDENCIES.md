@@ -1,5 +1,20 @@
 # Bundle.social Dependencies
 
+## Platform credentials (biggest one — Bundle holds all OAuth tokens)
+Teams
+Connect/OAuth flows
+Channel/page selection
+Media uploads
+Posting on all 8 platforms
+Instagram auto-fit/crop
+Scheduling/deferred publishing
+Analytics
+Comments
+Post history import
+X metered pricing + quotas
+The org x-api-key everything hinges on
+
+
 > Status: **Proxy Bundle for now; rebuild these pieces ourselves over the next
 > couple of months.** This document is the source of truth for everything we
 > currently rely on Bundle.social for. Each item notes the Bundle endpoint(s) we

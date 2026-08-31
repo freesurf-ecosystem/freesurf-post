@@ -510,10 +510,11 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
   if (!scheduledAt) {
     const d = new Date(Date.now() + 3600 * 1000);
     d.setMinutes(0, 0, 0);
-    scheduledAt = d.toISOString().slice(0, 16);
+    scheduledAt = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
-  const iso = new Date(scheduledAt).toISOString();
-  if (isNaN(new Date(scheduledAt).getTime())) { showFeedback("Pick a valid schedule time.", "error"); return; }
+  const dt = wallClockToUTC(scheduledAt, selectedTz());
+  const iso = dt.toISOString();
+  if (isNaN(dt.getTime())) { showFeedback("Pick a valid schedule time.", "error"); return; }
 
   clearFeedback();
   try {
@@ -542,10 +543,45 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
 function showFeedback(msg, type) { feedback.className = `feedback ${type} visible`; feedback.textContent = msg; }
 function clearFeedback() { feedback.className = "feedback"; feedback.innerHTML = ""; }
 
-try {
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  if (tz && $("#compose-tz")) $("#compose-tz").textContent = tz;
-} catch {}
+const TIMEZONES = [
+  "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+  "America/Anchorage", "America/Phoenix", "Pacific/Honolulu", "Europe/London", "Europe/Paris",
+  "Europe/Berlin", "Europe/Madrid", "Europe/Rome", "Europe/Amsterdam", "Europe/Stockholm",
+  "Europe/Warsaw", "Europe/Istanbul", "Europe/Moscow", "Asia/Dubai", "Asia/Karachi",
+  "Asia/Kolkata", "Asia/Bangkok", "Asia/Singapore", "Asia/Hong_Kong", "Asia/Shanghai",
+  "Asia/Tokyo", "Asia/Seoul", "Australia/Sydney", "Australia/Melbourne", "Pacific/Auckland",
+  "Africa/Cairo", "Africa/Johannesburg", "America/Sao_Paulo", "America/Mexico_City",
+  "America/Toronto", "America/Vancouver",
+];
+function selectedTz() { return $("#compose-tz")?.value || "UTC"; }
+function initTzSelect() {
+  const sel = $("#compose-tz");
+  if (!sel) return;
+  let defaultTz = "UTC";
+  try { defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch {}
+  const saved = localStorage.getItem("freesurf-post-tz");
+  const tz = TIMEZONES.includes(saved) ? saved : (TIMEZONES.includes(defaultTz) ? defaultTz : "UTC");
+  sel.innerHTML = TIMEZONES.map((t) => `<option value="${t}" ${t === tz ? "selected" : ""}>${t.replace(/_/g, " ")}</option>`).join("");
+  sel.addEventListener("change", () => localStorage.setItem("freesurf-post-tz", sel.value));
+}
+function tzOffsetMs(date, tz) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(date).map((x) => [x.type, x.value]));
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - date.getTime();
+  } catch { return 0; }
+}
+function wallClockToUTC(wallStr, tz) {
+  let d = new Date(`${wallStr}:00Z`);
+  for (let i = 0; i < 3; i++) d = new Date(d.getTime() - tzOffsetMs(d, tz));
+  return d;
+}
+function localDateStr(date, tz) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}`;
+  } catch { return date.toISOString().slice(0, 10); }
+}
+initTzSelect();
 
 // ── History (kept in localStorage, surfaced in Analytics) ──
 
@@ -983,7 +1019,7 @@ function renderCalendar() {
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const prevMonthDays = new Date(calYear, calMonth, 0).getDate();
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  const todayStr = localDateStr(today, selectedTz());
 
   // Days from previous month
   for (let i = firstDay - 1; i >= 0; i--) {
@@ -996,7 +1032,7 @@ function renderCalendar() {
     const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === calSelected;
-    const hasPosts = scheduledPosts.some((p) => p.scheduledAt?.startsWith(dateStr));
+    const hasPosts = scheduledPosts.some((p) => p.scheduledAt && localDateStr(new Date(p.scheduledAt), selectedTz()) === dateStr);
     html += `<div class="calendar-day${isToday ? " today" : ""}${isSelected ? " selected" : ""}${hasPosts ? " has-posts" : ""}" data-date="${dateStr}">${d}</div>`;
   }
 
@@ -1024,7 +1060,7 @@ function renderDayPosts() {
   const container = $("#calendar-posts");
   if (!calSelected) { container.innerHTML = ""; return; }
 
-  const dayPosts = scheduledPosts.filter((p) => p.scheduledAt?.startsWith(calSelected));
+  const dayPosts = scheduledPosts.filter((p) => p.scheduledAt && localDateStr(new Date(p.scheduledAt), selectedTz()) === calSelected);
   const dateLabel = new Date(calSelected + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   let html = `<h3 style="margin-bottom:12px;">${dateLabel}</h3>`;
@@ -1034,7 +1070,7 @@ function renderDayPosts() {
       <div class="scheduled-list-item">
         <div>
           <div class="sli-text">${esc(p.text.slice(0, 100))}${p.text.length > 100 ? "…" : ""}</div>
-          <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+          <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: selectedTz() })} ${selectedTz().replace(/_/g, " ")}</div>
         </div>
         <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);">Cancel</button>
       </div>`).join("");

@@ -2121,6 +2121,11 @@ input:-webkit-autofill:focus {
   color: var(--text-muted);
 }
 
+.tz-select {
+  max-width: 220px;
+  font-size: 0.8125rem;
+}
+
 .api-section {
   border: 1px solid var(--border);
   border-radius: var(--radius);

@@ -1835,7 +1835,11 @@ async function handleSchedule(
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
       body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt }),
     });
-    if (!res.ok) return errorResponse("Failed to schedule post", 500, origin);
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Schedule insert failed:", res.status, errText.slice(0, 500));
+      return errorResponse(`Failed to schedule post: ${errText.slice(0, 200)}`, 500, origin);
+    }
     const [scheduled] = (await res.json()) as any[];
     return json({ id: scheduled.id, scheduledAt: scheduled.scheduled_at, platforms: scheduled.platforms }, 201, headers);
   } catch { return errorResponse("Scheduling failed", 500, origin); }
