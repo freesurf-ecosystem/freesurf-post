@@ -19,6 +19,7 @@ Two ways to authenticate:
 - [Post now](#post-now) — `POST /api/post`
 - [Schedule](#schedule) — `POST /api/schedule`
 - [Scheduled posts](#scheduled-posts) — `GET /api/scheduled`, `DELETE /api/scheduled/:id`
+- [Media](#media) — `POST /api/media/upload`
 - [Teams](#teams) — `GET /api/teams`, `POST /api/teams`
 - [API keys](#api-keys) — `GET /api/keys`, `POST /api/keys`, `DELETE /api/keys/:id`
 
@@ -62,10 +63,24 @@ of that time via a cron worker.
 `GET /api/scheduled` — list your scheduled posts.
 `DELETE /api/scheduled/:id` — cancel a scheduled post.
 
+## Media
+
+`POST /api/media/upload` — upload a local file (multipart, field `file`), returns `{ "uploadId": "..." }`.
+
+Then pass the upload ids in `mediaUrls` on `POST /api/post`. `text` is the caption.
+Pass multiple ids for carousels (X, LinkedIn, Instagram). TikTok and YouTube require
+a single video.
+
 ## Teams
 
 `GET /api/teams` — list your teams (id, label, is_active).
 `POST /api/teams` — create a team (`{ "label": "Personal" }`).
+
+Target a specific team when posting with `teamId` (otherwise it goes to your active team):
+
+```json
+{ "platforms": ["x"], "text": "For my business", "teamId": "YOUR_TEAM_ID" }
+```
 
 ## API keys
 

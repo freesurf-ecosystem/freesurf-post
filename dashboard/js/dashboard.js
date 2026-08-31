@@ -813,7 +813,7 @@ async function fetchKeys() {
     container.innerHTML = keys.map((k) => `
       <div class="account-item">
         <div class="account-item-info">
-          <div class="account-item-name">${escapeHtml(k.name)}</div>
+          <div class="account-item-name">${escapeHtml(k.name)} <span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(k.hint || "")}</span></div>
           <div class="account-item-status">${k.revoked_at ? "Revoked" : "Active"} · created ${fmtDate(k.created_at)}${k.last_used_at ? ` · used ${fmtDate(k.last_used_at)}` : ""}</div>
         </div>
         ${k.revoked_at ? "" : `<button class="btn btn-sm btn-ghost" data-revoke-key="${k.id}">Revoke</button>`}

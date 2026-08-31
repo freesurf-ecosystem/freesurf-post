@@ -389,6 +389,34 @@ curl -X DELETE https://post.freesurf.tools/api/scheduled/POST_ID \
   -H "Authorization: Bearer fsp_live_..."</code></pre>
           </details>
 
+          <details class="api-section">
+            <summary>Media (images / videos)</summary>
+            <p class="api-text">Upload a local file (multipart) to get an <code>uploadId</code>, then pass it in <code>mediaUrls</code>:</p>
+            <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/media/upload \
+  -H "Authorization: Bearer fsp_live_..." \
+  -F "file=@/path/to/image.png"
+
+# then post with the returned uploadId
+curl -X POST https://post.freesurf.tools/api/post \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platforms":["x"],"text":"Caption here","mediaUrls":["UPLOAD_ID"]}'</code></pre>
+            <p class="api-text"><code>text</code> is the caption. Pass multiple <code>uploadIds</code> for carousels (X, LinkedIn, Instagram). TikTok/YouTube require a single video; images go to <code>mediaUrls</code> for image platforms.</p>
+          </details>
+
+          <details class="api-section">
+            <summary>Teams</summary>
+            <p class="api-text">List your teams to get their <code>id</code>, then target one with <code>teamId</code> so posts don't accidentally go to the wrong team:</p>
+            <pre class="api-code"><code>curl https://post.freesurf.tools/api/teams \
+  -H "Authorization: Bearer fsp_live_..."
+
+curl -X POST https://post.freesurf.tools/api/post \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platforms":["x"],"text":"For my business","teamId":"YOUR_TEAM_ID"}'</code></pre>
+            <p class="api-text">If <code>teamId</code> is omitted, the post goes to your active/default team.</p>
+          </details>
+
           <div class="card-header" style="margin-top:24px;">
             <div style="display:flex;align-items:center;gap:12px;">
               <h2 class="card-title">API keys</h2>
