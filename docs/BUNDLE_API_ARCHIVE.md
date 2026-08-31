@@ -15,7 +15,7 @@ Companion docs: `BUNDLE_INTEGRATION.md` (strategy), `SOCIAL_API_REFERENCE.md`
 
 ## Bundle Social Rate Limits
 
-External Platform Rate Limits
+"External Platform Rate Limits
 These are daily limits per connected social account, counted per UTC calendar day by the post’s scheduled date. The quota is keyed by the platform account itself (platform + account id), not by the connection or the team — so the same real account connected more than once (reconnected, or added to multiple teams) shares a single quota.
 ​
 Posting daily limits per platform per tier
@@ -35,7 +35,7 @@ MASTODON	10	50	100
 BLUESKY	10	50	100
 GMB	10	20	40
 SNAPCHAT	5	20	40
-
+"
 
 ---
 
