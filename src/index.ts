@@ -2082,8 +2082,8 @@ async function handleStripeWebhook(
     const amountCents = Math.round(Number(s.amount_total) || 0);
     if (uid && amountCents > 0) {
       // Actual Stripe fee from the expanded balance_transaction (cents);
-      // fall back to the Stripe managed payments estimate (3.5%).
-      let feeCents = Math.round(amountCents * 0.035);
+      // fall back to the Stripe managed payments estimate (6.4% + $0.30).
+      let feeCents = Math.round(amountCents * 0.064 + 30);
       const bt = s?.payment_intent?.charges?.data?.[0]?.balance_transaction;
       if (bt && Number.isFinite(Number(bt.fee))) feeCents = Math.round(Number(bt.fee));
 
