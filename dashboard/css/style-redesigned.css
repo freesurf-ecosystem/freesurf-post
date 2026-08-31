@@ -149,11 +149,34 @@ body::after {
     radial-gradient(ellipse 280px 200px at 26% 76%, rgba(255, 255, 255, 1) 45%, transparent 100%),
     radial-gradient(ellipse 310px 220px at 58% 92%, rgba(255, 255, 255, 1) 45%, transparent 100%),
     radial-gradient(ellipse 260px 190px at 8% 40%, rgba(255, 255, 255, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 300px 210px at 76% 34%, rgba(255, 255, 255, 1) 45%, transparent 100%);
+    radial-gradient(ellipse 300px 210px at 76% 34%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 5% 18%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 270px 190px at 25% 8%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 62% 5%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 290px 200px at 88% 16%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 230px at 12% 42%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 280px 200px at 36% 34%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 66% 26%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 94% 38%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 4% 58%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 260px 190px at 28% 50%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 230px at 48% 66%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 74% 44%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 16% 76%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 280px 200px at 42% 86%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 64% 84%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 90% 72%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 290px 200px at 8% 90%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 260px 190px at 56% 14%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 230px at 80% 62%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 20% 28%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 270px 190px at 70% 90%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 33% 62%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 280px 200px at 87% 52%, rgba(255, 255, 255, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 2% 32%, rgba(255, 255, 255, 1) 45%, transparent 100%);
   background-size: 100% 100%;
   background-repeat: no-repeat;
   z-index: 0;
-  animation: cloudPulse 110s ease-in-out infinite;
 }
 
 /* Dark mode clouds */
@@ -192,7 +215,31 @@ body::after {
     radial-gradient(ellipse 280px 200px at 26% 76%, rgba(0, 0, 0, 1) 45%, transparent 100%),
     radial-gradient(ellipse 310px 220px at 58% 92%, rgba(0, 0, 0, 1) 45%, transparent 100%),
     radial-gradient(ellipse 260px 190px at 8% 40%, rgba(0, 0, 0, 1) 45%, transparent 100%),
-    radial-gradient(ellipse 300px 210px at 76% 34%, rgba(0, 0, 0, 1) 45%, transparent 100%);
+    radial-gradient(ellipse 300px 210px at 76% 34%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 5% 18%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 270px 190px at 25% 8%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 62% 5%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 290px 200px at 88% 16%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 230px at 12% 42%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 280px 200px at 36% 34%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 66% 26%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 94% 38%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 4% 58%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 260px 190px at 28% 50%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 330px 230px at 48% 66%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 74% 44%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 16% 76%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 280px 200px at 42% 86%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 64% 84%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 310px 220px at 90% 72%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 290px 200px at 8% 90%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 260px 190px at 56% 14%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 340px 230px at 80% 62%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 300px 210px at 20% 28%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 270px 190px at 70% 90%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 350px 240px at 33% 62%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 280px 200px at 87% 52%, rgba(0, 0, 0, 1) 45%, transparent 100%),
+    radial-gradient(ellipse 320px 220px at 2% 32%, rgba(0, 0, 0, 1) 45%, transparent 100%);
 }
 
 a { color: var(--brand); text-decoration: none; }
@@ -498,9 +545,7 @@ a:hover { text-decoration: underline; }
 
 /* Card */
 .card {
-  background: radial-gradient(ellipse at 50% 25%, var(--surface) 0%, var(--surface) 35%, transparent 100%);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 28px;
@@ -672,9 +717,7 @@ a:hover { text-decoration: underline; }
 
 .feature-card {
   padding: 32px;
-  background: radial-gradient(ellipse at 50% 25%, var(--surface) 0%, var(--surface) 35%, transparent 100%);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: var(--surface);
   border: none;
   border-radius: var(--radius-lg);
   transition: all var(--transition);
@@ -1964,10 +2007,28 @@ a:hover { text-decoration: underline; }
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 16px;
   font-size: 0.75rem;
   color: var(--text-muted);
   flex-wrap: wrap;
+}
+
+.footer-theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.footer-theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--brand);
 }
 
 @media (max-width: 640px) {
@@ -2044,13 +2105,6 @@ input:-webkit-autofill:focus {
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.25; }
-}
-
-@keyframes cloudPulse {
-  0%, 10% { opacity: 1; transform: scale(1); }
-  42%     { opacity: 1; transform: scale(1.15); }
-  72%     { opacity: 0.85; transform: scale(0.7); }
-  100%    { opacity: 0; transform: scale(0.5); }
 }
 
 .link-warning {
