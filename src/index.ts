@@ -603,7 +603,7 @@ async function resolveTeamId(
     const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
     try {
       const res = await fetch(
-        `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&label=eq.${encodeURIComponent(teamLabel)}&select=bundle_team_id&limit=1`,
+        `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&label=ilike.${encodeURIComponent(teamLabel)}&select=bundle_team_id&limit=1`,
         {
           headers: {
             apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -955,7 +955,7 @@ async function handleCreateTeam(
 
   try {
     const dupRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&label=eq.${encodeURIComponent(label)}&select=id&limit=1`,
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&label=ilike.${encodeURIComponent(label)}&select=id&limit=1`,
       { headers: authHeaders }
     );
     const dupRows = (await dupRes.json()) as Array<{ id: string }>;
@@ -1037,7 +1037,7 @@ async function handleRenameTeam(
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
   try {
     const dupRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&label=eq.${encodeURIComponent(label)}&select=id&limit=1`,
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&label=ilike.${encodeURIComponent(label)}&select=id&limit=1`,
       { headers: authHeaders }
     );
     const dupRows = (await dupRes.json()) as Array<{ id: string }>;
