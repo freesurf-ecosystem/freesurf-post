@@ -2093,6 +2093,10 @@ async function handleStripeWebhook(
       const bt = s?.payment_intent?.charges?.data?.[0]?.balance_transaction;
       if (bt && Number.isFinite(Number(bt.fee))) feeCents = Math.round(Number(bt.fee));
 
+      // Tax Stripe assessed and remitted on this charge (0 when none applies).
+      const taxCents = Math.round(Number(s?.total_details?.amount_tax) || 0);
+      const taxNote = taxCents > 0 ? ` (incl. $${(taxCents / 100).toFixed(2)} tax)` : "";
+
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
       const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
       // Credit the gross top-up…
@@ -2104,7 +2108,7 @@ async function handleStripeWebhook(
           amount_micros: amountCents * 10_000,
           kind: "topup",
           reference_id: s.id,
-          note: "Stripe top-up",
+          note: `Stripe top-up${taxNote}`,
         }),
       });
       // …then record the Stripe fee so the balance reflects the net amount.
