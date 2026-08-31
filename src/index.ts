@@ -1333,7 +1333,7 @@ async function handleMediaUpload(
 async function handleMediaUploadFile(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
