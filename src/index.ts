@@ -200,6 +200,10 @@ async function handleApi(
   if (url.pathname === "/api/profiles/token" && request.method === "POST") {
     return handleSaveToken(request, env, origin, h);
   }
+  const tokenDeleteMatch = url.pathname.match(/^\/api\/profiles\/token\/([a-f0-9-]+)$/);
+  if (tokenDeleteMatch && request.method === "DELETE") {
+    return handleDeleteToken(request, env, tokenDeleteMatch[1], origin, h);
+  }
 
   // --- GET /api/connect/:platform — get Bundle connection URL ---
   const connectMatch = url.pathname.match(/^\/api\/connect\/([a-z]+)$/);
@@ -494,6 +498,29 @@ async function handleSaveToken(
   } catch (e: any) {
     return errorResponse(e.message || "Internal error", 500, origin);
   }
+}
+
+/**
+ * DELETE /api/profiles/token/:id — Remove a direct platform token (post_accounts row).
+ */
+async function handleDeleteToken(
+  request: Request,
+  env: Env,
+  id: string,
+  origin: string,
+  headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/post_accounts?id=eq.${id}&user_id=eq.${user.sub}`, {
+      method: "DELETE",
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+    });
+    if (!res.ok) return errorResponse("Failed to remove", res.status || 500, origin);
+    return json({ ok: true }, 200, headers);
+  } catch { return errorResponse("Failed to remove", 500, origin); }
 }
 
 /**
@@ -1532,7 +1559,7 @@ async function handlePost(
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {
       const preferDirect =
-        !bundleConfigured || (platform === "x" && hasDirectXCreds(env, userTokens));
+        !bundleConfigured || hasDirectCreds(platform, env, userTokens);
 
       if (preferDirect) {
         return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
