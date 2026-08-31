@@ -28,6 +28,22 @@ Bare essentials per platform for building cross-platform posting/reading scripts
 | Google Business | [developers.google.com](https://developers.google.com/my-business/reference/rest) | [developers.google.com](https://developers.google.com/my-business) |
 | Snapchat | [developers.snap.com](https://developers.snap.com/api/marketing/) | [developers.snap.com](https://developers.snap.com) |
 
+## Docs by feature — links to each platform's canonical API pages
+
+Verify endpoints against these before wiring an adapter. A few (TikTok comments,
+Threads) still need a human to confirm the exact page after the doc site's structure changes.
+
+| Platform | Posting | Comment / Reply | Analytics |
+|---|---|---|---|
+| X | [manage-tweets](https://docs.x.com/x-api/tweets/manage-tweets) | [manage-tweets (reply)](https://docs.x.com/x-api/tweets/manage-tweets) | [tweet lookup](https://docs.x.com/x-api/tweets/lookup) |
+| LinkedIn | [posts-api](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api) | [comments-api](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/comments-api) | [social-metadata-api](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/social-metadata-api) |
+| Instagram | [content-publishing](https://developers.facebook.com/docs/instagram-platform/content-publishing) | [ig-comment](https://developers.facebook.com/docs/graph-api/reference/ig-comment/) | [ig-media/insights](https://developers.facebook.com/docs/instagram-api/reference/ig-media/insights) |
+| Facebook | [page/feed](https://developers.facebook.com/docs/graph-api/reference/page/feed) | [object/comments](https://developers.facebook.com/docs/graph-api/reference/object/comments) | [post/insights](https://developers.facebook.com/docs/graph-api/reference/post/insights) |
+| TikTok | [content-posting-api](https://developers.tiktok.com/doc/content-posting-api-get-started) | [comment-api](https://developers.tiktok.com/doc/comment-api-get-started) | [display-api](https://developers.tiktok.com/doc/display-api-get-started) |
+| Threads | [threads](https://developers.facebook.com/docs/threads) | [threads (replies)](https://developers.facebook.com/docs/threads) | [threads (insights)](https://developers.facebook.com/docs/threads) |
+| Bluesky | [get-started](https://docs.bsky.app/docs/get-started) | [get-post-thread](https://docs.bsky.app/docs/api/app.bsky.feed.get_post_thread) | [get-posts](https://docs.bsky.app/docs/api/app.bsky.feed.get_posts) |
+| YouTube | [videos/insert](https://developers.google.com/youtube/v3/docs/videos/insert) | [comments/insert](https://developers.google.com/youtube/v3/docs/comments/insert) | [videos/list](https://developers.google.com/youtube/v3/docs/videos/list) |
+
 ## Auth cheat sheet
 
 | Platform | Auth | Complexity | Get Keys |
