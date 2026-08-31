@@ -2159,6 +2159,15 @@ input:-webkit-autofill:focus {
   flex-wrap: wrap;
 }
 
+.topup-estimate {
+  margin-left: auto;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.topup-estimate:empty { display: none; }
+
 .topup-quick {
   display: flex;
   gap: 6px;
