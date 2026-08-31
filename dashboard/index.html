@@ -360,20 +360,20 @@
             <pre class="api-code api-tab-panel" data-panel="curl"><code>curl -X POST https://post.freesurf.tools/api/post \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"platforms":["x","linkedin"],"text":"Hello from the API","teamId":"YOUR_TEAM_ID"}'</code></pre>
+  -d '{"platforms":["x","linkedin"],"text":"Hello from the API","team":"Personal"}'</code></pre>
             <pre class="api-code api-tab-panel hidden" data-panel="js"><code>await fetch("https://post.freesurf.tools/api/post", {
   method: "POST",
   headers: {
     "Authorization": "Bearer fsp_live_...",
     "Content-Type": "application/json"
   },
-  body: JSON.stringify({ platforms: ["x"], text: "Hello from JS", teamId: "YOUR_TEAM_ID" })
+  body: JSON.stringify({ platforms: ["x"], text: "Hello from JS", team: "Personal" })
 });</code></pre>
             <pre class="api-code api-tab-panel hidden" data-panel="python"><code>import requests
 requests.post("https://post.freesurf.tools/api/post",
   headers={"Authorization": "Bearer fsp_live_..."},
-  json={"platforms": ["x"], "text": "Hello from Python", "teamId": "YOUR_TEAM_ID"})</code></pre>
-            <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, <code>teamId</code> (required), optional <code>mediaUrls</code>.</p>
+  json={"platforms": ["x"], "text": "Hello from Python", "team": "Personal"})</code></pre>
+            <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, <code>team</code> (name) or <code>teamId</code> (id) — one is required — plus optional <code>mediaUrls</code>.</p>
             <p class="api-text">Response:</p>
             <pre class="api-code"><code>{
   "id": "post-uuid",
@@ -391,7 +391,7 @@ requests.post("https://post.freesurf.tools/api/post",
 curl -X POST https://post.freesurf.tools/api/post \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"platforms":["x"],"text":"Caption here","teamId":"YOUR_TEAM_ID","mediaUrls":["UPLOAD_ID"]}'</code></pre>
+  -d '{"platforms":["x"],"text":"Caption here","team":"Personal","mediaUrls":["UPLOAD_ID"]}'</code></pre>
             <p class="api-text"><code>text</code> is the caption. Pass multiple ids for carousels (X, LinkedIn, Instagram); TikTok/YouTube need a single video.</p>
           </details>
 
@@ -400,8 +400,8 @@ curl -X POST https://post.freesurf.tools/api/post \
             <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/schedule \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"platforms":["x"],"text":"Later post","scheduledAt":"2026-08-31T14:00:00Z"}'</code></pre>
-            <p class="api-text"><code>scheduledAt</code> must be a future ISO timestamp. Posts publish within ~5 minutes of that time.</p>
+  -d '{"platforms":["x"],"text":"Later post","scheduledAt":"2026-08-31T14:00:00Z","team":"Personal"}'</code></pre>
+            <p class="api-text"><code>scheduledAt</code> must be a future ISO timestamp. Team (by name or <code>teamId</code>) is required, same as posting. Posts publish within ~5 minutes of that time.</p>
           </details>
 
           <details class="api-section">
@@ -415,14 +415,18 @@ curl -X DELETE https://post.freesurf.tools/api/scheduled/POST_ID \
 
           <details class="api-section">
             <summary>Teams</summary>
-            <p class="api-text">Post to a team by <strong>name</strong> (<code>team</code>) or id (<code>teamId</code>). Team names are unique per account:</p>
-            <pre class="api-code"><code>curl https://post.freesurf.tools/api/teams \
-  -H "Authorization: Bearer fsp_live_..."
-
+            <p class="api-text">Post to a team by <strong>name</strong> (<code>team</code>) or <strong>id</strong> (<code>teamId</code>) — either works. Team names are unique per account:</p>
+            <pre class="api-code"><code># By team name
 curl -X POST https://post.freesurf.tools/api/post \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"platforms":["x"],"text":"For my business","team":"Personal"}'</code></pre>
+  -d '{"platforms":["x"],"text":"For my business","team":"Personal"}'
+
+# By team id (get ids from /api/teams)
+curl -X POST https://post.freesurf.tools/api/post \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platforms":["x"],"text":"For my business","teamId":"3fa85f64-5717-4562-b3fc-2c963f66afa6"}'</code></pre>
             <p class="api-text">A team is required for every post — posts never default to another team.</p>
           </details>
 

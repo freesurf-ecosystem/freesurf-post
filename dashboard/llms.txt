@@ -27,8 +27,10 @@ Two ways to authenticate:
 
 `POST /api/post`
 
-A team is required — pass `team` (team name, e.g. `"Personal"`) or `teamId`
-(internal id). `team` names are unique per account.
+A team is required — target it either by **name** (`team`) or **id** (`teamId`).
+`team` names are unique per account. Use whichever is easier; `teamId` wins if both are sent.
+
+By team name:
 
 ```json
 {
@@ -39,8 +41,19 @@ A team is required — pass `team` (team name, e.g. `"Personal"`) or `teamId`
 }
 ```
 
-- `team` (required): your team's name (e.g. `"Personal"`, `"citywallz"`).
-- `teamId` (optional): internal team id; wins over `team` if both are provided.
+By team id:
+
+```json
+{
+  "platforms": ["x", "linkedin"],
+  "text": "Hello world",
+  "mediaUrls": [],
+  "teamId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+}
+```
+
+- `team` (required unless `teamId`): your team's name (e.g. `"Personal"`, `"citywallz"`).
+- `teamId` (required unless `team`): internal team id (from `GET /api/teams`).
 - `platforms` (required): array of platform keys (see [Platform keys](#platform-keys)).
 - `text` (required): post body.
 - `mediaUrls` (optional): Bundle upload ids (from `POST /api/media/upload`).
@@ -51,7 +64,7 @@ Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postU
 
 `POST /api/schedule`
 
-A team is required, same as Post now.
+A team is required, same as Post now — by name (`team`) or id (`teamId`).
 
 ```json
 {
@@ -87,10 +100,14 @@ per account; a duplicate returns `409`.
 `PATCH /api/teams/:id` — rename a team (`{ "label": "..." }`).
 `DELETE /api/teams/:id` — delete a team.
 
-Target a specific team when posting with `team` (by name) or `teamId`:
+Target a specific team when posting with `team` (by name) or `teamId` (by id):
 
 ```json
 { "platforms": ["x"], "text": "For my business", "team": "citywallz" }
+```
+
+```json
+{ "platforms": ["x"], "text": "For my business", "teamId": "3fa85f64-5717-4562-b3fc-2c963f66afa6" }
 ```
 
 ## API keys

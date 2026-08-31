@@ -911,7 +911,7 @@ async function handleChannel(
 async function handleGetTeams(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return json({ teams: [] }, 200, headers);
 
@@ -942,7 +942,7 @@ async function handleGetTeams(
 async function handleCreateTeam(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
@@ -1306,7 +1306,7 @@ async function handleComments(
 async function handleMediaUpload(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
@@ -1806,7 +1806,7 @@ async function handleScheduled(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return json([], 200, headers);
 
@@ -1830,7 +1830,7 @@ async function handleCancelSchedule(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
