@@ -2151,6 +2151,32 @@ input:-webkit-autofill:focus {
   flex-wrap: wrap;
 }
 
+.limits-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin-top: 8px;
+}
+.limits-table th,
+.limits-table td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+.limits-table th {
+  background: var(--bg-alt);
+  font-weight: 600;
+}
+.limits-table td.num,
+.limits-table th.num {
+  text-align: right;
+}
+.limits-note {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+}
+
 .api-section {
   border: 1px solid var(--border);
   border-radius: var(--radius);

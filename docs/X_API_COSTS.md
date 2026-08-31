@@ -3,34 +3,23 @@
 Costs to pass through to users. These numbers came from a Google/LLM response —
 **verify against X's official docs before billing on them.**
 
-Official pricing: https://developer.x.com/en/portal/products
+From bundle:
 
-## Posting costs (write operations)
+"X usage billing (prepaid credits)
 
-Charged per request when creating content.
+X moved its API to pay-per-call billing in 2025. X usage is billed per use from a prepaid credit balance you top up in your dashboard. Each billable X action draws down your balance at the prices below.
+Action	Cost
+Post	$0.015
+Post with a link	$0.20
+Comment / reply	$0.015
+Comment / reply with a link	$0.20
+Delete	$0.01
+Post analytics (per result)	$0.005
+Comment import (per result)	$0.005
+Post history import (per result)	$0.005
 
-| Operation | Cost |
-|---|---|
-| Plain text or media post | $0.015 / request |
-| Post containing a URL (link) | $0.200 / request ⚠️ heavy surcharge for link automation |
-| Summoned reply | $0.010 / request |
-| Post deletion | $0.010 / request |
+The composer estimates the charge before publishing, and your balance and usage are visible on your billing page. If your balance runs out, X posts fail with instructions to add funds while other platforms continue to publish normally."
 
-## Reading costs (read operations)
-
-Charged **per resource returned** — one call fetching 100 posts multiplies the
-base cost by 100.
-
-| Operation | Cost |
-|---|---|
-| Third-party post read | $0.005 / post resource |
-| Owned read (own posts, bookmarks, followers, likes) | $0.001 / resource |
-| User profile read | $0.010 / user resource |
-
-## Pass-through to users
-
-We already track this in `post_credit_balance` + `post_credit_transactions`
-(see `supabase/setup.sql`). Mapping:
 
 ## To verify against X's docs
 

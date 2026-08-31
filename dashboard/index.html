@@ -455,6 +455,32 @@ google_business Google Business</code></pre>
             <p class="api-text">Reddit, Pinterest, Slack, Discord, and Google Business can be connected, but posting to them isn't wired up yet — placeholders for now.</p>
           </details>
 
+          <details class="api-section">
+            <summary>Rate limits</summary>
+            <p class="api-text">Daily limits per connected social account, counted per UTC calendar day by the post's scheduled date. Quota is keyed by the platform account (platform + account id), so the same real account connected more than once shares a single quota.</p>
+            <table class="limits-table">
+              <thead><tr><th>Platform</th><th class="num">FREE</th><th class="num">PRO</th><th class="num">BUSINESS</th></tr></thead>
+              <tbody>
+                <tr><td>Twitter / X</td><td class="num">5</td><td class="num">15</td><td class="num">15</td></tr>
+                <tr><td>Facebook</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+                <tr><td>Instagram</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+                <tr><td>LinkedIn</td><td class="num">10</td><td class="num">18</td><td class="num">24</td></tr>
+                <tr><td>YouTube</td><td class="num">10</td><td class="num">10</td><td class="num">15</td></tr>
+                <tr><td>TikTok</td><td class="num">5</td><td class="num">10</td><td class="num">15</td></tr>
+                <tr><td>Threads</td><td class="num">10</td><td class="num">200</td><td class="num">250</td></tr>
+                <tr><td>Pinterest</td><td class="num">10</td><td class="num">24</td><td class="num">36</td></tr>
+                <tr><td>Reddit</td><td class="num">10</td><td class="num">24</td><td class="num">36</td></tr>
+                <tr><td>Discord</td><td class="num">10</td><td class="num">100</td><td class="num">200</td></tr>
+                <tr><td>Slack</td><td class="num">10</td><td class="num">100</td><td class="num">200</td></tr>
+                <tr><td>Mastodon</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+                <tr><td>Bluesky</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+                <tr><td>Google Business</td><td class="num">10</td><td class="num">20</td><td class="num">40</td></tr>
+                <tr><td>Snapchat</td><td class="num">5</td><td class="num">20</td><td class="num">40</td></tr>
+              </tbody>
+            </table>
+            <p class="limits-note">Source: bundle.social platform limits. Tiers reflect your bundle.social subscription.</p>
+          </details>
+
           <div class="card-header" style="margin-top:24px;">
             <div style="display:flex;align-items:center;gap:12px;">
               <h2 class="card-title">API keys</h2>
@@ -582,6 +608,46 @@ google_business Google Business</code></pre>
           </div>
           <h3 style="margin:24px 0 12px;font-size:1rem;">Transactions</h3>
           <div class="account-list" id="ledger-list"></div>
+
+          <h3 style="margin:32px 0 8px;font-size:1rem;">X usage billing</h3>
+          <p class="api-text">X moved to pay-per-call billing in 2025. Each billable X action draws down your prepaid balance (top up above). If your balance runs out, X posts fail with instructions to add funds while other platforms keep publishing.</p>
+          <table class="limits-table">
+            <thead><tr><th>Action</th><th class="num">Cost</th></tr></thead>
+            <tbody>
+              <tr><td>Post</td><td class="num">$0.015</td></tr>
+              <tr><td>Post with a link</td><td class="num">$0.20</td></tr>
+              <tr><td>Comment / reply</td><td class="num">$0.015</td></tr>
+              <tr><td>Comment / reply with a link</td><td class="num">$0.20</td></tr>
+              <tr><td>Delete</td><td class="num">$0.01</td></tr>
+              <tr><td>Post analytics (per result)</td><td class="num">$0.005</td></tr>
+              <tr><td>Comment import (per result)</td><td class="num">$0.005</td></tr>
+              <tr><td>Post history import (per result)</td><td class="num">$0.005</td></tr>
+            </tbody>
+          </table>
+
+          <h3 style="margin:32px 0 8px;font-size:1rem;">Rate limits</h3>
+          <p class="api-text">Daily limits per connected social account, counted per UTC calendar day by the post's scheduled date. Quota is keyed by the platform account (platform + account id), so the same real account connected more than once shares a single quota.</p>
+          <table class="limits-table">
+            <thead><tr><th>Platform</th><th class="num">FREE</th><th class="num">PRO</th><th class="num">BUSINESS</th></tr></thead>
+            <tbody>
+              <tr><td>Twitter / X</td><td class="num">5</td><td class="num">15</td><td class="num">15</td></tr>
+              <tr><td>Facebook</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+              <tr><td>Instagram</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+              <tr><td>LinkedIn</td><td class="num">10</td><td class="num">18</td><td class="num">24</td></tr>
+              <tr><td>YouTube</td><td class="num">10</td><td class="num">10</td><td class="num">15</td></tr>
+              <tr><td>TikTok</td><td class="num">5</td><td class="num">10</td><td class="num">15</td></tr>
+              <tr><td>Threads</td><td class="num">10</td><td class="num">200</td><td class="num">250</td></tr>
+              <tr><td>Pinterest</td><td class="num">10</td><td class="num">24</td><td class="num">36</td></tr>
+              <tr><td>Reddit</td><td class="num">10</td><td class="num">24</td><td class="num">36</td></tr>
+              <tr><td>Discord</td><td class="num">10</td><td class="num">100</td><td class="num">200</td></tr>
+              <tr><td>Slack</td><td class="num">10</td><td class="num">100</td><td class="num">200</td></tr>
+              <tr><td>Mastodon</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+              <tr><td>Bluesky</td><td class="num">10</td><td class="num">50</td><td class="num">100</td></tr>
+              <tr><td>Google Business</td><td class="num">10</td><td class="num">20</td><td class="num">40</td></tr>
+              <tr><td>Snapchat</td><td class="num">5</td><td class="num">20</td><td class="num">40</td></tr>
+            </tbody>
+          </table>
+          <p class="limits-note">Source: bundle.social platform limits. Tiers reflect your bundle.social subscription.</p>
         </div>
       </section>
     </main>

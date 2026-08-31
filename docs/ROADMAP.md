@@ -4,34 +4,8 @@
 [ ] oauth set up with apple/ google
 [ ] unroll the api functionality out of the index file?
 [ ] migrate / document parts to migrate off of bundle.social
-[ ] 
-
----
-
-## X / Twitter Cost Strategy
-
-Owned Reads (ie reads related to your own profile) = $0.001
-Post w/o url = $0.015
-Posts w/ URL = $0.20 
 
 
----
-
-## Architecture
-
-```
-
-├──────────────────────────────────────────────┤
-│              Cloudflare Worker API            │
-│   Wraps social/*.mjs scripts as HTTP endpoints│
-├──────────────────────────────────────────────┤
-│              Supabase (shared)                │
-│   Auth · User profiles · Platform tokens      │
-│   Credit balances · Post history              │
-├──────────────────────────────────────────────┤
-│         Platform APIs (external)              │
-│   X · Bluesky · LinkedIn · Meta · TikTok      │
-└──────────────────────────────────────────────┘
 ```
 
 ### Phase 1 — Core API (current → next)

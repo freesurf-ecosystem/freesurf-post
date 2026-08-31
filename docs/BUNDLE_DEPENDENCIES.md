@@ -24,6 +24,125 @@ All calls authenticate with `x-api-key: $SOCIAL_API_PROVIDER_KEY` against
 `https://api.bundle.social/api/v1`. Our organization id:
 `efa77093-6a09-4865-ba9e-2ff5a2887cea`.
 
+## Migrating map
+
+| Platform | Sandbox/Staging Access | Production Posting Access | Key Review Hurdle |
+|---|---|---|---|
+| Instagram / Facebook | Instant | 14 – 20 Days | Strict screencast audit & business details |
+| TikTok | Instant | 1 – 4 Weeks | Company paperwork & full flow video |
+| LinkedIn | Instant | 1 – 2 Weeks (Profile) / Months (Company) | Restricted product application |
+| Google Business | None | 7 – 14 Days | Account age check (60+ days verified) |
+| Pinterest | Instant | 3 – 7 Days | Video submission of functional app |
+| YouTube | Instant | Instant (Restricted Quotas) | Manual audit only if requesting quota lift |
+| Twitter/X | Instant | Instant | Paid tier selection dictates volume capabilities |
+| Snapchat | Instant | 1 – 2 Weeks | Human review of app functionality |
+| Threads, Reddit | Instant | Instant | Completely automated developer onboarding |
+| Slack, Discord | Instant | Instant | Self-service bot token generation |
+| Mastodon, Bluesky | Instant | Instant | Open network / Instance-level generation |
+
+## Current listed
+- bluesky
+- X
+- Linkedin
+- Facebook
+- Instagram
+- Threads
+- Tiktok
+- Youtube
+
+## Other bundle.socials
+- Reddit
+- Pinterest
+- Slack
+- Discord
+- Google Business
+- Snapchat
+- Mastodon
+
+
+## Outside of bundle.social
+wordpress
+medium
+dev.to
+hashnode
+skool
+whop
+
+decentralized
+Nostr
+Lemmy
+warpcast
+dribble
+mewe
+
+live stream
+twitch
+kick
+
+messaging
+telegram
+what's app?
+
+## URLs
+
+* Instagram & Facebook (Meta Graph API): Meta for Developers Portal. [Meta App Review Dashboard](https://developers.facebook.com/documentation/resp-plat-initiatives/individual-processes/app-review/submission-guide).
+* TikTok: the TikTok for Developers Portal (https://developers.tiktok.com/)
+* LinkedIn: LinkedIn Developer Portal (https://developer.linkedin.com/).
+* Pinterest: Pinterest Developer Platform.
+* Google Business Profile: inside the Google Cloud Console, the Google Business Profile API.
+* Twitter/X: X Developer Portal.
+* YouTube: Google Cloud Console YouTube Data API page.
+* Threads: inside the Meta Developer Dashboard.
+* Snapchat: Snap Kit Developer Portal.
+* Reddit: Reddit App Preferences (https://www.reddit.com/prefs/apps)
+* Slack: Slack API Portal.
+* Discord: Discord Developer Portal (https://discord.com/developers/applications).
+* Mastodon: Because it is decentralized, applications are built directly on whichever instance you host your account on. Navigate to your server's settings page: https://[your-instance-domain]/settings/applications.
+* Bluesky: No specific portal developer sign-up is required. You can generate immediate code-based security credentials directly inside your standard profile account settings under the Bluesky App Passwords Management Panel.
+
+## What Bundle.social provides
+
+Every feature below is accessible through their REST API. We proxy calls through our Worker so the dashboard never touches Bundle directly.
+
+| Category | What Bundle does | Our status |
+|---|---|---|
+| **Posting** | Text, images, video, carousel, Reels, Stories, Shorts, polls, threads, link previews, alt text, first comment, platform-specific formatting | ✅ Proxied via postViaProvider() |
+| **Scheduling** | postDate field, status SCHEDULED/DRAFT | ✅ Calendar UI calls Bundle |
+| **Account connect** | Hosted OAuth portal, custom UI flow, channel selection (Pages, channels, locations) | ✅ Portal link via /api/connect/:platform |
+| **Analytics** | Normalized across platforms, 30-day retention, force refresh, raw data, profile + post metrics | Need to wire |
+| **Comments** | Import, thread, reply, moderate (hide/delete/like), text limits per platform | Need to wire |
+| **Media upload** | Up to 5GB, transcoding, validation, URL upload | Need to wire |
+| **Post history import** | Pull past posts + analytics, 100 posts per import | Need to wire |
+| **Bulk CSV posting** | Async processing with per-row results | Optional |
+| **Webhooks** | post.published, post.failed events | Optional |
+| **Rate limit tracking** | Daily per-platform caps, monthly org caps, usage queries | ✅ Bundle handles |
+
+
+## Dependency map: graduating off Bundle
+
+What Bundle.social absorbs for us today, and what we'd own to go direct
+(Postiz-style: our own platform apps + OAuth), so Bundle becomes a pure fallback.
+
+### Bundle vs. own-apps (Postiz-style)
+
+| Concern | Bundle.social (now) | Own app |
+|---|---|---|
+| Credentials | They own the approved platform apps; we hold one API key (`SOCIAL_API_PROVIDER_KEY`) | We register our own TikTok/Meta/etc. apps; we hold client_id/secret per platform |
+| OAuth flow | Hosted portal ("Connect") | We build authorize/authenticate/callback per platform |
+| Token storage + refresh | They handle it | We store per-user tokens (encrypted) + run a refresh worker |
+| App review | Already passed for us | We pass each platform (TikTok: unaudited app → private-account-only posting; Meta: business verification + permission review) |
+| Re-auth / revoked tokens | Their problem | Ours (surface a "reconnect" action) |
+| Rate limits / caps | Their tier + platform quotas | Direct platform limits (e.g., TikTok daily active-user cap) |
+| Analytics / comments | Their normalized API | We aggregate from each platform's API |
+
+
+### Key api difficulties
+
+- Access tokens expire (~24h TikTok) but auto-refresh via a background task — not the scary part.
+- App credentials (client_id/secret) don't expire; they're static until rotated.
+- The real frictions are: **one-time app review** (days–weeks) and **occasional re-auth**.
+
+
 ---
 
 ## 1. Platform credentials (biggest dependency)
