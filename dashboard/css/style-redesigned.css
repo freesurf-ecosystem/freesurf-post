@@ -2151,6 +2151,13 @@ input:-webkit-autofill:focus {
   flex-wrap: wrap;
 }
 
+.topup-quick {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
 .limits-table {
   width: 100%;
   border-collapse: collapse;

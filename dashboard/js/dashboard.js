@@ -1142,6 +1142,12 @@ $("#topup-amount")?.addEventListener("input", (e) => {
   est.textContent = `$${amt.toFixed(2)} top-up → ~$${net.toFixed(2)} balance after the 6.4% + $0.30 Stripe managed payments fee`;
 });
 
+// Quick top-up amount chips.
+$$("[data-amount]").forEach((btn) => btn.addEventListener("click", () => {
+  const inp = $("#topup-amount");
+  if (inp) { inp.value = btn.dataset.amount; inp.dispatchEvent(new Event("input")); }
+}));
+
 async function createKey() {
   if (!session?.access_token) return;
   try {

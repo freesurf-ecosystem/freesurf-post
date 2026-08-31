@@ -652,6 +652,13 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             <button class="btn btn-primary" id="btn-topup">Top up with Stripe</button>
             <span id="topup-status" class="form-helper"></span>
           </div>
+          <div class="topup-quick">
+            <button class="btn btn-sm btn-secondary" data-amount="1">$1</button>
+            <button class="btn btn-sm btn-secondary" data-amount="5">$5</button>
+            <button class="btn btn-sm btn-secondary" data-amount="10">$10</button>
+            <button class="btn btn-sm btn-secondary" data-amount="25">$25</button>
+            <button class="btn btn-sm btn-secondary" data-amount="50">$50</button>
+          </div>
           <div id="topup-estimate" class="form-helper" style="margin-top:8px;"></div>
           <h3 style="margin:24px 0 12px;font-size:1rem;">Transactions</h3>
           <div class="account-list" id="ledger-list"></div>
