@@ -130,6 +130,20 @@ Target a specific team when posting with `team` (by name) or `teamId` (by id):
 | `tiktok`  | TikTok     |
 | `youtube` | YouTube    |
 | `bluesky` | Bluesky    |
+| `reddit` | Reddit    |
+| `pinterest` | Pinterest    |
+| `slack` | Slack    |
+| `discord` | Discord    |
+| `google_business` | Google Business    |
+
+## Credits / X fees
+
+`GET /api/credits` — balance (`balanceMicros`) and recent transactions.
+`POST /api/credits/topup` — `{ "amountCents": 500 }` → Stripe Checkout, returns `{ "url": "…" }`.
+`POST /api/credits/webhook` — Stripe webhook; credits the ledger on payment success.
+
+X is metered: **$0.015** per plain/media post, **$0.20** for a post with a link.
+Each successful X post is debited from your balance automatically.
 
 ## Notes
 
@@ -139,3 +153,6 @@ Target a specific team when posting with `team` (by name) or `teamId` (by id):
 - **Instagram** feed images default to `autoFitImage` (padding). Pass
   `instagramImageFit: "crop"` in the post body to center-crop instead.
 - **TikTok and YouTube** require a video; **Instagram** accepts images or video.
+- **Reddit, Pinterest, Slack, Discord, Google Business** can be connected (OAuth via
+  Bundle) but posting requires platform-specific fields (subreddit/board/channel)
+  that are not wired up yet — treat as placeholders.

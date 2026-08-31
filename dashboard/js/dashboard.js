@@ -18,6 +18,11 @@ const PLATFORMS = [
   { key: "threads",   name: "Threads",    oauth: true },
   { key: "tiktok",    name: "TikTok",     oauth: true, requiresMedia: "video" },
   { key: "youtube",   name: "YouTube",    oauth: true, requiresMedia: "video" },
+  { key: "reddit",    name: "Reddit",     oauth: true },
+  { key: "pinterest", name: "Pinterest",  oauth: true },
+  { key: "slack",     name: "Slack",      oauth: true },
+  { key: "discord",   name: "Discord",    oauth: true },
+  { key: "google_business", name: "Google Business", oauth: true },
 ];
 
 // Platforms that need a selected Page/Channel/Organization after OAuth
@@ -920,6 +925,71 @@ async function fetchKeys() {
     $$("[data-revoke-key]").forEach((btn) => btn.addEventListener("click", () => revokeKey(btn.dataset.revokeKey)));
   } catch {
     container.innerHTML = `<div class="account-item"><div class="account-item-status">Could not load API keys.</div></div>`;
+  }
+}
+
+// ── X fees / credits ──
+
+function fmtMicros(micros) {
+  return `$${(micros / 1_000_000).toFixed(2)}`;
+}
+
+async function fetchCredits() {
+  const balEl = $("#fees-balance-amount");
+  const listEl = $("#ledger-list");
+  if (!session?.access_token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/credits`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    if (balEl) balEl.textContent = fmtMicros(data.balanceMicros || 0);
+    if (!listEl) return;
+    const tx = data.transactions || [];
+    if (!tx.length) {
+      listEl.innerHTML = `<div class="account-item"><div class="account-item-status">No transactions yet. Top up to start posting to X.</div></div>`;
+      return;
+    }
+    listEl.innerHTML = tx.map((t) => {
+      const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : "Adjustment";
+      const detail = t.kind === "x_fee"
+        ? (t.has_link ? "with link" : "plain/media")
+        : (t.note || "");
+      return `
+        <div class="account-item">
+          <div class="account-item-info">
+            <div class="account-item-name">${kind} ${detail ? `<span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(detail)}</span>` : ""}</div>
+            <div class="account-item-status">${fmtDate(t.created_at)}</div>
+          </div>
+          <div class="account-item-status" style="font-weight:600;${t.amount_micros < 0 ? "color:var(--error);" : "color:var(--success);"}">${t.amount_micros < 0 ? "-" : "+"}${fmtMicros(Math.abs(t.amount_micros))}</div>
+        </div>`;
+    }).join("");
+  } catch {
+    if (listEl) listEl.innerHTML = `<div class="account-item"><div class="account-item-status">Could not load credits.</div></div>`;
+  }
+}
+
+async function topUp() {
+  const statusEl = $("#topup-status");
+  const amtInput = $("#topup-amount");
+  const dollars = Number(amtInput?.value || 0);
+  if (!Number.isFinite(dollars) || dollars <= 0) { if (statusEl) statusEl.textContent = "Enter a valid USD amount."; return; }
+  if (!session?.access_token) return;
+  if (statusEl) statusEl.textContent = "Opening Stripe checkout…";
+  try {
+    const res = await fetch(`${API_BASE}/api/credits/topup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ amountCents: Math.round(dollars * 100) }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) {
+      if (statusEl) statusEl.textContent = data.error || "Top-up failed.";
+      return;
+    }
+    window.location.href = data.url;
+  } catch {
+    if (statusEl) statusEl.textContent = "Network error.";
   }
 }
 
@@ -1956,7 +2026,11 @@ async function init() {
 
   // Handle Bundle OAuth connect callback (Bundle sends ?success=<platform>-callback or ?success=true)
   const params = new URLSearchParams(location.search);
-  if (params.get("success")) {
+  if (params.get("tab") === "fees") {
+    // Returned from a Stripe checkout (success or cancelled) → show the X fees tab.
+    history.replaceState(null, "", location.pathname);
+    if (session) { showView("fees"); fetchCredits(); }
+  } else if (params.get("success")) {
     history.replaceState(null, "", location.pathname);
     await fetchTeams();
     await fetchProfiles();
@@ -2012,6 +2086,7 @@ function switchView(viewName) {
   if (viewName === "hashtags") fetchHashtagGroups();
   if (viewName === "queue") fetchQueue();
   if (viewName === "analytics") fetchAnalytics();
+  if (viewName === "fees") fetchCredits();
 }
 
 // ── Event Listeners ──
@@ -2019,5 +2094,6 @@ function switchView(viewName) {
 $("#btn-create-hashtag-group")?.addEventListener("click", showCreateHashtagGroupModal);
 $("#btn-create-reply")?.addEventListener("click", showCreateReplyModal);
 $("#btn-refill-queue")?.addEventListener("click", refillQueue);
+$("#btn-topup")?.addEventListener("click", topUp);
 
 init();

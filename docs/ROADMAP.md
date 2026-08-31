@@ -2,18 +2,9 @@
 
 [ ] Set up resend for confirmation email handling/ confirmation page
 [ ] oauth set up with apple/ google
----
-
-## Platform Support Matrix
-
-| Platform | Post | Read Metrics | Login | API Cost |
-|---|---|---|---|---|
-| Bluesky | ✅ scripted | ✅ scripted | ✅ scripted | Free |
-| Facebook Pages | ✅ scripted | ✅ scripted | ✅ scripted | Free |
-| Instagram (Pro) | ✅ scripted | ✅ scripted | ✅ scripted | Free |
-| LinkedIn | ✅ scripted | ✅ scripted | ✅ scripted | Free |
-| TikTok | ✅ scripted | ✅ scripted | ✅ scripted | Free |
-| X (Twitter) | ✅ scripted | ✅ scripted | ✅ scripted | **Paid** (see below) |
+[ ] unroll the api functionality out of the index file?
+[ ] migrate / document parts to migrate off of bundle.social
+[ ] 
 
 ---
 
@@ -42,15 +33,6 @@ Posts w/ URL = $0.20
 │   X · Bluesky · LinkedIn · Meta · TikTok      │
 └──────────────────────────────────────────────┘
 ```
-
----
-
-## Phases
-
-### Can obtain api credentials from providers
-
-https://zernio.com/pricing
-https://bundle.social/pricing
 
 ### Phase 1 — Core API (current → next)
 

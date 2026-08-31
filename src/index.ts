@@ -22,6 +22,10 @@ export interface Env {
   SOCIAL_API_PROVIDER_KEY?: string;
   BUNDLE_TEAM_ID?: string;           // Bundle.social team ID for post routing
 
+  // Stripe for X-fee top-ups
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+
   // Environment name
   ENVIRONMENT?: string;
 
@@ -244,6 +248,17 @@ async function handleApi(
   const keyDeleteMatch = url.pathname.match(/^\/api\/keys\/([a-f0-9-]+)$/);
   if (keyDeleteMatch && request.method === "DELETE") {
     return handleRevokeKey(request, env, keyDeleteMatch[1], origin, h);
+  }
+
+  // --- Credits / X-fees ---
+  if (url.pathname === "/api/credits" && request.method === "GET") {
+    return handleGetCredits(request, env, origin, h);
+  }
+  if (url.pathname === "/api/credits/topup" && request.method === "POST") {
+    return handleTopUp(request, env, origin, h);
+  }
+  if (url.pathname === "/api/credits/webhook" && request.method === "POST") {
+    return handleStripeWebhook(request, env, origin, h);
   }
 
   // --- GET /api/bundle-accounts — list Bundle-connected accounts ---
@@ -1567,6 +1582,11 @@ async function handlePost(
   const postId = crypto.randomUUID();
   await persistPostHistory(env, user.sub, postId, body.text, body.mediaUrls, results);
 
+  // Record X metered fee (best-effort) for successful X posts.
+  if (results.some((r) => r.platform === "x" && r.success)) {
+    await recordXFee(user.sub, postId, detectHasLink(body.text), env);
+  }
+
   const response: PostResponse = {
     id: postId,
     results,
@@ -1718,6 +1738,8 @@ async function postViaProvider(
     bluesky: "BLUESKY", x: "TWITTER", linkedin: "LINKEDIN",
     facebook: "FACEBOOK", instagram: "INSTAGRAM", threads: "THREADS",
     tiktok: "TIKTOK", youtube: "YOUTUBE",
+    reddit: "REDDIT", pinterest: "PINTEREST", slack: "SLACK",
+    discord: "DISCORD", google_business: "GOOGLE_BUSINESS",
   };
   const bsPlatform = platformMap[platform] || platform.toUpperCase();
 
@@ -1890,6 +1912,157 @@ async function handleCancelSchedule(
   } catch { return errorResponse("Cancel failed", 500, origin); }
 }
 
+// ── X-fee credits (Stripe top-ups) ────────────────────────────────────────────
+// Amounts are integer microdollars (1/1,000,000 USD) so the $0.015 plain X fee
+// is exact. X metered pricing: $0.015 plain/media, $0.20 for a post with a link.
+const X_PLAIN_FEE_MICROS = 15_000;   // $0.015
+const X_LINK_FEE_MICROS = 200_000;   // $0.20
+
+async function recordXFee(userId: string, postId: string, hasLink: boolean, env: Env) {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/post_ledger`, {
+      method: "POST",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        amount_micros: hasLink ? -X_LINK_FEE_MICROS : -X_PLAIN_FEE_MICROS,
+        kind: "x_fee",
+        reference_id: postId,
+        has_link: hasLink,
+        note: hasLink ? "X post with link" : "X post",
+      }),
+    });
+  } catch (e) {
+    console.error("recordXFee failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * GET /api/credits — balance + recent transactions.
+ */
+async function handleGetCredits(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json({ balanceMicros: 0, transactions: [] }, 200, headers);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_ledger?user_id=eq.${user.sub}&select=amount_micros,kind,reference_id,has_link,note,created_at&order=created_at.desc`,
+      { headers: authHeaders }
+    );
+    if (!res.ok) return json({ balanceMicros: 0, transactions: [] }, 200, headers);
+    const rows = (await res.json()) as any[];
+    const balanceMicros = rows.reduce((s, r) => s + (Number(r.amount_micros) || 0), 0);
+    return json({ balanceMicros, transactions: rows.slice(0, 100) }, 200, headers);
+  } catch { return json({ balanceMicros: 0, transactions: [] }, 200, headers); }
+}
+
+/**
+ * POST /api/credits/topup — create a Stripe Checkout session. Body: { amountCents }.
+ * Returns { url } to redirect the user to. On success the webhook credits the ledger.
+ */
+async function handleTopUp(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.STRIPE_SECRET_KEY) return errorResponse("Stripe is not configured yet", 501, origin);
+
+  let body: { amountCents?: number };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  const cents = Math.round(Number(body.amountCents));
+  if (!Number.isFinite(cents) || cents < 100 || cents > 1_000_000) {
+    return errorResponse("amountCents must be between 100 and 1,000,000", 400, origin);
+  }
+
+  try {
+    const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        mode: "payment",
+        success_url: `${origin}/?tab=fees&success=1`,
+        cancel_url: `${origin}/?tab=fees&cancelled=1`,
+        client_reference_id: user.sub,
+        "metadata[user_id]": user.sub,
+        "line_items[0][price_data][currency]": "usd",
+        "line_items[0][price_data][unit_amount]": String(cents),
+        "line_items[0][price_data][product_data][name]": "FreeSurf Post credits",
+        "line_items[0][quantity]": "1",
+      }).toString(),
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) return errorResponse(data?.error?.message || "Stripe error", 502, origin);
+    return json({ url: data.url, sessionId: data.id }, 200, headers);
+  } catch (e) {
+    console.error("Top-up exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Stripe error", 502, origin);
+  }
+}
+
+/**
+ * POST /api/credits/webhook — Stripe webhook. Credits the ledger on
+ * checkout.session.completed.
+ */
+async function handleStripeWebhook(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const secret = env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) return errorResponse("Stripe not configured", 501, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+
+  const raw = await request.text();
+  const sig = request.headers.get("stripe-signature") || "";
+  const parts: Record<string, string> = {};
+  for (const p of sig.split(",")) {
+    const i = p.indexOf("=");
+    if (i > 0) parts[p.slice(0, i)] = p.slice(i + 1);
+  }
+  const ts = parts.t, expected = parts.v1;
+
+  // HMAC-SHA256 verify: signature over `${timestamp}.${payload}`
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(`${ts}.${raw}`));
+  const actual = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (!expected || actual !== expected) return errorResponse("Invalid signature", 401, origin);
+  if (Math.abs(Date.now() / 1000 - Number(ts)) > 300) return errorResponse("Stale event", 401, origin);
+
+  const evt = JSON.parse(raw) as any;
+  if (evt?.type === "checkout.session.completed") {
+    const s = evt.data?.object || {};
+    const uid = s.metadata?.user_id || s.client_reference_id;
+    const amountCents = Math.round(Number(s.amount_total) || 0);
+    const micros = amountCents * 10_000;
+    if (uid && micros > 0) {
+      const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+      const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+      await fetch(`${supabaseUrl}/rest/v1/post_ledger`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uid,
+          amount_micros: micros,
+          kind: "topup",
+          reference_id: s.id,
+          note: "Stripe top-up",
+        }),
+      });
+    }
+  }
+  return json({ received: true }, 200, headers);
+}
+
 /**
  * GET /api/replies/:platform/:postId
  */
@@ -1964,6 +2137,8 @@ function bundlePlatform(key: string): string | null {
     bluesky: "BLUESKY", x: "TWITTER", linkedin: "LINKEDIN",
     facebook: "FACEBOOK", instagram: "INSTAGRAM", threads: "THREADS",
     tiktok: "TIKTOK", youtube: "YOUTUBE",
+    reddit: "REDDIT", pinterest: "PINTEREST", slack: "SLACK",
+    discord: "DISCORD", google_business: "GOOGLE_BUSINESS",
   };
   return m[key] || null;
 }
@@ -1974,6 +2149,8 @@ function bundlePlatformToKey(platform: string): string {
     bluesky: "bluesky", twitter: "x", x: "x", linkedin: "linkedin",
     facebook: "facebook", instagram: "instagram", threads: "threads",
     tiktok: "tiktok", youtube: "youtube",
+    reddit: "reddit", pinterest: "pinterest", slack: "slack",
+    discord: "discord", google_business: "google_business",
   };
   const k = String(platform || "").toLowerCase();
   return m[k] || k;
@@ -3149,6 +3326,10 @@ async function handleCron(env: Env): Promise<Response> {
 
         if (updateRes.ok) {
           processed++;
+          // Record X metered fee (best-effort) for successful X posts.
+          if (results.some((r) => r.platform === "x" && r.success)) {
+            await recordXFee(queuedPost.user_id, queuedPost.id, Boolean(queuedPost.has_link), env);
+          }
         } else {
           failed++;
         }
