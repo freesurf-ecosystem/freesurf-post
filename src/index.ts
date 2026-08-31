@@ -2018,6 +2018,10 @@ async function handleTopUp(
     return errorResponse("amountCents must be between 100 and 1,000,000", 400, origin);
   }
 
+  // Stripe needs absolute return URLs; fall back to the app origin for API-key calls
+  // that don't send an Origin header.
+  const appBase = /^https?:\/\//.test(origin) ? origin : "https://post.freesurf.tools";
+
   try {
     const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
@@ -2027,8 +2031,8 @@ async function handleTopUp(
       },
       body: new URLSearchParams({
         mode: "payment",
-        success_url: `${origin}/?tab=fees&success=1`,
-        cancel_url: `${origin}/?tab=fees&cancelled=1`,
+        success_url: `${appBase}/?tab=fees&success=1`,
+        cancel_url: `${appBase}/?tab=fees&cancelled=1`,
         client_reference_id: user.sub,
         "metadata[user_id]": user.sub,
         "line_items[0][price_data][currency]": "usd",
