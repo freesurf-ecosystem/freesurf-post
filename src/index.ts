@@ -1996,7 +1996,15 @@ async function handleGetCredits(
     if (!res.ok) return json({ balanceMicros: 0, transactions: [] }, 200, headers);
     const rows = (await res.json()) as any[];
     const balanceMicros = rows.reduce((s, r) => s + (Number(r.amount_micros) || 0), 0);
-    return json({ balanceMicros, transactions: rows.slice(0, 100) }, 200, headers);
+    const breakdown = { topupsMicros: 0, feesMicros: 0, taxMicros: 0, xFeesMicros: 0 };
+    for (const r of rows) {
+      const m = Number(r.amount_micros) || 0;
+      if (r.kind === "topup") breakdown.topupsMicros += m;
+      else if (r.kind === "stripe_fee") breakdown.feesMicros += m;
+      else if (r.kind === "tax") breakdown.taxMicros += m;
+      else if (r.kind === "x_fee") breakdown.xFeesMicros += m;
+    }
+    return json({ balanceMicros, breakdown, transactions: rows.slice(0, 100) }, 200, headers);
   } catch { return json({ balanceMicros: 0, transactions: [] }, 200, headers); }
 }
 

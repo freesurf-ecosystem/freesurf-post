@@ -2144,6 +2144,14 @@ input:-webkit-autofill:focus {
   font-size: 0.8125rem;
   color: var(--text-muted);
 }
+.fees-breakdown {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  line-height: 1.5;
+}
 .fees-topup {
   display: flex;
   align-items: center;
