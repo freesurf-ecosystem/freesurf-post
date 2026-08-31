@@ -42,20 +42,32 @@ let calSelected = null;
 const $ = (s) => document.querySelector(s);
 
 // ── API helper: prepends API_BASE, attaches the session token, and retries
-// once with a freshly-refreshed session if the server says the token is stale. ──
+// once with a freshly-refreshed session if the server says the token is stale.
+// If the session is truly dead, asks the user to sign in again. ──
 async function apiFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (session?.access_token && !headers.Authorization) headers.Authorization = `Bearer ${session.access_token}`;
-  let res = await apiFetch(`${path}`, { ...options, headers });
+  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (res.status === 401) {
     const fresh = await getSharedSession();
     if (fresh?.accessToken) {
       session = { ...session, ...fresh };
       headers.Authorization = `Bearer ${fresh.accessToken}`;
-      res = await apiFetch(`${path}`, { ...options, headers });
+      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
     }
+    if (res.status === 401) handleExpiredSession();
   }
   return res;
+}
+
+function handleExpiredSession() {
+  if (!session) return;
+  session = null;
+  connectedProfiles = [];
+  renderAuthUI();
+  renderPlatformChips();
+  showView("welcome");
+  showFeedback("Your session expired. Please sign in again.", "warning");
 }
 
 // ── Custom confirmation modal (replaces window.confirm so browsers can't
