@@ -507,6 +507,32 @@ async function getOrCreateBundleTeam(userId: string, env: Env): Promise<string |
     // fall through to create
   }
 
+  // Prefer an existing "Default"-named team so we never duplicate a team label.
+  try {
+    const defRes = await fetch(
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&label=eq.Default&limit=1&select=bundle_team_id,id`,
+      { headers: authHeaders }
+    );
+    if (defRes.ok) {
+      const rows = (await defRes.json()) as Array<{ bundle_team_id: string; id: string }>;
+      if (rows[0]?.bundle_team_id) {
+        await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&is_active=eq.true`, {
+          method: "PATCH",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: false }),
+        });
+        await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${rows[0].id}`, {
+          method: "PATCH",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: true }),
+        });
+        return rows[0].bundle_team_id;
+      }
+    }
+  } catch {
+    // fall through to create
+  }
+
   try {
     const createRes = await fetch("https://api.bundle.social/api/v1/team", {
       method: "POST",
@@ -928,6 +954,13 @@ async function handleCreateTeam(
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
 
   try {
+    const dupRes = await fetch(
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&label=eq.${encodeURIComponent(label)}&select=id&limit=1`,
+      { headers: authHeaders }
+    );
+    const dupRows = (await dupRes.json()) as Array<{ id: string }>;
+    if (dupRows[0]) return errorResponse("A team with that name already exists", 409, origin);
+
     const createRes = await fetch("https://api.bundle.social/api/v1/team", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
@@ -1003,6 +1036,13 @@ async function handleRenameTeam(
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
   try {
+    const dupRes = await fetch(
+      `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&label=eq.${encodeURIComponent(label)}&select=id&limit=1`,
+      { headers: authHeaders }
+    );
+    const dupRows = (await dupRes.json()) as Array<{ id: string }>;
+    if (dupRows[0] && dupRows[0].id !== id) return errorResponse("A team with that name already exists", 409, origin);
+
     const res = await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${id}&user_id=eq.${user.sub}`, {
       method: "PATCH",
       headers: { ...authHeaders, "Content-Type": "application/json" },

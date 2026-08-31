@@ -1,9 +1,9 @@
-# FreeSurf Post — API
+# FreeSurf Post — API Reference
 
 Base URL: https://post.freesurf.tools
 
-Free, open-source cross-posting API. Write once, publish to X, LinkedIn, Facebook,
-Instagram, Threads, TikTok, YouTube, and Bluesky from your own apps.
+Free, open-source cross-posting API. Publish to X, LinkedIn, Facebook, Instagram,
+Threads, TikTok, YouTube, and Bluesky from your own apps.
 
 ## Authentication
 
@@ -20,26 +20,30 @@ Two ways to authenticate:
 - [Schedule](#schedule) — `POST /api/schedule`
 - [Scheduled posts](#scheduled-posts) — `GET /api/scheduled`, `DELETE /api/scheduled/:id`
 - [Media](#media) — `POST /api/media/upload`
-- [Teams](#teams) — `GET /api/teams`, `POST /api/teams`
+- [Teams](#teams) — `GET /api/teams`, `POST /api/teams`, `PATCH /api/teams/:id`, `DELETE /api/teams/:id`
 - [API keys](#api-keys) — `GET /api/keys`, `POST /api/keys`, `DELETE /api/keys/:id`
 
 ## Post now
 
 `POST /api/post`
 
+A team is required — pass `team` (team name, e.g. `"Personal"`) or `teamId`
+(internal id). `team` names are unique per account.
+
 ```json
 {
   "platforms": ["x", "linkedin"],
   "text": "Hello world",
   "mediaUrls": [],
-  "teamId": null
+  "team": "Personal"
 }
 ```
 
-- `platforms` (required): array of platform keys.
+- `team` (required): your team's name (e.g. `"Personal"`, `"citywallz"`).
+- `teamId` (optional): internal team id; wins over `team` if both are provided.
+- `platforms` (required): array of platform keys (see [Platform keys](#platform-keys)).
 - `text` (required): post body.
 - `mediaUrls` (optional): Bundle upload ids (from `POST /api/media/upload`).
-- `teamId` (optional): your team id; defaults to your active team.
 
 Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postUrl": "..." }], "postedAt": "..." }`
 
@@ -47,16 +51,20 @@ Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postU
 
 `POST /api/schedule`
 
+A team is required, same as Post now.
+
 ```json
 {
   "platforms": ["x"],
   "text": "Later post",
-  "scheduledAt": "2026-08-31T14:00:00Z"
+  "scheduledAt": "2026-08-31T14:00:00Z",
+  "team": "Personal"
 }
 ```
 
-`scheduledAt` must be a future ISO 8601 timestamp. Posts publish within ~5 minutes
-of that time via a cron worker.
+- `scheduledAt` (required): future ISO 8601 timestamp.
+- Posts publish within ~5 minutes of that time via a cron worker, to the team
+  stored on the post (never an active-team fallback).
 
 ## Scheduled posts
 
@@ -74,12 +82,15 @@ a single video.
 ## Teams
 
 `GET /api/teams` — list your teams (id, label, is_active).
-`POST /api/teams` — create a team (`{ "label": "Personal" }`).
+`POST /api/teams` — create a team (`{ "label": "Personal" }`). Labels are unique
+per account; a duplicate returns `409`.
+`PATCH /api/teams/:id` — rename a team (`{ "label": "..." }`).
+`DELETE /api/teams/:id` — delete a team.
 
-Target a specific team when posting with `teamId` (otherwise it goes to your active team):
+Target a specific team when posting with `team` (by name) or `teamId`:
 
 ```json
-{ "platforms": ["x"], "text": "For my business", "teamId": "YOUR_TEAM_ID" }
+{ "platforms": ["x"], "text": "For my business", "team": "citywallz" }
 ```
 
 ## API keys
@@ -100,9 +111,3 @@ Target a specific team when posting with `teamId` (otherwise it goes to your act
 | `tiktok`  | TikTok     |
 | `youtube` | YouTube    |
 | `bluesky` | Bluesky    |
-
-## X metered pricing
-
-X is billed per action: $0.015 for a plain text/media post, $0.20 for a post
-containing a URL. We detect links and pass the exact X fees through at cost
-(plus Stripe fees/taxes).
