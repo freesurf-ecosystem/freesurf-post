@@ -2189,7 +2189,13 @@ async function init() {
   if (params.get("tab") === "fees") {
     // Returned from a Stripe checkout (success or cancelled) → show the X fees tab.
     history.replaceState(null, "", location.pathname);
-    if (session) { showView("fees"); fetchCredits(); }
+    if (session) {
+      showView("fees");
+      fetchCredits();
+      // The Stripe webhook lands a few seconds after the redirect; poll to catch it.
+      setTimeout(fetchCredits, 2500);
+      setTimeout(fetchCredits, 7000);
+    }
   } else if (params.get("success")) {
     history.replaceState(null, "", location.pathname);
     await fetchTeams();
@@ -2248,6 +2254,12 @@ function switchView(viewName) {
   if (viewName === "analytics") fetchAnalytics();
   if (viewName === "fees") fetchCredits();
 }
+
+// Refresh credits periodically while the X fees view is open, so top-ups and
+// X-fee debits appear without a manual reload (webhooks can land seconds later).
+setInterval(() => {
+  if (currentView === "fees" && session?.access_token) fetchCredits();
+}, 10000);
 
 // ── Event Listeners ──
 
