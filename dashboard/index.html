@@ -640,7 +640,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
           <div class="card-header">
             <div>
               <h2 class="card-title">X fees</h2>
-              <p style="color:var(--text);margin:0;">When you top up on web, the payment fee is deducted from what you add — e.g. a $10 card top-up becomes about <strong>$9.41</strong> in available balance (2.9% + $0.30), and sales tax may apply where required. Store purchases (Apple/Google) deduct their 15–30% the same way. X charges $0.015 for a plain/media post and $0.20 for a post containing a link.</p>
+              <p style="color:var(--text);margin:0;">When you top up on web, the payment fee is deducted from what you add — e.g. a $10 card top-up becomes about <strong>$9.65</strong> in available balance (3.5% Stripe managed payments fee), and sales tax may apply where required. Store purchases (Apple/Google) deduct their 15–30% the same way. X charges $0.015 for a plain/media post and $0.20 for a post containing a link.</p>
             </div>
           </div>
           <div class="fees-balance" id="fees-balance">
@@ -676,7 +676,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
           <table class="limits-table">
             <thead><tr><th>Fee</th><th class="num">Cost</th></tr></thead>
             <tbody>
-              <tr><td>Stripe (per top-up transaction)</td><td class="num">2.9% + $0.30</td></tr>
+              <tr><td>Stripe managed payments (per top-up transaction)</td><td class="num">3.5%</td></tr>
               <tr><td>Sales tax</td><td class="num">Where applicable</td></tr>
               <tr><td>Apple App Store in-app purchase</td><td class="num">15–30%</td></tr>
               <tr><td>Google Play in-app purchase</td><td class="num">15–30%</td></tr>
