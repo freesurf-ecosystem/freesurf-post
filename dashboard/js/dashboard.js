@@ -1137,9 +1137,9 @@ $("#topup-amount")?.addEventListener("input", (e) => {
   if (!est) return;
   const amt = Number(e.target.value);
   if (!Number.isFinite(amt) || amt <= 0) { est.textContent = ""; return; }
-  const fee = amt * 0.064 + 0.30;
+  const fee = amt * 0.064 + 0.35;
   const net = Math.max(0, amt - fee);
-  est.textContent = `$${amt.toFixed(2)} top-up → ~$${net.toFixed(2)} balance after the 6.4% + $0.30 Stripe managed payments fee`;
+  est.textContent = `$${amt.toFixed(2)} top-up → ~$${net.toFixed(2)} balance after the 6.4% + $0.35 Stripe managed payments fee`;
 });
 
 // Quick top-up amount chips.
