@@ -57,6 +57,8 @@ By team id:
 - `platforms` (required): array of platform keys (see [Platform keys](#platform-keys)).
 - `text` (required): post body.
 - `mediaUrls` (optional): Bundle upload ids (from `POST /api/media/upload`).
+- `instagramImageFit` (optional): `"fit"` (default — adds padding) or `"crop"` (center-crops)
+  so Instagram feed images outside 4:5–1.91:1 still publish. Applies to image posts only.
 
 Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postUrl": "..." }], "postedAt": "..." }`
 
@@ -128,3 +130,12 @@ Target a specific team when posting with `team` (by name) or `teamId` (by id):
 | `tiktok`  | TikTok     |
 | `youtube` | YouTube    |
 | `bluesky` | Bluesky    |
+
+## Notes
+
+- **Facebook, LinkedIn, YouTube** publish to a selected Page/Channel. Select it in
+  the dashboard Accounts tab (or via `POST /api/channel/:platform`) before posting;
+  otherwise the post may go to a default target or fail.
+- **Instagram** feed images default to `autoFitImage` (padding). Pass
+  `instagramImageFit: "crop"` in the post body to center-crop instead.
+- **TikTok and YouTube** require a video; **Instagram** accepts images or video.

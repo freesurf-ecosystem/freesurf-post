@@ -1531,7 +1531,7 @@ async function handlePost(
         };
       }
 
-      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId);
+      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit);
       if (providerResult.success) return providerResult;
 
       // Only fall back to a direct adapter when one is actually configured;
@@ -1706,7 +1706,8 @@ async function postViaProvider(
   text: string,
   env: Env,
   mediaUrls: string[] | undefined,
-  teamId: string
+  teamId: string,
+  instagramImageFit?: "fit" | "crop"
 ): Promise<PlatformPostResult> {
   if (!env.SOCIAL_API_PROVIDER_KEY || !teamId) {
     return { platform, success: false, error: "Bundle.social not configured" };
@@ -1716,9 +1717,24 @@ async function postViaProvider(
   const platformMap: Record<string, string> = {
     bluesky: "BLUESKY", x: "TWITTER", linkedin: "LINKEDIN",
     facebook: "FACEBOOK", instagram: "INSTAGRAM", threads: "THREADS",
-    tiktok: "TIKTOK",
+    tiktok: "TIKTOK", youtube: "YOUTUBE",
   };
   const bsPlatform = platformMap[platform] || platform.toUpperCase();
+
+  // Instagram feed image posts: auto-fit (pad) or auto-crop so images outside
+  // Instagram's 4:5–1.91:1 range still publish. Defaults to "fit" (no pixel loss).
+  let platformData: Record<string, any> = {
+    text,
+    ...(mediaUrls?.length ? { uploadIds: mediaUrls } : {}),
+  };
+  if (platform === "instagram" && mediaUrls?.length) {
+    const fit = instagramImageFit ?? "fit";
+    platformData = {
+      ...platformData,
+      autoFitImage: fit === "fit",
+      autoCropImage: fit === "crop",
+    };
+  }
 
   try {
     const now = new Date().toISOString();
@@ -1735,10 +1751,7 @@ async function postViaProvider(
         postDate: now,
         socialAccountTypes: [bsPlatform],
         data: {
-          [bsPlatform]: {
-            text,
-            ...(mediaUrls?.length ? { uploadIds: mediaUrls } : {}),
-          },
+          [bsPlatform]: platformData,
         },
       }),
     });

@@ -263,6 +263,7 @@
                   <select id="post-team" class="form-select" style="max-width:260px;"></select>
                 </div>
                 <div class="platform-toggles" id="platform-toggles"></div>
+                <div id="channel-reminder" class="channel-reminder hidden">Facebook, LinkedIn, and YouTube posts go to a selected page/channel — if yours isn't, pick it in <strong>Accounts</strong>.</div>
                 <div class="compose-actions">
                   <span class="char-count" id="char-count">0 / 300</span>
                   <span id="link-warning" class="link-warning hidden">Contains a link — X charges $0.20 instead of $0.015</span>
@@ -373,6 +374,7 @@ requests.post("https://post.freesurf.tools/api/post",
   headers={"Authorization": "Bearer fsp_live_..."},
   json={"platforms": ["x"], "text": "Hello from Python", "team": "Personal"})</code></pre>
             <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, <code>team</code> (name) or <code>teamId</code> (id) — one is required — plus optional <code>mediaUrls</code>.</p>
+            <p class="api-text">Instagram feed images auto-fit by default; pass <code>"instagramImageFit":"crop"</code> to center-crop instead. For Facebook, LinkedIn, and YouTube, select a page/channel in the <strong>Accounts</strong> tab so posts go to the right target.</p>
             <p class="api-text">Response:</p>
             <pre class="api-code"><code>{
   "id": "post-uuid",

@@ -916,6 +916,16 @@ a:hover { text-decoration: underline; }
 
 .platform-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
 
+.channel-reminder {
+  margin-top: 10px;
+  font-size: 0.8125rem;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
 .platform-chip {
   display: flex;
   align-items: center;

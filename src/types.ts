@@ -15,6 +15,8 @@ export interface PostRequest {
   teamId?: string;
   /** Alternative: post to a team by its label (e.g. "Personal"). teamId wins if both set. */
   team?: string;
+  /** Instagram feed image handling: "fit" (adds padding, default) or "crop" (center-crops). */
+  instagramImageFit?: "fit" | "crop";
 }
 
 /** Result of posting to a single platform */

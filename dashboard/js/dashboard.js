@@ -366,6 +366,17 @@ function updatePlatformPreviews() {
   const selected = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const count = $("#preview-count");
   if (count) count.textContent = `${selected.length} platform${selected.length === 1 ? "" : "s"}`;
+
+  // Remind users to select a Page/Channel for Facebook, LinkedIn, YouTube.
+  const reminder = $("#channel-reminder");
+  if (reminder) {
+    const needsChannel = selected.some((p) => {
+      if (!CHANNEL_PLATFORMS.has(p)) return false;
+      const acc = composeAccounts.find((a) => a.platform === p);
+      return !acc || !acc.selectedChannelId;
+    });
+    reminder.classList.toggle("hidden", !needsChannel);
+  }
 }
 
 function hasLink(text) {
