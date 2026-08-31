@@ -487,6 +487,47 @@ btnPost.addEventListener("click", async () => {
   btnPost.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Post`;
 });
 
+$("#btn-schedule-compose")?.addEventListener("click", async () => {
+  const text = textarea.value.trim();
+  if (!text) { showFeedback("Write something first.", "error"); return; }
+  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
+  if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
+
+  const timeEl = $("#compose-sched-time");
+  let scheduledAt = timeEl?.value;
+  if (!scheduledAt) {
+    const d = new Date(Date.now() + 3600 * 1000);
+    d.setMinutes(0, 0, 0);
+    scheduledAt = d.toISOString().slice(0, 16);
+  }
+  const iso = new Date(scheduledAt).toISOString();
+  if (isNaN(new Date(scheduledAt).getTime())) { showFeedback("Pick a valid schedule time.", "error"); return; }
+
+  clearFeedback();
+  try {
+    const res = await fetch(`${API_BASE}/api/schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined }),
+    });
+    if (res.ok) {
+      showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
+      textarea.value = "";
+      charCount.textContent = "0 / 300";
+      charCount.className = "char-count";
+      if (timeEl) timeEl.value = "";
+      uploadedMedia = [];
+      renderMediaPreview();
+    } else {
+      const err = await res.json();
+      showFeedback(err.error || "Failed to schedule.", "error");
+    }
+  } catch {
+    showFeedback("Network error.", "error");
+  }
+});
+
 function showFeedback(msg, type) { feedback.className = `feedback ${type} visible`; feedback.textContent = msg; }
 function clearFeedback() { feedback.className = "feedback"; feedback.innerHTML = ""; }
 
@@ -658,9 +699,10 @@ function renderTeams() {
     <div class="account-item${selected ? " team-selected" : ""}">
       <div class="account-item-info account-item-selectable" data-team-select="${t.id}">
         <div class="account-item-name">${escapeHtml(t.label)}${t.is_active ? ' <span class="history-platform-badge">Default</span>' : ""}</div>
-        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"}</div>
+        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"} · <span style="color:var(--text-muted);font-family:ui-monospace,monospace;font-size:0.75rem;">${t.id}</span></div>
       </div>
       <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm btn-ghost" data-copy-team-id="${t.id}" title="Copy team ID (use as teamId in the API)">Copy ID</button>
         <button class="btn btn-sm btn-ghost" data-edit-team="${t.id}" title="Rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
         ${t.is_active ? "" : `<button class="btn btn-sm btn-secondary" data-activate-team="${t.id}">Set default</button>`}
         <button class="btn btn-sm btn-ghost" data-delete-team="${t.id}">Delete</button>
@@ -672,6 +714,9 @@ function renderTeams() {
   $$("[data-activate-team]").forEach((btn) => btn.addEventListener("click", () => activateTeam(btn.dataset.activateTeam)));
   $$("[data-edit-team]").forEach((btn) => btn.addEventListener("click", () => editTeam(btn.dataset.editTeam)));
   $$("[data-delete-team]").forEach((btn) => btn.addEventListener("click", () => deleteTeam(btn.dataset.deleteTeam)));
+  $$("[data-copy-team-id]").forEach((btn) => btn.addEventListener("click", () => {
+    navigator.clipboard?.writeText(btn.dataset.copyTeamId).then(() => alert("Team ID copied!"));
+  }));
 
   // Populate the compose team selector (active team preselected)
   if ($("#post-team")) {

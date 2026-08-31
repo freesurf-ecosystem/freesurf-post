@@ -277,6 +277,8 @@
                 <div class="compose-actions">
                   <span class="char-count" id="char-count">0 / 300</span>
                   <span id="link-warning" class="link-warning hidden">Contains a link — X charges $0.20 instead of $0.015</span>
+                  <input type="datetime-local" id="compose-sched-time" class="form-input" title="Schedule time" style="width:auto;font-size:0.8125rem;" />
+                  <button class="btn btn-secondary" id="btn-schedule-compose" title="Schedule this post">Schedule</button>
                   <button class="btn btn-primary" id="btn-post" disabled>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                     Post
@@ -338,8 +340,14 @@
       <!-- API Docs -->
       <section id="view-docs" class="view hidden">
         <div class="card">
-          <div class="card-header"><div><h2 class="card-title">API Reference</h2><p class="card-subtitle">Post and schedule from your own apps.</p></div>
-            <button class="btn btn-sm btn-secondary" id="btn-copy-llms">Copy llms.txt URL</button>
+          <div class="card-header">
+            <div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <h2 class="card-title">API Reference</h2>
+                <button class="btn btn-sm btn-secondary" id="btn-copy-llms">Copy llms.txt URL</button>
+              </div>
+              <p class="card-subtitle">Post and schedule from your own apps.</p>
+            </div>
           </div>
 
           <details class="api-section" open>
@@ -369,6 +377,14 @@ requests.post("https://post.freesurf.tools/api/post",
   headers={"Authorization": "Bearer fsp_live_..."},
   json={"platforms": ["x"], "text": "Hello from Python"})</code></pre>
             <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, optional <code>mediaUrls</code>, optional <code>teamId</code>.</p>
+            <p class="api-text">Response:</p>
+            <pre class="api-code"><code>{
+  "id": "post-uuid",
+  "results": [
+    { "platform": "x", "success": true, "postUrl": "https://x.com/..." }
+  ],
+  "postedAt": "2026-08-30T19:00:00Z"
+}</code></pre>
           </details>
 
           <details class="api-section">
@@ -415,6 +431,19 @@ curl -X POST https://post.freesurf.tools/api/post \
   -H "Content-Type: application/json" \
   -d '{"platforms":["x"],"text":"For my business","teamId":"YOUR_TEAM_ID"}'</code></pre>
             <p class="api-text">If <code>teamId</code> is omitted, the post goes to your active/default team.</p>
+          </details>
+
+          <details class="api-section">
+            <summary>Supported platforms</summary>
+            <p class="api-text">Platform keys you can pass in <code>platforms</code>:</p>
+            <pre class="api-code"><code>x        X / Twitter
+linkedin LinkedIn
+facebook Facebook
+instagram Instagram
+threads  Threads
+tiktok   TikTok
+youtube  YouTube
+bluesky  Bluesky</code></pre>
           </details>
 
           <div class="card-header" style="margin-top:24px;">
