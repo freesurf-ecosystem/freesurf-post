@@ -22,3 +22,6 @@ CREATE POLICY "Users manage own api keys" ON post_api_keys
 
 -- Track whether a post contains a link (X metered pricing: $0.015 vs $0.20)
 ALTER TABLE post_posts ADD COLUMN IF NOT EXISTS has_link boolean NOT NULL DEFAULT false;
+
+-- Track which Bundle team a scheduled post belongs to (null = active team)
+ALTER TABLE post_posts ADD COLUMN IF NOT EXISTS bundle_team_id text;

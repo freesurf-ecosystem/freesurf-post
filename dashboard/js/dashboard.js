@@ -531,6 +531,11 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
 function showFeedback(msg, type) { feedback.className = `feedback ${type} visible`; feedback.textContent = msg; }
 function clearFeedback() { feedback.className = "feedback"; feedback.innerHTML = ""; }
 
+try {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  if (tz && $("#compose-tz")) $("#compose-tz").textContent = tz;
+} catch {}
+
 // ── History (kept in localStorage, surfaced in Analytics) ──
 
 function saveHistory() { try { localStorage.setItem("freesurf-post-history", JSON.stringify(postHistory.slice(0, 50))); } catch {} }
@@ -699,10 +704,11 @@ function renderTeams() {
     <div class="account-item${selected ? " team-selected" : ""}">
       <div class="account-item-info account-item-selectable" data-team-select="${t.id}">
         <div class="account-item-name">${escapeHtml(t.label)}${t.is_active ? ' <span class="history-platform-badge">Default</span>' : ""}</div>
-        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"} · <span style="color:var(--text-muted);font-family:ui-monospace,monospace;font-size:0.75rem;">${t.id}</span></div>
+        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"} · <span style="color:var(--text-muted);font-family:ui-monospace,monospace;font-size:0.75rem;">${t.id}</span>
+          <button class="copy-id-btn" data-copy-team-id="${t.id}" title="Copy team ID" style="margin-left:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        </div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-sm btn-ghost" data-copy-team-id="${t.id}" title="Copy team ID (use as teamId in the API)">Copy ID</button>
         <button class="btn btn-sm btn-ghost" data-edit-team="${t.id}" title="Rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
         ${t.is_active ? "" : `<button class="btn btn-sm btn-secondary" data-activate-team="${t.id}">Set default</button>`}
         <button class="btn btn-sm btn-ghost" data-delete-team="${t.id}">Delete</button>
@@ -911,6 +917,20 @@ async function revokeKey(id) {
 $("#btn-create-key")?.addEventListener("click", createKey);
 $("#btn-copy-llms")?.addEventListener("click", () => {
   navigator.clipboard?.writeText("https://post.freesurf.tools/llms.txt").then(() => alert("Copied llms.txt URL!"));
+});
+
+// API docs mini-tabs (cURL / JavaScript / Python)
+$$(".api-tabs").forEach((tabs) => {
+  tabs.querySelectorAll(".api-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.querySelectorAll(".api-tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      const panel = tab.dataset.tab;
+      tabs.parentElement.querySelectorAll(".api-tab-panel").forEach((p) => {
+        p.classList.toggle("hidden", p.dataset.panel !== panel);
+      });
+    });
+  });
 });
 
 async function connectPlatform(key) {

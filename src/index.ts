@@ -1397,6 +1397,9 @@ async function handlePost(
   if (!body.text?.trim()) {
     return errorResponse("Text content is required", 400, origin);
   }
+  if (!body.teamId && !body.team) {
+    return errorResponse("teamId or team is required", 400, origin);
+  }
 
   // ── Rate limits (KV-backed) ──
 
@@ -1722,7 +1725,7 @@ async function handleSchedule(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[] };
+  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[]; teamId?: string; team?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
 
   if (!body.platforms?.length) return errorResponse("At least one platform required", 400, origin);
@@ -1737,11 +1740,15 @@ async function handleSchedule(
     return errorResponse("Scheduling requires SUPABASE_SERVICE_ROLE_KEY", 501, origin);
   }
 
+  const bundleTeamId = env.SOCIAL_API_PROVIDER_KEY
+    ? await resolveTeamId(user.sub, body.teamId, body.team, env)
+    : null;
+
   try {
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), scheduled_at: body.scheduledAt }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt }),
     });
     if (!res.ok) return errorResponse("Failed to schedule post", 500, origin);
     const [scheduled] = (await res.json()) as any[];
@@ -3016,9 +3023,9 @@ async function handleCron(env: Env): Promise<Response> {
 
     for (const queuedPost of postsToPost) {
       try {
-        // Resolve the user's active Bundle team for Bundle-based platforms
+        // Resolve the post's Bundle team (stored on the post, or active team as fallback)
         const bundleTeamId = env.SOCIAL_API_PROVIDER_KEY
-          ? await resolveBundleTeamId(queuedPost.user_id, undefined, env)
+          ? (queuedPost.bundle_team_id || await resolveBundleTeamId(queuedPost.user_id, undefined, env))
           : null;
 
         const results: PlatformPostResult[] = await Promise.all(

@@ -229,12 +229,6 @@
                   <h2 class="card-title">New post</h2>
                   <p class="card-subtitle">Write once, publish everywhere.</p>
                 </div>
-                <div class="card-header-actions">
-                  <button class="btn btn-sm btn-secondary" id="btn-save-draft">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    Save draft
-                  </button>
-                </div>
               </div>
 
               <!-- Media Upload -->
@@ -282,7 +276,12 @@
                     Post
                   </button>
                   <input type="datetime-local" id="compose-sched-time" class="form-input" title="Schedule time" style="width:auto;font-size:0.8125rem;" />
+                  <span id="compose-tz" class="tz-note" title="Scheduler uses this timezone"></span>
                   <button class="btn btn-secondary" id="btn-schedule-compose" title="Schedule this post">Schedule</button>
+                  <button class="btn btn-ghost" id="btn-save-draft">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Save draft
+                  </button>
                 </div>
               </div>
 
@@ -357,26 +356,28 @@
 
           <details class="api-section" open>
             <summary>Posting</summary>
-            <p class="api-text"><strong>cURL</strong></p>
-            <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/post \
+            <div class="api-tabs" data-tabs="posting">
+              <button class="api-tab active" data-tab="curl">cURL</button>
+              <button class="api-tab" data-tab="js">JavaScript</button>
+              <button class="api-tab" data-tab="python">Python</button>
+            </div>
+            <pre class="api-code api-tab-panel" data-panel="curl"><code>curl -X POST https://post.freesurf.tools/api/post \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"platforms":["x","linkedin"],"text":"Hello from the API"}'</code></pre>
-            <p class="api-text"><strong>JavaScript</strong></p>
-            <pre class="api-code"><code>await fetch("https://post.freesurf.tools/api/post", {
+  -d '{"platforms":["x","linkedin"],"text":"Hello from the API","teamId":"YOUR_TEAM_ID"}'</code></pre>
+            <pre class="api-code api-tab-panel hidden" data-panel="js"><code>await fetch("https://post.freesurf.tools/api/post", {
   method: "POST",
   headers: {
     "Authorization": "Bearer fsp_live_...",
     "Content-Type": "application/json"
   },
-  body: JSON.stringify({ platforms: ["x"], text: "Hello from JS" })
+  body: JSON.stringify({ platforms: ["x"], text: "Hello from JS", teamId: "YOUR_TEAM_ID" })
 });</code></pre>
-            <p class="api-text"><strong>Python</strong></p>
-            <pre class="api-code"><code>import requests
+            <pre class="api-code api-tab-panel hidden" data-panel="python"><code>import requests
 requests.post("https://post.freesurf.tools/api/post",
   headers={"Authorization": "Bearer fsp_live_..."},
-  json={"platforms": ["x"], "text": "Hello from Python"})</code></pre>
-            <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, optional <code>mediaUrls</code>, optional <code>teamId</code>.</p>
+  json={"platforms": ["x"], "text": "Hello from Python", "teamId": "YOUR_TEAM_ID"})</code></pre>
+            <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, <code>teamId</code> (required), optional <code>mediaUrls</code>.</p>
             <p class="api-text">Response:</p>
             <pre class="api-code"><code>{
   "id": "post-uuid",
@@ -385,6 +386,17 @@ requests.post("https://post.freesurf.tools/api/post",
   ],
   "postedAt": "2026-08-30T19:00:00Z"
 }</code></pre>
+            <p class="api-text"><strong>Media (images / videos)</strong> — upload a local file to get an <code>uploadId</code>, then pass it in <code>mediaUrls</code>:</p>
+            <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/media/upload \
+  -H "Authorization: Bearer fsp_live_..." \
+  -F "file=@/path/to/image.png"
+
+# then post with the returned uploadId
+curl -X POST https://post.freesurf.tools/api/post \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platforms":["x"],"text":"Caption here","teamId":"YOUR_TEAM_ID","mediaUrls":["UPLOAD_ID"]}'</code></pre>
+            <p class="api-text"><code>text</code> is the caption. Pass multiple ids for carousels (X, LinkedIn, Instagram); TikTok/YouTube need a single video.</p>
           </details>
 
           <details class="api-section">
@@ -406,21 +418,6 @@ curl -X DELETE https://post.freesurf.tools/api/scheduled/POST_ID \
           </details>
 
           <details class="api-section">
-            <summary>Media (images / videos)</summary>
-            <p class="api-text">Upload a local file (multipart) to get an <code>uploadId</code>, then pass it in <code>mediaUrls</code>:</p>
-            <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/media/upload \
-  -H "Authorization: Bearer fsp_live_..." \
-  -F "file=@/path/to/image.png"
-
-# then post with the returned uploadId
-curl -X POST https://post.freesurf.tools/api/post \
-  -H "Authorization: Bearer fsp_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{"platforms":["x"],"text":"Caption here","mediaUrls":["UPLOAD_ID"]}'</code></pre>
-            <p class="api-text"><code>text</code> is the caption. Pass multiple <code>uploadIds</code> for carousels (X, LinkedIn, Instagram). TikTok/YouTube require a single video; images go to <code>mediaUrls</code> for image platforms.</p>
-          </details>
-
-          <details class="api-section">
             <summary>Teams</summary>
             <p class="api-text">List your teams to get their <code>id</code>, then target one with <code>teamId</code> so posts don't accidentally go to the wrong team:</p>
             <pre class="api-code"><code>curl https://post.freesurf.tools/api/teams \
@@ -430,20 +427,22 @@ curl -X POST https://post.freesurf.tools/api/post \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
   -d '{"platforms":["x"],"text":"For my business","teamId":"YOUR_TEAM_ID"}'</code></pre>
-            <p class="api-text">If <code>teamId</code> is omitted, the post goes to your active/default team.</p>
+            <p class="api-text">A team is required for every post — posts never default to another team.</p>
           </details>
 
           <details class="api-section">
             <summary>Supported platforms</summary>
             <p class="api-text">Platform keys you can pass in <code>platforms</code>:</p>
-            <pre class="api-code"><code>x        X / Twitter
-linkedin LinkedIn
-facebook Facebook
+            <pre class="api-code"><code>Key       Platform
+--------  -----------
+x         X / Twitter
+linkedin  LinkedIn
+facebook  Facebook
 instagram Instagram
-threads  Threads
-tiktok   TikTok
-youtube  YouTube
-bluesky  Bluesky</code></pre>
+threads   Threads
+tiktok    TikTok
+youtube   YouTube
+bluesky   Bluesky</code></pre>
           </details>
 
           <div class="card-header" style="margin-top:24px;">
