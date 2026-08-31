@@ -1411,6 +1411,32 @@ function hasDirectXCreds(env: Env, userTokens: PlatformToken[]): boolean {
 }
 
 /**
+ * True when a direct (non-Bundle) adapter is actually configured for a platform,
+ * either via env vars or a per-user stored token. Used to decide whether to fall
+ * back to a direct adapter when the Bundle post fails (vs surfacing Bundle's error).
+ */
+function hasDirectCreds(platform: Platform, env: Env, userTokens: PlatformToken[]): boolean {
+  if (platform === "x") return hasDirectXCreds(env, userTokens);
+  const token = findToken(userTokens, platform);
+  switch (platform) {
+    case "bluesky":
+      return Boolean((token?.platform_handle && token?.access_token) || (env.BLUESKY_HANDLE && env.BLUESKY_PASSWORD));
+    case "linkedin":
+      return Boolean((token?.access_token && token?.platform_user_id) || (env.LINKEDIN_ACCESS_TOKEN && env.LINKEDIN_AUTHOR));
+    case "facebook":
+      return Boolean((token?.access_token && (token?.metadata as any)?.page_id) || (env.FACEBOOK_ACCESS_TOKEN && env.FACEBOOK_PAGE_ID));
+    case "instagram":
+      return Boolean((token?.access_token && (token?.metadata as any)?.ig_user_id) || (env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_USER_ID));
+    case "tiktok":
+      return Boolean((token?.access_token && token?.platform_user_id) || (env.TIKTOK_ACCESS_TOKEN && env.TIKTOK_OPEN_ID));
+    case "threads":
+      return Boolean((token?.access_token && token?.platform_user_id) || (env.THREADS_ACCESS_TOKEN && env.THREADS_USER_ID));
+    default:
+      return false;
+  }
+}
+
+/**
  * POST /api/post — Post to one or more platforms.
  */
 async function handlePost(
@@ -1508,8 +1534,13 @@ async function handlePost(
       const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId);
       if (providerResult.success) return providerResult;
 
-      // Fall back to a direct adapter (e.g. Bluesky app password, env vars)
-      return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
+      // Only fall back to a direct adapter when one is actually configured;
+      // otherwise surface the real Bundle error instead of a misleading
+      // "X not connected".
+      if (hasDirectCreds(platform, env, userTokens)) {
+        return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
+      }
+      return providerResult;
     })
   );
 
@@ -3074,8 +3105,13 @@ async function handleCron(env: Env): Promise<Response> {
                 platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId
               );
               if (providerResult.success) return providerResult;
+              // Only fall back to a direct adapter when env-var creds exist;
+              // otherwise surface the real Bundle error.
+              if (hasDirectCreds(platform, env, [])) {
+                return postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls);
+              }
+              return providerResult;
             }
-            // Fall back to a direct adapter (Bluesky app password / env vars)
             return postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls);
           })
         );
