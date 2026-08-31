@@ -61,7 +61,7 @@ function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, FSP-API-KEY",
   };
 }
 
@@ -102,7 +102,7 @@ function detectHasLink(text: string): boolean {
  */
 async function authenticateRequest(request: Request, env: Env): Promise<{ sub: string } | null> {
   const authHeader = request.headers.get("Authorization") || "";
-  const apiKeyHeader = request.headers.get("X-API-Key") || "";
+  const apiKeyHeader = request.headers.get("FSP-API-KEY") || "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   const token = apiKeyHeader || bearer;
 
@@ -158,11 +158,6 @@ export default {
       return handleHealthCheck(env, origin);
     }
 
-    // --- Cron: process scheduled posts ---
-    if (request.headers.get("X-Cron-Trigger")) {
-      return handleCron(env);
-    }
-
     // --- API routes ---
     if (url.pathname.startsWith("/api/")) {
       return handleApi(request, env, url, origin);
@@ -177,6 +172,10 @@ export default {
       status: 200,
       headers: { "Content-Type": "text/plain" },
     });
+  },
+
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleCron(env));
   },
 };
 
@@ -1088,7 +1087,11 @@ async function handleCreateKey(
       },
       body: JSON.stringify({ user_id: user.sub, name, key_hash: hash }),
     });
-    if (!res.ok) return errorResponse("Failed to create key", res.status || 500, origin);
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Create key failed:", res.status, errText.slice(0, 500));
+      return errorResponse("Failed to create key — did you run supabase/api_keys.sql?", res.status || 500, origin);
+    }
     const [row] = (await res.json()) as any[];
     return json({ id: row?.id, name: row?.name, key: rawKey, created_at: row?.created_at }, 201, headers);
   } catch (e) {

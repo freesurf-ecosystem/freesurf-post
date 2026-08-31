@@ -864,6 +864,9 @@ async function revokeKey(id) {
 }
 
 $("#btn-create-key")?.addEventListener("click", createKey);
+$("#btn-copy-llms")?.addEventListener("click", () => {
+  navigator.clipboard?.writeText("https://post.freesurf.tools/llms.txt").then(() => alert("Copied llms.txt URL!"));
+});
 
 async function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);

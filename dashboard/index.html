@@ -338,19 +338,36 @@
       <!-- API Docs -->
       <section id="view-docs" class="view hidden">
         <div class="card">
-          <div class="card-header"><div><h2 class="card-title">API Reference</h2><p class="card-subtitle">Post and schedule from your own apps.</p></div></div>
+          <div class="card-header"><div><h2 class="card-title">API Reference</h2><p class="card-subtitle">Post and schedule from your own apps.</p></div>
+            <button class="btn btn-sm btn-secondary" id="btn-copy-llms">Copy llms.txt URL</button>
+          </div>
 
           <details class="api-section" open>
             <summary>Authentication</summary>
-            <p class="api-text">Generate an API key below, then send it as <code>Authorization: Bearer fsp_live_…</code> or <code>X-API-Key: fsp_live_…</code>. Keys are scoped to your account and can be revoked anytime.</p>
+            <p class="api-text">Generate an API key below, then send it as <code>Authorization: Bearer fsp_live_…</code> or <code>FSP-API-KEY: fsp_live_…</code>. Keys are scoped to your account and can be revoked anytime.</p>
           </details>
 
           <details class="api-section" open>
             <summary>Posting</summary>
+            <p class="api-text"><strong>cURL</strong></p>
             <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/post \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
   -d '{"platforms":["x","linkedin"],"text":"Hello from the API"}'</code></pre>
+            <p class="api-text"><strong>JavaScript</strong></p>
+            <pre class="api-code"><code>await fetch("https://post.freesurf.tools/api/post", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer fsp_live_...",
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({ platforms: ["x"], text: "Hello from JS" })
+});</code></pre>
+            <p class="api-text"><strong>Python</strong></p>
+            <pre class="api-code"><code>import requests
+requests.post("https://post.freesurf.tools/api/post",
+  headers={"Authorization": "Bearer fsp_live_..."},
+  json={"platforms": ["x"], "text": "Hello from Python"})</code></pre>
             <p class="api-text">Body: <code>platforms</code> (array), <code>text</code>, optional <code>mediaUrls</code>, optional <code>teamId</code>.</p>
           </details>
 
@@ -372,8 +389,12 @@ curl -X DELETE https://post.freesurf.tools/api/scheduled/POST_ID \
   -H "Authorization: Bearer fsp_live_..."</code></pre>
           </details>
 
-          <div class="card-header" style="margin-top:24px;"><div><h2 class="card-title">API keys</h2><p class="card-subtitle">Use these to post from your own apps.</p></div>
-            <button class="btn btn-primary btn-sm" id="btn-create-key">Create key</button>
+          <div class="card-header" style="margin-top:24px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <h2 class="card-title">API keys</h2>
+              <button class="btn btn-primary btn-sm" id="btn-create-key">Create key</button>
+            </div>
+            <p class="card-subtitle">Use these to post from your own apps.</p>
           </div>
           <div class="account-list" id="api-keys-list"></div>
           <div id="api-key-result" style="margin-top:12px;"></div>

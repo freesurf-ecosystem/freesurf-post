@@ -10,7 +10,7 @@ Instagram, Threads, TikTok, YouTube, and Bluesky from your own apps.
 Two ways to authenticate:
 
 1. **API key** (recommended for apps): send `Authorization: Bearer fsp_live_...`
-   or `X-API-Key: fsp_live_...`. Generate and revoke keys in the dashboard
+   or `FSP-API-KEY: fsp_live_...`. Generate and revoke keys in the dashboard
    (API tab). Keys are scoped to your account.
 2. **Supabase JWT**: the dashboard's own session token (`Authorization: Bearer <JWT>`).
 
