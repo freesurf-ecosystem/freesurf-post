@@ -1923,7 +1923,7 @@ async function recordXFee(userId: string, postId: string, hasLink: boolean, env:
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
   try {
-    await fetch(`${supabaseUrl}/rest/v1/post_ledger`, {
+    await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
       method: "POST",
       headers: { ...authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1954,7 +1954,7 @@ async function handleGetCredits(
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
   try {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/post_ledger?user_id=eq.${user.sub}&select=amount_micros,kind,reference_id,has_link,note,created_at&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/post_credits?user_id=eq.${user.sub}&select=amount_micros,kind,reference_id,has_link,note,created_at&order=created_at.desc`,
       { headers: authHeaders }
     );
     if (!res.ok) return json({ balanceMicros: 0, transactions: [] }, 200, headers);
@@ -2047,7 +2047,7 @@ async function handleStripeWebhook(
     if (uid && micros > 0) {
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
       const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
-      await fetch(`${supabaseUrl}/rest/v1/post_ledger`, {
+      await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
