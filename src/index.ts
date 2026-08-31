@@ -1999,6 +1999,7 @@ async function handleTopUp(
         "line_items[0][price_data][unit_amount]": String(cents),
         "line_items[0][price_data][product_data][name]": "FreeSurf Post credits",
         "line_items[0][quantity]": "1",
+        "expands[0]": "payment_intent.charges.data.balance_transaction",
       }).toString(),
     });
     const data = (await res.json()) as any;
@@ -2043,21 +2044,41 @@ async function handleStripeWebhook(
     const s = evt.data?.object || {};
     const uid = s.metadata?.user_id || s.client_reference_id;
     const amountCents = Math.round(Number(s.amount_total) || 0);
-    const micros = amountCents * 10_000;
-    if (uid && micros > 0) {
+    if (uid && amountCents > 0) {
+      // Actual Stripe fee from the expanded balance_transaction (cents);
+      // fall back to the standard US card estimate (2.9% + $0.30).
+      let feeCents = Math.round(amountCents * 0.029 + 30);
+      const bt = s?.payment_intent?.charges?.data?.[0]?.balance_transaction;
+      if (bt && Number.isFinite(Number(bt.fee))) feeCents = Math.round(Number(bt.fee));
+
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
       const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+      // Credit the gross top-up…
       await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: uid,
-          amount_micros: micros,
+          amount_micros: amountCents * 10_000,
           kind: "topup",
           reference_id: s.id,
           note: "Stripe top-up",
         }),
       });
+      // …then record the Stripe fee so the balance reflects the net amount.
+      if (feeCents > 0) {
+        await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
+          method: "POST",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: uid,
+            amount_micros: -feeCents * 10_000,
+            kind: "stripe_fee",
+            reference_id: s.id,
+            note: "Stripe processing fee",
+          }),
+        });
+      }
     }
   }
   return json({ received: true }, 200, headers);

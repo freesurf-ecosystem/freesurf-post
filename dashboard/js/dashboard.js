@@ -1006,7 +1006,7 @@ async function fetchCredits() {
       return;
     }
     listEl.innerHTML = tx.map((t) => {
-      const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : "Adjustment";
+      const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : t.kind === "stripe_fee" ? "Stripe fee" : "Adjustment";
       const detail = t.kind === "x_fee"
         ? (t.has_link ? "with link" : "plain/media")
         : (t.note || "");
@@ -1034,7 +1034,7 @@ async function topUp() {
   try {
     const res = await apiFetch(`/api/credits/topup`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amountCents: Math.round(dollars * 100) }),
     });
     const data = await res.json();
@@ -1047,6 +1047,17 @@ async function topUp() {
     if (statusEl) statusEl.textContent = "Network error.";
   }
 }
+
+// Live Stripe-fee estimate as the user types a top-up amount.
+$("#topup-amount")?.addEventListener("input", (e) => {
+  const est = $("#topup-estimate");
+  if (!est) return;
+  const amt = Number(e.target.value);
+  if (!Number.isFinite(amt) || amt <= 0) { est.textContent = ""; return; }
+  const fee = amt * 0.029 + 0.30;
+  const net = Math.max(0, amt - fee);
+  est.textContent = `$${amt.toFixed(2)} top-up → ~$${net.toFixed(2)} balance after the 2.9% + $0.30 Stripe fee`;
+});
 
 async function createKey() {
   if (!session?.access_token) return;
