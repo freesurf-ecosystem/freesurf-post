@@ -11,6 +11,7 @@
 -- Columns on post_posts used by posting/scheduling (moved here for consolidation)
 ALTER TABLE post_posts ADD COLUMN IF NOT EXISTS has_link boolean NOT NULL DEFAULT false;
 ALTER TABLE post_posts ADD COLUMN IF NOT EXISTS bundle_team_id text;
+ALTER TABLE post_posts ADD COLUMN IF NOT EXISTS platform_targets JSONB DEFAULT '{}';
 
 -- ---------------------------------------------------------------------
 -- POST_CREDITS — single table for credits AND debits (balance = SUM).

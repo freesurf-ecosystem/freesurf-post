@@ -1573,7 +1573,7 @@ async function handlePost(
         };
       }
 
-      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit);
+      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit, body.platformTargets);
       if (providerResult.success) return providerResult;
 
       // Only fall back to a direct adapter when one is actually configured;
@@ -1754,7 +1754,8 @@ async function postViaProvider(
   env: Env,
   mediaUrls: string[] | undefined,
   teamId: string,
-  instagramImageFit?: "fit" | "crop"
+  instagramImageFit?: "fit" | "crop",
+  platformTargets?: Record<string, string>
 ): Promise<PlatformPostResult> {
   if (!env.SOCIAL_API_PROVIDER_KEY || !teamId) {
     return { platform, success: false, error: "Bundle.social not configured" };
@@ -1783,6 +1784,14 @@ async function postViaProvider(
       autoFitImage: fit === "fit",
       autoCropImage: fit === "crop",
     };
+  }
+
+  // Platforms that require a target on every post (channel/board/subreddit).
+  const target = platformTargets?.[platform];
+  if (target) {
+    if (platform === "discord" || platform === "slack") platformData.channelId = target;
+    if (platform === "pinterest") platformData.boardName = target;
+    if (platform === "reddit") platformData.sr = target;
   }
 
   try {
@@ -1858,7 +1867,7 @@ async function handleSchedule(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[]; teamId?: string; team?: string };
+  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[]; teamId?: string; team?: string; platformTargets?: Record<string, string> };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
 
   if (!body.platforms?.length) return errorResponse("At least one platform required", 400, origin);
@@ -1882,7 +1891,7 @@ async function handleSchedule(
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: body.platformTargets || {} }),
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -3344,7 +3353,7 @@ async function handleCron(env: Env): Promise<Response> {
           (queuedPost.platforms || []).map(async (platform: Platform) => {
             if (bundleTeamId) {
               const providerResult = await postViaProvider(
-                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId
+                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, queuedPost.platform_targets
               );
               if (providerResult.success) return providerResult;
               // Only fall back to a direct adapter when env-var creds exist;

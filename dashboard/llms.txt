@@ -153,6 +153,7 @@ Each successful X post is debited from your balance automatically.
 - **Instagram** feed images default to `autoFitImage` (padding). Pass
   `instagramImageFit: "crop"` in the post body to center-crop instead.
 - **TikTok and YouTube** require a video; **Instagram** accepts images or video.
-- **Reddit, Pinterest, Slack, Discord, Google Business** can be connected (OAuth via
-  Bundle) but posting requires platform-specific fields (subreddit/board/channel)
-  that are not wired up yet — treat as placeholders.
+- **Reddit, Pinterest, Slack, Discord, Google Business** can be connected in the
+  dashboard Accounts tab. Posting requires a target per platform — send
+  `platformTargets` like `{ "discord": "channelId", "slack": "channelId",
+  "pinterest": "boardName", "reddit": "r/example" }`.

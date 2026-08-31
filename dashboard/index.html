@@ -267,6 +267,10 @@
                   <select id="post-team" class="form-select" style="max-width:260px;"></select>
                 </div>
                 <div class="platform-toggles" id="platform-toggles"></div>
+                <div id="platform-target-row" class="hidden" style="margin-top:10px;">
+                  <label class="form-label" id="platform-target-label" for="platform-target-input"></label>
+                  <input type="text" id="platform-target-input" class="form-input" placeholder="" style="max-width:260px;" autocomplete="off" />
+                </div>
                 <div id="channel-reminder" class="channel-reminder hidden">Facebook, LinkedIn, and YouTube posts go to a selected page/channel — if yours isn't, pick it in <strong>Accounts</strong>.</div>
                 <div class="compose-actions">
                   <span class="char-count" id="char-count">0 / 300</span>
@@ -478,7 +482,7 @@ pinterest Pinterest
 slack     Slack
 discord   Discord
 google_business Google Business</code></pre>
-            <p class="api-text">Reddit, Pinterest, Slack, Discord, and Google Business can be connected, but posting to them isn't wired up yet — placeholders for now.</p>
+            <p class="api-text">Reddit, Pinterest, Slack, Discord, and Google Business can be connected in <strong>Accounts</strong>. When posting to them, pass the required target: <code>platformTargets</code> = <code>{"discord":"channelId","slack":"channelId","pinterest":"boardName","reddit":"r/example"}</code>.</p>
           </details>
 
           <details class="api-section">

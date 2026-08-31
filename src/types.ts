@@ -17,6 +17,8 @@ export interface PostRequest {
   team?: string;
   /** Instagram feed image handling: "fit" (adds padding, default) or "crop" (center-crops). */
   instagramImageFit?: "fit" | "crop";
+  /** Per-platform targets for platforms that need one, e.g. { discord: "channelId", pinterest: "boardName", reddit: "r/example", slack: "channelId" }. */
+  platformTargets?: Record<string, string>;
 }
 
 /** Result of posting to a single platform */

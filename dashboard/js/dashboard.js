@@ -28,6 +28,14 @@ const PLATFORMS = [
 // Platforms that need a selected Page/Channel/Organization after OAuth
 const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
 
+// Platforms that need a per-post target (channel/board/subreddit) entered in compose.
+const PLATFORM_TARGETS = {
+  discord: { label: "Discord channel ID", placeholder: "e.g. 123456789012345678" },
+  slack: { label: "Slack channel ID", placeholder: "e.g. C0123ABCDEF" },
+  pinterest: { label: "Pinterest board", placeholder: "e.g. My Board" },
+  reddit: { label: "Subreddit", placeholder: "e.g. r/example" },
+};
+
 // ── State ──
 let session = null;
 let connectedProfiles = []; // { platform, label, handle, id }[]
@@ -426,6 +434,22 @@ function updatePlatformPreviews() {
   const count = $("#preview-count");
   if (count) count.textContent = `${selected.length} platform${selected.length === 1 ? "" : "s"}`;
 
+  // Per-post target input (Discord/Slack channel, Pinterest board, Reddit subreddit).
+  const targetRow = $("#platform-target-row");
+  const targetInput = $("#platform-target-input");
+  const targetPlatform = selected.find((p) => PLATFORM_TARGETS[p]);
+  if (targetRow && targetInput) {
+    if (targetPlatform) {
+      targetRow.classList.remove("hidden");
+      $("#platform-target-label").textContent = PLATFORM_TARGETS[targetPlatform].label;
+      targetInput.placeholder = PLATFORM_TARGETS[targetPlatform].placeholder;
+      targetInput.dataset.platform = targetPlatform;
+    } else {
+      targetRow.classList.add("hidden");
+      delete targetInput.dataset.platform;
+    }
+  }
+
   // Remind users to select a Page/Channel for Facebook, LinkedIn, YouTube.
   const reminder = $("#channel-reminder");
   if (reminder) {
@@ -436,6 +460,12 @@ function updatePlatformPreviews() {
     });
     reminder.classList.toggle("hidden", !needsChannel);
   }
+}
+
+function collectPlatformTargets() {
+  const input = $("#platform-target-input");
+  if (!input || !input.dataset.platform || !input.value.trim()) return {};
+  return { [input.dataset.platform]: input.value.trim() };
 }
 
 function hasLink(text) {
@@ -519,7 +549,7 @@ btnPost.addEventListener("click", async () => {
     const res = await apiFetch(`/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined }),
+      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, platformTargets: collectPlatformTargets() }),
     });
     const data = await res.json();
 
@@ -580,7 +610,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined }),
+      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, platformTargets: collectPlatformTargets() }),
     });
     if (res.ok) {
       showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
