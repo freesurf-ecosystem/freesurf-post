@@ -1089,7 +1089,7 @@ async function fetchCredits() {
       return;
     }
     listEl.innerHTML = tx.map((t) => {
-      const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : t.kind === "stripe_fee" ? "Stripe fee" : "Adjustment";
+      const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : t.kind === "stripe_fee" ? "Stripe fee" : t.kind === "tax" ? "Sales tax" : "Adjustment";
       const detail = t.kind === "x_fee"
         ? (t.has_link ? "with link" : "plain/media")
         : (t.note || "");
@@ -1139,7 +1139,7 @@ $("#topup-amount")?.addEventListener("input", (e) => {
   if (!Number.isFinite(amt) || amt <= 0) { est.textContent = ""; return; }
   const fee = amt * 0.064 + 0.35;
   const net = Math.max(0, amt - fee);
-  est.textContent = `$${amt.toFixed(2)} top-up → ~$${net.toFixed(2)} balance after the 6.4% + $0.35 Stripe managed payments fee`;
+  est.textContent = `$${amt.toFixed(2)} top-up → ~$${net.toFixed(2)} balance after the 6.4% + $0.35 Stripe managed payments fee (any applicable sales tax is also deducted)`;
 });
 
 // Quick top-up amount chips.

@@ -2095,7 +2095,6 @@ async function handleStripeWebhook(
 
       // Tax Stripe assessed and remitted on this charge (0 when none applies).
       const taxCents = Math.round(Number(s?.total_details?.amount_tax) || 0);
-      const taxNote = taxCents > 0 ? ` (incl. $${(taxCents / 100).toFixed(2)} tax)` : "";
 
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
       const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
@@ -2108,7 +2107,7 @@ async function handleStripeWebhook(
           amount_micros: amountCents * 10_000,
           kind: "topup",
           reference_id: s.id,
-          note: `Stripe top-up${taxNote}`,
+          note: "Stripe top-up",
         }),
       });
       // …then record the Stripe fee so the balance reflects the net amount.
@@ -2122,6 +2121,21 @@ async function handleStripeWebhook(
             kind: "stripe_fee",
             reference_id: s.id,
             note: "Stripe processing fee",
+          }),
+        });
+      }
+      // …and the tax Stripe assessed/remitted, so outstanding credits never exceed
+      // the cash we actually received for this top-up.
+      if (taxCents > 0) {
+        await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
+          method: "POST",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: uid,
+            amount_micros: -taxCents * 10_000,
+            kind: "tax",
+            reference_id: s.id,
+            note: "Sales tax (remitted by Stripe)",
           }),
         });
       }
