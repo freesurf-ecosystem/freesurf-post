@@ -40,6 +40,48 @@ let calMonth = new Date().getMonth();
 let calSelected = null;
 
 const $ = (s) => document.querySelector(s);
+
+// ── API helper: prepends API_BASE, attaches the session token, and retries
+// once with a freshly-refreshed session if the server says the token is stale. ──
+async function apiFetch(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (session?.access_token && !headers.Authorization) headers.Authorization = `Bearer ${session.access_token}`;
+  let res = await apiFetch(`${path}`, { ...options, headers });
+  if (res.status === 401) {
+    const fresh = await getSharedSession();
+    if (fresh?.accessToken) {
+      session = { ...session, ...fresh };
+      headers.Authorization = `Bearer ${fresh.accessToken}`;
+      res = await apiFetch(`${path}`, { ...options, headers });
+    }
+  }
+  return res;
+}
+
+// ── Custom confirmation modal (replaces window.confirm so browsers can't
+// auto-block prompts / show "don't prompt again"). ──
+function confirmModal(message, title = "Are you sure?") {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header"><div class="modal-title">${esc(title)}</div></div>
+        <div class="modal-body"><p style="margin:0;color:var(--text);font-size:0.9375rem;">${esc(message)}</p></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" data-m="no">Cancel</button>
+          <button class="btn btn-primary" data-m="yes">Confirm</button>
+        </div>
+      </div>`;
+    const done = (val) => { overlay.remove(); resolve(val); };
+    overlay.querySelector('[data-m="no"]').addEventListener("click", () => done(false));
+    overlay.querySelector('[data-m="yes"]').addEventListener("click", () => done(true));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) done(false); });
+    overlay.querySelector(".modal-close")?.addEventListener("click", () => done(false));
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-m="yes"]')?.focus();
+  });
+}
 const $$ = (s) => document.querySelectorAll(s);
 
 // ── Auth ──
@@ -65,7 +107,7 @@ async function fetchProfiles() {
   if (!session?.access_token) { connectedProfiles = []; return; }
   try {
     // Fetch our platform tokens
-    const res = await fetch(`${API_BASE}/api/profiles`, {
+    const res = await apiFetch(`/api/profiles`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
@@ -74,7 +116,7 @@ async function fetchProfiles() {
 
     // Also fetch Bundle-connected accounts (for the selected team)
     const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
-    const bundleRes = await fetch(`${API_BASE}/api/bundle-accounts${teamQ}`, {
+    const bundleRes = await apiFetch(`/api/bundle-accounts${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const bundleData = await bundleRes.json();
@@ -446,7 +488,7 @@ btnPost.addEventListener("click", async () => {
       const fd = new FormData();
       fd.append("file", m.file);
       if (teamId) fd.append("teamId", teamId);
-      const upRes = await fetch(`${API_BASE}/api/media/upload`, {
+      const upRes = await apiFetch(`/api/media/upload`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: fd,
@@ -462,7 +504,7 @@ btnPost.addEventListener("click", async () => {
       uploadIds.push(upData.uploadId);
     }
 
-    const res = await fetch(`${API_BASE}/api/post`, {
+    const res = await apiFetch(`/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined }),
@@ -523,7 +565,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
 
   clearFeedback();
   try {
-    const res = await fetch(`${API_BASE}/api/schedule`, {
+    const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined }),
@@ -660,7 +702,7 @@ function renderAccounts() {
 async function setChannel(platform, channelId) {
   if (!session?.access_token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/channel/${platform}`, {
+    const res = await apiFetch(`/api/channel/${platform}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({
@@ -683,7 +725,7 @@ async function setChannel(platform, channelId) {
 async function refreshChannels(platform) {
   if (!session?.access_token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/channel/${platform}`, {
+    const res = await apiFetch(`/api/channel/${platform}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ action: "refresh", teamId: accountsTeamId || undefined }),
@@ -701,10 +743,10 @@ async function refreshChannels(platform) {
 
 async function disconnectPlatform(key) {
   if (!session?.access_token) return;
-  if (!confirm(`Disconnect ${key}? This removes the account from the selected team.`)) return;
+  if (!(await confirmModal(`Disconnect ${key}? This removes the account from the selected team.`))) return;
   try {
     const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
-    const res = await fetch(`${API_BASE}/api/disconnect/${key}${teamQ}`, {
+    const res = await apiFetch(`/api/disconnect/${key}${teamQ}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -732,7 +774,7 @@ let recentPostsShown = 5;
 async function fetchTeams() {
   if (!session?.access_token) { teams = []; renderTeams(); return; }
   try {
-    const res = await fetch(`${API_BASE}/api/teams`, {
+    const res = await apiFetch(`/api/teams`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
@@ -810,7 +852,7 @@ async function updatePostTeamAccounts() {
   const teamId = $("#post-team")?.value || "";
   const teamQ = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
   try {
-    const res = await fetch(`${API_BASE}/api/bundle-accounts${teamQ}`, {
+    const res = await apiFetch(`/api/bundle-accounts${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     composeAccounts = (await res.json()) || [];
@@ -824,7 +866,7 @@ async function createTeam() {
   const label = prompt("Team name (e.g. Personal, Business):");
   if (!label?.trim()) return;
   try {
-    const res = await fetch(`${API_BASE}/api/teams`, {
+    const res = await apiFetch(`/api/teams`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ label: label.trim() }),
@@ -843,7 +885,7 @@ async function createTeam() {
 
 async function activateTeam(id) {
   try {
-    await fetch(`${API_BASE}/api/teams/${id}/activate`, {
+    await apiFetch(`/api/teams/${id}/activate`, {
       method: "POST",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -860,7 +902,7 @@ async function editTeam(id) {
   const label = prompt("Team name:", team.label);
   if (!label?.trim() || label.trim() === team.label) return;
   try {
-    const res = await fetch(`${API_BASE}/api/teams/${id}`, {
+    const res = await apiFetch(`/api/teams/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ label: label.trim() }),
@@ -883,9 +925,9 @@ async function selectTeamForView(id) {
 }
 
 async function deleteTeam(id) {
-  if (!confirm("Delete this team? Its connected accounts will be removed too.")) return;
+  if (!(await confirmModal("Delete this team? Its connected accounts will be removed too."))) return;
   try {
-    await fetch(`${API_BASE}/api/teams/${id}`, {
+    await apiFetch(`/api/teams/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -905,7 +947,7 @@ async function fetchKeys() {
   const container = $("#api-keys-list");
   if (!container || !session?.access_token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/keys`, {
+    const res = await apiFetch(`/api/keys`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
@@ -940,7 +982,7 @@ async function fetchCredits() {
   const listEl = $("#ledger-list");
   if (!session?.access_token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/credits`, {
+    const res = await apiFetch(`/api/credits`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
@@ -978,7 +1020,7 @@ async function topUp() {
   if (!session?.access_token) return;
   if (statusEl) statusEl.textContent = "Opening Stripe checkout…";
   try {
-    const res = await fetch(`${API_BASE}/api/credits/topup`, {
+    const res = await apiFetch(`/api/credits/topup`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ amountCents: Math.round(dollars * 100) }),
@@ -997,7 +1039,7 @@ async function topUp() {
 async function createKey() {
   if (!session?.access_token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/keys`, {
+    const res = await apiFetch(`/api/keys`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ name: "Default key" }),
@@ -1022,9 +1064,9 @@ async function createKey() {
 }
 
 async function revokeKey(id) {
-  if (!confirm("Revoke this API key? Apps using it will stop working.")) return;
+  if (!(await confirmModal("Revoke this API key? Apps using it will stop working."))) return;
   try {
-    await fetch(`${API_BASE}/api/keys/${id}`, {
+    await apiFetch(`/api/keys/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -1063,7 +1105,7 @@ async function fetchConnectUrl(platform) {
   if (!session?.access_token) return;
   try {
     const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
-    const res = await fetch(`${API_BASE}/api/connect/${platform}${teamQ}`, {
+    const res = await apiFetch(`/api/connect/${platform}${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
@@ -1140,10 +1182,9 @@ function renderDayPosts() {
     html += dayPosts.map((p) => `
       <div class="scheduled-list-item">
         <div>
-          <div class="sli-text">${esc(p.text.slice(0, 100))}${p.text.length > 100 ? "…" : ""}</div>
+          <div class="sli-text">${esc(p.text.slice(0, 100))}${p.text.length > 100 ? "…" : ""} <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button></div>
           <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: selectedTz() })} ${selectedTz().replace(/_/g, " ")}</div>
         </div>
-        <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);">Cancel</button>
       </div>`).join("");
   } else {
     html += `<p style="color:var(--text-muted);font-size:0.875rem;">No posts scheduled for this day.</p>`;
@@ -1160,7 +1201,7 @@ function renderDayPosts() {
 async function fetchScheduled() {
   if (!session?.access_token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/scheduled`, {
+    const res = await apiFetch(`/api/scheduled`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     scheduledPosts = (await res.json()) || [];
@@ -1178,7 +1219,7 @@ async function schedulePost() {
   if (!platforms.length) { alert("Select at least one platform."); return; }
 
   try {
-    const res = await fetch(`${API_BASE}/api/schedule`, {
+    const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ text, platforms, scheduledAt: new Date(timeInput).toISOString() }),
@@ -1194,12 +1235,14 @@ async function schedulePost() {
 }
 
 async function cancelScheduled(id) {
-  if (!confirm("Cancel this scheduled post?")) return;
+  if (!(await confirmModal("Cancel this scheduled post?"))) return;
   try {
-    await fetch(`${API_BASE}/api/scheduled/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const res = await apiFetch(`/api/scheduled/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Failed to cancel.");
+      return;
+    }
     await fetchScheduled();
   } catch { alert("Failed to cancel."); }
 }
@@ -1311,7 +1354,7 @@ if (btnSaveDraft) {
     btnSaveDraft.textContent = "Saving…";
     
     try {
-      const res = await fetch(`${API_BASE}/api/drafts`, {
+      const res = await apiFetch(`/api/drafts`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -1351,7 +1394,7 @@ async function fetchDrafts() {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/drafts`, {
+    const res = await apiFetch(`/api/drafts`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1402,7 +1445,7 @@ async function loadDraftIntoCompose(draftId) {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/drafts`, {
+    const res = await apiFetch(`/api/drafts`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1422,10 +1465,10 @@ async function loadDraftIntoCompose(draftId) {
 }
 
 async function deleteDraft(draftId) {
-  if (!confirm("Are you sure you want to delete this draft?")) return;
+  if (!(await confirmModal("Are you sure you want to delete this draft?"))) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/drafts/${draftId}`, {
+    const res = await apiFetch(`/api/drafts/${draftId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -1444,7 +1487,7 @@ async function fetchHashtagGroups() {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/hashtags`, {
+    const res = await apiFetch(`/api/hashtags`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1537,7 +1580,7 @@ function showCreateHashtagGroupModal() {
     }
     
     try {
-      const res = await fetch(`${API_BASE}/api/hashtags`, {
+      const res = await apiFetch(`/api/hashtags`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -1563,7 +1606,7 @@ async function addHashtagsToCompose(groupId) {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/hashtags`, {
+    const res = await apiFetch(`/api/hashtags`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1583,10 +1626,10 @@ async function addHashtagsToCompose(groupId) {
 }
 
 async function deleteHashtagGroup(groupId) {
-  if (!confirm("Are you sure you want to delete this hashtag group?")) return;
+  if (!(await confirmModal("Are you sure you want to delete this hashtag group?"))) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/hashtags/${groupId}`, {
+    const res = await apiFetch(`/api/hashtags/${groupId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -1605,7 +1648,7 @@ async function fetchSavedReplies() {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/replies/templates`, {
+    const res = await apiFetch(`/api/replies/templates`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1701,7 +1744,7 @@ function showCreateReplyModal() {
     }
     
     try {
-      const res = await fetch(`${API_BASE}/api/replies/templates`, {
+      const res = await apiFetch(`/api/replies/templates`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -1727,7 +1770,7 @@ async function copyReply(replyId) {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/replies/templates`, {
+    const res = await apiFetch(`/api/replies/templates`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1745,10 +1788,10 @@ async function copyReply(replyId) {
 }
 
 async function deleteSavedReply(replyId) {
-  if (!confirm("Are you sure you want to delete this saved reply?")) return;
+  if (!(await confirmModal("Are you sure you want to delete this saved reply?"))) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/replies/templates/${replyId}`, {
+    const res = await apiFetch(`/api/replies/templates/${replyId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -1767,7 +1810,7 @@ async function fetchQueue() {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/queue`, {
+    const res = await apiFetch(`/api/queue`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1817,10 +1860,10 @@ function renderQueue(queue) {
 }
 
 async function refillQueue() {
-  if (!confirm("Refill queue with drafts? This will add posts from your drafts to fill a 7-day schedule.")) return;
+  if (!(await confirmModal("Refill queue with drafts? This will add posts from your drafts to fill a 7-day schedule."))) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/queue/refill`, {
+    const res = await apiFetch(`/api/queue/refill`, {
       method: "POST",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -1839,10 +1882,10 @@ async function refillQueue() {
 }
 
 async function removeFromQueue(queueId) {
-  if (!confirm("Are you sure you want to remove this post from the queue?")) return;
+  if (!(await confirmModal("Are you sure you want to remove this post from the queue?"))) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/queue/${queueId}`, {
+    const res = await apiFetch(`/api/queue/${queueId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
@@ -1861,7 +1904,7 @@ async function fetchAnalytics() {
   if (!session) return;
   
   try {
-    const res = await fetch(`${API_BASE}/api/analytics`, {
+    const res = await apiFetch(`/api/analytics`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     
@@ -1891,7 +1934,7 @@ async function fetchRecentPosts() {
 
   try {
     const teamQ = analyticsTeamId ? `?teamId=${encodeURIComponent(analyticsTeamId)}` : "";
-    const res = await fetch(`${API_BASE}/api/bundle-posts${teamQ}`, {
+    const res = await apiFetch(`/api/bundle-posts${teamQ}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
