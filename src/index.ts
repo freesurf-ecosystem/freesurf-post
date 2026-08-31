@@ -2038,6 +2038,8 @@ async function handleTopUp(
         "line_items[0][price_data][currency]": "usd",
         "line_items[0][price_data][unit_amount]": String(cents),
         "line_items[0][price_data][product_data][name]": "FreeSurf Post credits",
+        "line_items[0][price_data][product_data][tax_code]": "txcd_99999999",
+        "line_items[0][price_data][tax_behavior]": "exclusive",
         "line_items[0][quantity]": "1",
         "expand[0]": "payment_intent.charges.data.balance_transaction",
       }).toString(),
