@@ -1398,7 +1398,7 @@ async function handlePost(
     return errorResponse("Text content is required", 400, origin);
   }
   if (!body.teamId && !body.team) {
-    return errorResponse("teamId or team is required", 400, origin);
+    return errorResponse("teamId or team is required — add a team in the Accounts tab", 400, origin);
   }
 
   // ── Rate limits (KV-backed) ──
@@ -1731,6 +1731,7 @@ async function handleSchedule(
   if (!body.platforms?.length) return errorResponse("At least one platform required", 400, origin);
   if (!body.text?.trim()) return errorResponse("Text required", 400, origin);
   if (!body.scheduledAt) return errorResponse("scheduledAt (ISO timestamp) required", 400, origin);
+  if (!body.teamId && !body.team) return errorResponse("teamId or team is required — add a team in the Accounts tab", 400, origin);
 
   const scheduledAt = new Date(body.scheduledAt);
   if (isNaN(scheduledAt.getTime())) return errorResponse("Invalid scheduledAt date", 400, origin);
@@ -3023,10 +3024,8 @@ async function handleCron(env: Env): Promise<Response> {
 
     for (const queuedPost of postsToPost) {
       try {
-        // Resolve the post's Bundle team (stored on the post, or active team as fallback)
-        const bundleTeamId = env.SOCIAL_API_PROVIDER_KEY
-          ? (queuedPost.bundle_team_id || await resolveBundleTeamId(queuedPost.user_id, undefined, env))
-          : null;
+        // Use the team stored on the post — never fall back to an active team.
+        const bundleTeamId = env.SOCIAL_API_PROVIDER_KEY ? (queuedPost.bundle_team_id || null) : null;
 
         const results: PlatformPostResult[] = await Promise.all(
           (queuedPost.platforms || []).map(async (platform: Platform) => {
