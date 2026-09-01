@@ -1114,11 +1114,15 @@ async function fetchCredits() {
 
 async function topUp() {
   const statusEl = $("#topup-status");
+  const btn = $("#btn-topup");
   const amtInput = $("#topup-amount");
   const dollars = Number(amtInput?.value || 0);
   if (!Number.isFinite(dollars) || dollars <= 0) { if (statusEl) statusEl.textContent = "Enter a valid USD amount."; return; }
   if (!session?.access_token) return;
-  if (statusEl) statusEl.textContent = "Opening Stripe checkout…";
+  if (statusEl) statusEl.textContent = "";
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Opening…';
   try {
     const res = await apiFetch(`/api/credits/topup`, {
       method: "POST",
@@ -1133,6 +1137,9 @@ async function topUp() {
     window.location.href = data.url;
   } catch {
     if (statusEl) statusEl.textContent = "Network error.";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
   }
 }
 
