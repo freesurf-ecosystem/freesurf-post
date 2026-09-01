@@ -2172,6 +2172,11 @@ input:-webkit-autofill:focus {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.spinner-surface {
+  border: 2px solid var(--border);
+  border-top-color: var(--text);
+}
+
 .topup-quick {
   display: flex;
   gap: 6px;
