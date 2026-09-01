@@ -157,3 +157,21 @@ Each successful X post is debited from your balance automatically.
   dashboard Accounts tab. Posting requires a target per platform — send
   `platformTargets` like `{ "discord": "channelId", "slack": "channelId",
   "pinterest": "boardName", "reddit": "r/example" }`.
+
+## Common errors
+
+- **`{"error":"Invalid JSON body"}` (400)** — client-side quoting problem. PowerShell
+  5.1 corrupts embedded quotes when `-d` is passed as an argument: pipe the body via
+  stdin (`-d "@-"`) or write it to a file (`-d @body.json`). Keep captions ASCII;
+  emoji/non-ASCII in a PowerShell `-d` argument mangles the JSON too.
+- **`{"error":"teamId or team is required"}` (400)** — every post/schedule needs a
+  team by name (`"team": "Personal"`) or id (`"teamId": "..."`); list via `GET /api/teams`.
+- **`401 Unauthorized`** — missing, revoked, or wrong-position API key. Send
+  `Authorization: Bearer fsp_live_...` or `FSP-API-KEY: fsp_live_...`.
+- **`{"error":"Unsupported file type"}` (400)** on upload — extension not supported
+  (jpg/jpeg/png/gif/mp4/mov/pdf). Type is inferred from the filename.
+- **X `Insufficient X credit`** — X is metered ($0.015 plain, $0.20 with a link);
+  top up in the X fees tab.
+- **Comment create `Request Validation Error` (400)** — a required field is missing
+  (commonly the post id); the error names the missing field.
+- **`{"error":"Unknown platform"}` (400)** — platform key not supported (see Platform keys).

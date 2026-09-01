@@ -540,6 +540,17 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             </table>
             <p class="limits-note">Source: bundle.social platform limits until we transition to our own keys.</p>
           </details>
+
+          <details class="api-section">
+            <summary>Common errors</summary>
+            <p class="api-text"><strong><code>{"error":"Invalid JSON body"}</code> (400)</strong> — usually a client-side quoting problem. PowerShell 5.1 corrupts embedded quotes when you pass <code>-d</code> as an argument; pipe the body through stdin instead (<code>-d "@-"</code>) or write it to a file (<code>-d @body.json</code>). Keep captions ASCII — emoji/non-ASCII in a PowerShell <code>-d</code> argument also mangles the JSON.</p>
+            <p class="api-text"><strong><code>{"error":"teamId or team is required"}</code> (400)</strong> — every post and schedule needs a team, by name (<code>"team": "Personal"</code>) or id (<code>"teamId": "..."</code>). Get ids from <code>GET /api/teams</code>.</p>
+            <p class="api-text"><strong><code>401 Unauthorized</code></strong> — missing, revoked, or wrong-position API key. Send it as <code>Authorization: Bearer fsp_live_...</code> or <code>FSP-API-KEY: fsp_live_...</code>.</p>
+            <p class="api-text"><strong><code>{"error":"Unsupported file type"}</code> (400) on upload</strong> — the file extension isn't in the supported list (jpg/jpeg/png/gif/mp4/mov/pdf). The type is inferred from the filename, so name the file with the right extension.</p>
+            <p class="api-text"><strong>X: <code>Insufficient X credit</code></strong> — X is metered ($0.015 plain, $0.20 with a link). Top up in the X fees tab.</p>
+            <p class="api-text"><strong>Comment create: <code>Request Validation Error</code> (400)</strong> — a required field is missing (commonly the post id). The error message names the missing field.</p>
+            <p class="api-text"><strong><code>{"error":"Unknown platform"}</code> (400)</strong> — the platform key isn't supported (see the platform list above).</p>
+          </details>
         </div>
       </section>
 
