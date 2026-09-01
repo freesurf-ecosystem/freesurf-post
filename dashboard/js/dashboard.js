@@ -1082,11 +1082,6 @@ async function fetchCredits() {
     });
     const data = await res.json();
     if (balEl) balEl.textContent = fmtMicros(data.balanceMicros || 0);
-    const bdEl = $("#fees-breakdown");
-    if (bdEl) {
-      const b = data.breakdown || {};
-      bdEl.innerHTML = `Top-ups +${fmtMicros(b.topupsMicros || 0)} · Stripe fees −${fmtMicros(Math.abs(b.feesMicros || 0))} · Sales tax −${fmtMicros(Math.abs(b.taxMicros || 0))} · X fees −${fmtMicros(Math.abs(b.xFeesMicros || 0))}`;
-    }
     if (!listEl) return;
     const tx = data.transactions || [];
     if (!tx.length) {
