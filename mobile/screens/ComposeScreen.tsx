@@ -340,6 +340,12 @@ export default function ComposeScreen() {
           placeholder="What's on your mind?" placeholderTextColor={colors.textMuted} value={text} onChangeText={setText}
           multiline maxLength={CHAR_LIMIT} textAlignVertical="top" />
 
+        {hasLink(text) && (
+          <View style={[styles.linkWarning, { borderColor: colors.warning, backgroundColor: "rgba(217,119,6,0.12)" }]}>
+            <Text style={[styles.linkWarningText, { color: colors.warning }]}>Contains a link — X charges $0.20 instead of $0.015</Text>
+          </View>
+        )}
+
         <Text style={[styles.label, { color: colors.textMuted }]}>Media</Text>
         <View style={styles.mediaRow}>
           {media.map((m, i) => (
@@ -357,12 +363,6 @@ export default function ComposeScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        {hasLink(text) && (
-          <View style={[styles.linkWarning, { borderColor: colors.warning, backgroundColor: "rgba(217,119,6,0.12)" }]}>
-            <Text style={[styles.linkWarningText, { color: colors.warning }]}>Contains a link — X charges $0.20 instead of $0.015</Text>
-          </View>
-        )}
 
         <View style={styles.chips}>
           {PLATFORMS.map((p) => {
