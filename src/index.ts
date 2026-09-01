@@ -412,6 +412,10 @@ async function handleApi(
   if (url.pathname === "/api/analytics/trends" && request.method === "GET") {
     return handleGetAnalyticsTrends(request, env, origin, h);
   }
+  // POST /api/analytics/refresh — pull post analytics from Bundle and cache in post_posts.metrics
+  if (url.pathname === "/api/analytics/refresh" && request.method === "POST") {
+    return handleAnalyticsRefresh(request, env, origin, h);
+  }
 
   // --- Usage API (per-platform post counts for billing/tabulation) ---
   if (url.pathname === "/api/usage" && request.method === "GET") {
@@ -1294,6 +1298,74 @@ async function handleBundleAnalytics(
     return json(data, res.status, headers);
   } catch {
     return json({ error: "Analytics unavailable" }, 502, headers);
+  }
+}
+
+/**
+ * POST /api/analytics/refresh — Pull post analytics from Bundle for the user's
+ * posted posts and cache them into post_posts.metrics so the aggregate
+ * /api/analytics has real numbers.
+ */
+async function handleAnalyticsRefresh(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+
+  const num = (n: unknown): number => {
+    const v = Number(n);
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  try {
+    const postsRes = await fetch(
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics`,
+      { headers: authHeaders }
+    );
+    if (!postsRes.ok) return errorResponse("Failed to load posts", 500, origin);
+    const posts = (await postsRes.json()) as any[];
+
+    const refreshed: string[] = [];
+    for (const post of posts) {
+      const metrics: Record<string, any> = post.metrics || {};
+      let changed = false;
+      for (const r of (post.results || []) as any[]) {
+        if (!r?.success || !r?.postId) continue;
+        const bs = bundlePlatform(r.platform);
+        if (!bs) continue;
+        try {
+          const res = await fetch(
+            `https://api.bundle.social/api/v1/analytics/post?postId=${encodeURIComponent(r.postId)}&platformType=${bs}`,
+            { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
+          );
+          if (!res.ok) continue;
+          const d = (await res.json()) as any;
+          metrics[r.platform] = {
+            likes: num(d.likes ?? d.likeCount ?? d.like_count),
+            comments: num(d.comments ?? d.commentCount ?? d.comment_count),
+            shares: num(d.shares ?? d.shareCount ?? d.share_count ?? d.reposts ?? d.retweet_count ?? d.retweets),
+            views: num(d.views ?? d.viewsCount ?? d.view_count ?? d.impressions ?? d.impression_count),
+          };
+          changed = true;
+        } catch {}
+      }
+      if (changed) {
+        await fetch(`${supabaseUrl}/rest/v1/post_posts?id=eq.${post.id}`, {
+          method: "PATCH",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ metrics }),
+        });
+        refreshed.push(post.id);
+      }
+    }
+    return json({ refreshed: refreshed.length, posts: refreshed }, 200, headers);
+  } catch (e) {
+    console.error("Analytics refresh exception:", e instanceof Error ? e.message : String(e));
+    return json({ error: "Analytics refresh failed" }, 502, headers);
   }
 }
 
@@ -2278,6 +2350,29 @@ async function handleReplies(
       return json(replies, 200, headers);
     } catch { return json([], 200, headers); }
   }
+
+  // All other platforms: pull imported comments for the post from Bundle.
+  const bsPlatform = bundlePlatform(platform);
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (bsPlatform && teamId && env.SOCIAL_API_PROVIDER_KEY) {
+    try {
+      const res = await fetch(
+        `https://api.bundle.social/api/v1/comment/import/comments?teamId=${teamId}&postId=${encodeURIComponent(postId)}`,
+        { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        const list = Array.isArray(data) ? data : (data?.comments || []);
+        const replies = list.map((c: any) => ({
+          id: c.id || c.commentId || "",
+          text: c.text || c.message || "",
+          author: c.authorName || c.username || c.author?.username || c.author?.name || "",
+          createdAt: c.createdAt || c.created_at || "",
+        }));
+        return json(replies, 200, headers);
+      }
+    } catch { /* fall through */ }
+  }
   return json([], 200, headers);
 }
 
@@ -2290,7 +2385,7 @@ async function handleReply(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  let body: { platform: Platform; postId: string; text: string };
+  let body: { platform: Platform; postId: string; text: string; commentId?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
   if (!body.text?.trim()) return errorResponse("Text required", 400, origin);
 
@@ -2309,6 +2404,34 @@ async function handleReply(
       if (!res.ok) return errorResponse("Reply failed", 500, origin);
       return json({ id: data.uri?.split("/").pop(), platform: "bluesky" }, 201, headers);
     } catch { return errorResponse("Reply failed", 500, origin); }
+  }
+
+  // All other platforms: proxy to Bundle's comment create endpoint.
+  const bsPlatform = bundlePlatform(body.platform);
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (bsPlatform && teamId && env.SOCIAL_API_PROVIDER_KEY) {
+    try {
+      const res = await fetch("https://api.bundle.social/api/v1/comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+        body: JSON.stringify({
+          teamId,
+          postId: body.postId,
+          text: body.text,
+          socialAccountType: bsPlatform,
+          ...(body.commentId ? { parentId: body.commentId } : {}),
+        }),
+      });
+      const data = (await res.json()) as any;
+      if (!res.ok) {
+        console.error(`Bundle reply failed (${body.platform}):`, res.status, JSON.stringify(data));
+        return errorResponse(data?.message || data?.error || "Reply failed", res.status || 502, origin);
+      }
+      return json({ id: data.id || data.commentId || "", platform: body.platform }, 201, headers);
+    } catch (e) {
+      console.error(`Bundle reply exception (${body.platform}):`, e instanceof Error ? e.message : String(e));
+      return errorResponse("Reply failed", 502, origin);
+    }
   }
   return errorResponse(`Replies not yet supported for ${body.platform}`, 501, origin);
 }

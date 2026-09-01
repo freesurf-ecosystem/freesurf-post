@@ -439,6 +439,14 @@ function updatePlatformPreviews() {
   const count = $("#preview-count");
   if (count) count.textContent = `${selected.length} platform${selected.length === 1 ? "" : "s"}`;
 
+  // "Posting to:" line beneath the platform chips for clarity.
+  const postingTo = $("#posting-to-line");
+  if (postingTo) {
+    postingTo.textContent = selected.length
+      ? `Posting to: ${selected.map((p) => PLATFORMS.find((x) => x.key === p)?.name || p).join(", ")}`
+      : "No platforms selected";
+  }
+
   // Per-post target input (Discord/Slack channel, Pinterest board, Reddit subreddit).
   const targetRow = $("#platform-target-row");
   const targetInput = $("#platform-target-input");

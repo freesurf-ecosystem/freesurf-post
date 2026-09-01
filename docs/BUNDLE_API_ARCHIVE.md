@@ -238,8 +238,9 @@ Status: ✅ wired · ⏳ planned · — not started.
 | Bulk analytics | `get bulk post analytics` | — | ⏳ |
 | Import comments | `start comment import` | `POST /api/comments/import` | ✅ |
 | List comments | `get fetched comments` | `GET /api/comments` | ✅ |
-| Create comment/reply | `create comment` | `POST /api/reply` | ⏳ |
+| Create comment/reply | `create comment` | `POST /api/reply` (proxies `POST /api/v1/comment`; contract to verify) | ✅ |
 | Moderate comment | `run action on fetched comment` | — | ⏳ |
+| Refresh/cache post analytics | `get post analytics` → `post_posts.metrics` | `POST /api/analytics/refresh` | ✅ |
 | Credit balance | `get credit balance` | — | ⏳ |
 | Quote X action | `quote a metered X action` | — | ⏳ |
 

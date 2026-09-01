@@ -141,14 +141,29 @@ Fetch replies to a post (Bluesky direct; other platforms via Bundle comments).
 
 ### POST /api/reply
 
-Reply to a post.
+Reply to a post (Bluesky direct; other platforms proxy Bundle's comment create).
 
 ```json
 {
-  "platform": "bluesky",
-  "postId": "abc123",
-  "text": "Thanks for sharing!"
+  "platform": "instagram",
+  "postId": "post_123",
+  "text": "Thanks for sharing!",
+  "commentId": "comment_456"
 }
+```
+
+`commentId` is optional — include it to reply to a specific comment.
+
+---
+
+### POST /api/analytics/refresh
+
+Pull post analytics from Bundle for all of the user's posted posts and cache
+them into `post_posts.metrics`, so the aggregate `GET /api/analytics` reflects
+real numbers.
+
+```
+POST /api/analytics/refresh
 ```
 
 ---
