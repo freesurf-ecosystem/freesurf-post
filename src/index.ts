@@ -2425,7 +2425,11 @@ async function handleReply(
       const data = (await res.json()) as any;
       if (!res.ok) {
         console.error(`Bundle reply failed (${body.platform}):`, res.status, JSON.stringify(data));
-        return errorResponse(data?.message || data?.error || "Reply failed", res.status || 502, origin);
+        return errorResponse(
+          data?.message || data?.error || (Array.isArray(data?.details) ? data.details.map((d: any) => d.message || JSON.stringify(d)).join("; ") : "") || "Reply failed",
+          res.status || 502,
+          origin
+        );
       }
       return json({ id: data.id || data.commentId || "", platform: body.platform }, 201, headers);
     } catch (e) {
