@@ -119,7 +119,8 @@ List social accounts connected through Bundle.
 
 ### GET /api/analytics/:platform
 
-Proxy Bundle analytics. Query params:
+Proxy Bundle analytics (profile or post). Supports JWTs and API keys
+(`FSP-API-KEY` header).
 
 | Param | Description |
 |---|---|
@@ -133,45 +134,81 @@ GET /api/analytics/facebook?type=post&postId=xxx
 
 ---
 
-### GET /api/replies/:platform/:postId
+### POST /api/analytics/refresh
 
-Fetch replies to a post (Bluesky direct; other platforms via Bundle comments).
+Pull post analytics from Bundle for all of the caller's posted posts and cache
+them into `post_posts.metrics`, so the aggregate `GET /api/analytics` reflects
+real numbers. Uses the per-platform `postId` stored in each post's `results`.
+Returns `{ refreshed, posts }`.
 
----
-
-### POST /api/reply
-
-Reply to a post (Bluesky direct).
-
-```json
-{
-  "platform": "bluesky",
-  "postId": "abc123",
-  "text": "Thanks for sharing!"
-}
 ```
-
-> Other platforms, plus analytics pulling/refresh (`/api/analytics/refresh`),
-> are **in development** — not yet part of the public API surface.
+POST /api/analytics/refresh
+```
 
 ---
 
 ### POST /api/comments/import
 
-Start Bundle comment import for a post.
+Start an async Bundle comment import for a published post.
 
 ```json
 {
-  "postId": "post_123",
+  "postId": "96b89a1c-...",
   "platform": "instagram"
 }
 ```
+
+Returns the import job (`status: PENDING/COMPLETED`, `commentsImported`).
 
 ---
 
 ### GET /api/comments
 
-Get imported comments. Query: `?postId=xxx`
+List the comments pulled in by an import for a post.
+
+```
+GET /api/comments?postId=xxx
+```
+
+---
+
+### GET /api/replies/:platform/:postId
+
+Fetch replies to a post. Bluesky uses the direct adapter; all other platforms
+proxy Bundle's fetched comments for the post.
+
+---
+
+### POST /api/reply
+
+Create a comment on a post, or reply to an existing comment, via Bundle's
+`POST /api/v1/comment/` endpoint.
+
+```json
+{
+  "platform": "x",
+  "postId": "96b89a1c-...",
+  "text": "Thanks for sharing!"
+}
+```
+
+Reply to an imported comment (`commentId` → `fetchedParentCommentId`) or to a
+comment created through this API (`internalCommentId` → `internalParentCommentId`):
+
+```json
+{
+  "platform": "instagram",
+  "postId": "96b89a1c-...",
+  "commentId": "imported-comment-id",
+  "text": "Glad you liked it!"
+}
+```
+
+`internalPostId` is always required by Bundle and is set from `postId`.
+
+> The web UI tabs (Comments / Analytics) stay hidden as "in development" until
+> these features are wired into the interface — the endpoints above are ready
+> for programmatic use.
 
 ---
 
