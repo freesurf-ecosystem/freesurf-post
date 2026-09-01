@@ -2095,11 +2095,22 @@ async function handleStripeWebhook(
     const uid = s.metadata?.user_id || s.client_reference_id;
     const amountCents = Math.round(Number(s.amount_total) || 0);
     if (uid && amountCents > 0) {
-      // Actual Stripe fee from the expanded balance_transaction (cents);
-      // fall back to the Stripe managed payments estimate (6.4% + $0.35).
-      let feeCents = Math.round(amountCents * 0.064 + 35);
-      const bt = s?.payment_intent?.charges?.data?.[0]?.balance_transaction;
-      if (bt && Number.isFinite(Number(bt.fee))) feeCents = Math.round(Number(bt.fee));
+      // Fetch the session with the fee expansion — webhook payloads don't carry
+      // expanded sub-objects, so read the real Stripe fee here. Falls back to the
+      // managed payments estimate (6.4% + $0.35) only if the fetch fails.
+      let feeCents: number | null = null;
+      try {
+        const sesRes = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions/${s.id}?expand[]=payment_intent.charges.data.balance_transaction`,
+          { headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` } }
+        );
+        if (sesRes.ok) {
+          const ses = (await sesRes.json()) as any;
+          const bt = ses?.payment_intent?.charges?.data?.[0]?.balance_transaction;
+          if (bt && Number.isFinite(Number(bt.fee))) feeCents = Math.round(Number(bt.fee));
+        }
+      } catch {}
+      if (feeCents === null) feeCents = Math.round(amountCents * 0.064 + 35);
 
       // Tax Stripe assessed and remitted on this charge (0 when none applies).
       const taxCents = Math.round(Number(s?.total_details?.amount_tax) || 0);
