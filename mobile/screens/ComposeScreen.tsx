@@ -126,6 +126,11 @@ function roundUp5Min(t: string): string {
   return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
 }
 
+function hasLink(text: string): boolean {
+  if (!text) return false;
+  return /(https?:\/\/\S+|www\.\S+|\w+\.\w+)/i.test(text);
+}
+
 type MediaItem = { uri: string; name: string; mime: string; uploadId?: string };
 
 export default function ComposeScreen() {
@@ -353,6 +358,12 @@ export default function ComposeScreen() {
           )}
         </View>
 
+        {hasLink(text) && (
+          <View style={[styles.linkWarning, { borderColor: colors.warning, backgroundColor: "rgba(217,119,6,0.12)" }]}>
+            <Text style={[styles.linkWarningText, { color: colors.warning }]}>Contains a link — X charges $0.20 instead of $0.015</Text>
+          </View>
+        )}
+
         <View style={styles.chips}>
           {PLATFORMS.map((p) => {
             const on = selected.has(p.key);
@@ -460,6 +471,8 @@ const styles = StyleSheet.create({
   chipSoon: { opacity: 0.55 },
   chipText: { fontSize: 13, fontWeight: "500" },
   connectedDot: { width: 7, height: 7, borderRadius: 4 },
+  linkWarning: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16 },
+  linkWarningText: { fontSize: 13, fontWeight: "500" },
   targetRow: { marginBottom: 16 },
   targetInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14 },
   scheduleCard: { borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: 14, marginBottom: 20 },
