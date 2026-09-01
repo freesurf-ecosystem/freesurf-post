@@ -2296,12 +2296,6 @@ function switchView(viewName) {
   if (viewName === "fees") fetchCredits();
 }
 
-// Refresh credits periodically while the X fees view is open, so top-ups and
-// X-fee debits appear without a manual reload (webhooks can land seconds later).
-setInterval(() => {
-  if (currentView === "fees" && session?.access_token) fetchCredits();
-}, 5000);
-
 // ── Event Listeners ──
 
 $("#btn-create-hashtag-group")?.addEventListener("click", showCreateHashtagGroupModal);
