@@ -2199,9 +2199,14 @@ async function init() {
     if (session) {
       showView("fees");
       fetchCredits();
-      // The Stripe webhook lands a few seconds after the redirect; poll to catch it.
-      setTimeout(fetchCredits, 2500);
-      setTimeout(fetchCredits, 7000);
+      // The Stripe webhook lands a few seconds after the redirect; poll every ~1.5s
+      // for the first ~10s so the credit balance appears as soon as it's written.
+      let n = 0;
+      const poll = setInterval(() => {
+        n++;
+        fetchCredits();
+        if (n >= 6) clearInterval(poll);
+      }, 1500);
     }
   } else if (params.get("success")) {
     history.replaceState(null, "", location.pathname);
@@ -2266,7 +2271,7 @@ function switchView(viewName) {
 // X-fee debits appear without a manual reload (webhooks can land seconds later).
 setInterval(() => {
   if (currentView === "fees" && session?.access_token) fetchCredits();
-}, 10000);
+}, 5000);
 
 // ── Event Listeners ──
 
