@@ -19,6 +19,8 @@ export interface PostRequest {
   instagramImageFit?: "fit" | "crop";
   /** Per-platform targets for platforms that need one, e.g. { discord: "channelId", pinterest: "boardName", reddit: "r/example", slack: "channelId" }. */
   platformTargets?: Record<string, string>;
+  /** Optional per-platform titles (e.g. { youtube: "My video title" }). */
+  titles?: Record<string, string>;
 }
 
 /** Result of posting to a single platform */

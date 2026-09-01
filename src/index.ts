@@ -1471,9 +1471,23 @@ async function handleMediaUploadFile(
   const teamId = await resolveBundleTeamId(user.sub, (form.get("teamId") as string) || undefined, env);
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
+  // Infer the MIME type from the filename when the client didn't send one
+  // (e.g. curl uploads arrive as application/octet-stream and Bundle rejects
+  // them). Bundle accepts image/jpg, image/jpeg, image/png, image/gif,
+  // video/mp4, video/quicktime, application/pdf.
+  const fileName = file.name || "file";
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  const MIME_BY_EXT: Record<string, string> = {
+    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
+    mp4: "video/mp4", mov: "video/quicktime", m4v: "video/mp4", webm: "video/webm",
+    pdf: "application/pdf",
+  };
+  const mime = MIME_BY_EXT[ext] || file.type || "application/octet-stream";
+  const corrected = new File([file], fileName, { type: mime });
+
   const fd = new FormData();
   fd.append("teamId", teamId);
-  fd.append("file", file, file.name);
+  fd.append("file", corrected, fileName);
 
   try {
     const res = await fetch("https://api.bundle.social/api/v1/upload/", {
@@ -1681,7 +1695,7 @@ async function handlePost(
         };
       }
 
-      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit, body.platformTargets);
+      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles);
       if (providerResult.success) return providerResult;
 
       // Only fall back to a direct adapter when one is actually configured;
@@ -1865,7 +1879,8 @@ async function postViaProvider(
   mediaUrls: string[] | undefined,
   teamId: string,
   instagramImageFit?: "fit" | "crop",
-  platformTargets?: Record<string, string>
+  platformTargets?: Record<string, string>,
+  titles?: Record<string, string>
 ): Promise<PlatformPostResult> {
   if (!env.SOCIAL_API_PROVIDER_KEY || !teamId) {
     return { platform, success: false, error: "Bundle.social not configured" };
@@ -1903,6 +1918,10 @@ async function postViaProvider(
     if (platform === "pinterest") platformData.boardName = target;
     if (platform === "reddit") platformData.sr = target;
   }
+
+  // Optional per-platform title (YouTube requires one for videos).
+  const title = titles?.[platform];
+  if (title) platformData.title = title;
 
   try {
     const now = new Date().toISOString();
@@ -2001,7 +2020,7 @@ async function handleSchedule(
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: body.platformTargets || {} }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}) } }),
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -3633,8 +3652,10 @@ async function handleCron(env: Env): Promise<Response> {
               }
             }
             if (bundleTeamId) {
+              const storedTargets = (queuedPost.platform_targets || {}) as Record<string, any>;
+              const titles = (storedTargets.__titles as Record<string, string> | undefined) || undefined;
               const providerResult = await postViaProvider(
-                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, queuedPost.platform_targets
+                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, storedTargets, titles
               );
               if (providerResult.success) return providerResult;
               // Only fall back to a direct adapter when env-var creds exist;
