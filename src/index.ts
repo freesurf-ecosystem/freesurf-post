@@ -1569,7 +1569,7 @@ async function handlePost(
             return {
               platform,
               success: false,
-              error: `Insufficient X credit — top up in the X fees tab (needs ~$${(q.micros / 1e6).toFixed(3)}). Other platforms still post.`,
+              error: `Insufficient X credit - top up in the X fees tab (needs ~$${(q.micros / 1e6).toFixed(3)}). Other platforms still post.`,
             };
           }
         }
@@ -3476,7 +3476,7 @@ async function handleCron(env: Env): Promise<Response> {
               if (q && q.micros > 0) {
                 const bal = await getUserBalanceMicros(queuedPost.user_id, env);
                 if (bal < q.micros) {
-                  return { platform, success: false, error: "Insufficient X credit — top up in the X fees tab" };
+                  return { platform, success: false, error: "Insufficient X credit - top up in the X fees tab" };
                 }
               }
             }
