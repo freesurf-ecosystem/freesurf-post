@@ -94,10 +94,14 @@ function generateApiKey(): string {
 }
 
 /** Loose link detection for UX + a stored hint (billing uses Bundle's quote later). */
+/**
+ * Loose link detection. Deliberately LIBERAL: any URL or "word.word" counts as a
+ * link so we never under-charge X's $0.20 metered link price. Trade-off: some
+ * false positives (e.g. "v1.2", "Mr.Smith") will be charged as link posts.
+ */
 function detectHasLink(text: string): boolean {
   if (!text) return false;
-  const tlds = "com|org|net|io|co|ai|dev|app|me|tv|gg|xyz|ly|to|so|info|biz|edu|gov|us|uk|ca|au|de|fr|it|es|nl|se|no|dk|fi|pl|br|mx|in|jp|cn";
-  return new RegExp(`(https?:\\/\\/[^\\s]+|www\\.[^\\s]+|[\\w-]+\\.(?:${tlds})\\b)`, "i").test(text);
+  return /(https?:\/\/\S+|www\.\S+|\w+\.\w+)/i.test(text);
 }
 
 /**
