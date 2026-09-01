@@ -1473,7 +1473,11 @@ function hasDirectCreds(platform: Platform, env: Env, userTokens: PlatformToken[
   const token = findToken(userTokens, platform);
   switch (platform) {
     case "bluesky":
-      return Boolean((token?.platform_handle && token?.access_token) || (env.BLUESKY_HANDLE && env.BLUESKY_PASSWORD));
+      // Only use the direct adapter when this specific user has set an app
+      // password. The shared BLUESKY_HANDLE/BLUESKY_PASSWORD env secrets must
+      // not make every user's posts go through one handle — Bundle-connected
+      // accounts should post via Bundle.
+      return Boolean(token?.platform_handle && token?.access_token);
     case "linkedin":
       return Boolean((token?.access_token && token?.platform_user_id) || (env.LINKEDIN_ACCESS_TOKEN && env.LINKEDIN_AUTHOR));
     case "facebook":
