@@ -2424,9 +2424,9 @@ async function handleReply(
         socialAccountTypes: [bsPlatform],
         data: { [bsPlatform]: { text: body.text } },
       };
+      payload.internalPostId = body.postId;
       if (body.internalCommentId) payload.internalParentCommentId = body.internalCommentId;
       else if (body.commentId) payload.fetchedParentCommentId = body.commentId;
-      else payload.internalPostId = body.postId;
 
       const res = await fetch("https://api.bundle.social/api/v1/comment/", {
         method: "POST",
