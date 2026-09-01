@@ -1590,8 +1590,12 @@ async function handlePost(
         }
       }
 
+      // Bluesky posts should use the Bundle-connected account when Bundle is
+      // configured. A stale direct app-password token must not hijack posting
+      // and fail with a confusing 401. The direct adapter only applies when
+      // Bundle isn't set up at all.
       const preferDirect =
-        !bundleConfigured || hasDirectCreds(platform, env, userTokens);
+        !bundleConfigured || (platform === "bluesky" ? false : hasDirectCreds(platform, env, userTokens));
 
       if (preferDirect) {
         return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
@@ -1610,8 +1614,8 @@ async function handlePost(
 
       // Only fall back to a direct adapter when one is actually configured;
       // otherwise surface the real Bundle error instead of a misleading
-      // "X not connected".
-      if (hasDirectCreds(platform, env, userTokens)) {
+      // "X not connected". (Bluesky skips this fallback when Bundle is set up.)
+      if (platform !== "bluesky" && hasDirectCreds(platform, env, userTokens)) {
         return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
       }
       return providerResult;

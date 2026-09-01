@@ -380,6 +380,12 @@ export default function ComposeScreen() {
           })}
         </View>
 
+        <Text style={[styles.postingTo, { color: colors.textSecondary }]}>
+          {selected.size > 0
+            ? `Posting to: ${PLATFORMS.filter((p) => selected.has(p.key)).map((p) => p.name).join(", ")}`
+            : "No platforms selected"}
+        </Text>
+
         {needTarget && (
           <View style={styles.targetRow}>
             <Text style={[styles.label, { color: colors.textMuted }]}>{TARGETS[needTarget].label}</Text>
@@ -471,6 +477,7 @@ const styles = StyleSheet.create({
   chipSoon: { opacity: 0.55 },
   chipText: { fontSize: 13, fontWeight: "500" },
   connectedDot: { width: 7, height: 7, borderRadius: 4 },
+  postingTo: { fontSize: 13, marginTop: -8, marginBottom: 16 },
   linkWarning: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16 },
   linkWarningText: { fontSize: 13, fontWeight: "500" },
   targetRow: { marginBottom: 16 },
