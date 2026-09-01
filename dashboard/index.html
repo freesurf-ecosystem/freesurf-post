@@ -427,6 +427,8 @@ curl -X POST https://post.freesurf.tools/api/post \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
   -d '{"platforms":["x"],"text":"Caption here","team":"Personal","mediaUrls":["UPLOAD_ID"]}'</code></pre>
+            <p class="api-text">The upload response is JSON — grab the <code>uploadId</code> field (it's the first field) and use it in <code>mediaUrls</code>. PowerShell one-liner to capture it:</p>
+            <pre class="api-code"><code>$uploadId = (curl.exe -s -X POST https://post.freesurf.tools/api/media/upload -H "FSP-API-KEY: fsp_live_..." -F "file=@video.mp4" | ConvertFrom-Json).uploadId</code></pre>
             <p class="api-text"><code>text</code> is the caption. Pass multiple ids for carousels (X, LinkedIn, Instagram); TikTok/YouTube need a single video.</p>
             <p class="api-text"><strong>Supported types:</strong> jpg / jpeg / png / gif / mp4 / mov / pdf.</p>
           </details>
