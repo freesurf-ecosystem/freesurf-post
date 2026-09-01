@@ -2406,32 +2406,41 @@ async function handleReply(
     } catch { return errorResponse("Reply failed", 500, origin); }
   }
 
-  // All other platforms: proxy to Bundle's comment create endpoint.
+  // All other platforms: proxy to Bundle's comment create endpoint
+  // (POST /api/v1/comment/). Contract per Bundle docs: internalPostId (or
+  // importedPostId), socialAccountTypes[], data.{PLATFORM}.text, title, and
+  // status SCHEDULED + postDate to publish immediately.
   const bsPlatform = bundlePlatform(body.platform);
   const teamId = await getOrCreateBundleTeam(user.sub, env);
   if (bsPlatform && teamId && env.SOCIAL_API_PROVIDER_KEY) {
     try {
-      const res = await fetch("https://api.bundle.social/api/v1/comment", {
+      const now = new Date().toISOString();
+      const payload: Record<string, unknown> = {
+        teamId,
+        title: body.text.slice(0, 80),
+        text: body.text,
+        status: "SCHEDULED",
+        postDate: now,
+        socialAccountTypes: [bsPlatform],
+        data: { [bsPlatform]: { text: body.text } },
+      };
+      if (body.commentId) payload.fetchedParentCommentId = body.commentId;
+      else payload.internalPostId = body.postId;
+
+      const res = await fetch("https://api.bundle.social/api/v1/comment/", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-        body: JSON.stringify({
-          teamId,
-          postId: body.postId,
-          text: body.text,
-          socialAccountType: bsPlatform,
-          ...(body.commentId ? { parentId: body.commentId } : {}),
-        }),
+        body: JSON.stringify(payload),
       });
       const data = (await res.json()) as any;
       if (!res.ok) {
+        const issues = Array.isArray(data?.issues)
+          ? data.issues.map((i: any) => `${(i.path || []).join(".")}: ${i.message}`).join("; ")
+          : "";
         console.error(`Bundle reply failed (${body.platform}):`, res.status, JSON.stringify(data));
-        return errorResponse(
-          data?.message || data?.error || (Array.isArray(data?.details) ? data.details.map((d: any) => d.message || JSON.stringify(d)).join("; ") : "") || "Reply failed",
-          res.status || 502,
-          origin
-        );
+        return errorResponse(data?.message || issues || "Reply failed", res.status || 502, origin);
       }
-      return json({ id: data.id || data.commentId || "", platform: body.platform }, 201, headers);
+      return json({ id: data.id || "", platform: body.platform }, 200, headers);
     } catch (e) {
       console.error(`Bundle reply exception (${body.platform}):`, e instanceof Error ? e.message : String(e));
       return errorResponse("Reply failed", 502, origin);
