@@ -2385,7 +2385,7 @@ async function handleReply(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  let body: { platform: Platform; postId: string; text: string; commentId?: string };
+  let body: { platform: Platform; postId: string; text: string; commentId?: string; internalCommentId?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
   if (!body.text?.trim()) return errorResponse("Text required", 400, origin);
 
@@ -2424,7 +2424,8 @@ async function handleReply(
         socialAccountTypes: [bsPlatform],
         data: { [bsPlatform]: { text: body.text } },
       };
-      if (body.commentId) payload.fetchedParentCommentId = body.commentId;
+      if (body.internalCommentId) payload.internalParentCommentId = body.internalCommentId;
+      else if (body.commentId) payload.fetchedParentCommentId = body.commentId;
       else payload.internalPostId = body.postId;
 
       const res = await fetch("https://api.bundle.social/api/v1/comment/", {
