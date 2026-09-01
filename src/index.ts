@@ -2127,7 +2127,7 @@ async function handleTopUp(
         "line_items[0][price_data][unit_amount]": String(cents),
         "line_items[0][price_data][product_data][name]": "FreeSurf Post credits",
         "line_items[0][price_data][product_data][tax_code]": "txcd_10000000",
-        "line_items[0][price_data][tax_behavior]": "inclusive",
+        "line_items[0][price_data][tax_behavior]": "exclusive",
         "line_items[0][quantity]": "1",
         "expand[0]": "payment_intent.charges.data.balance_transaction",
       }).toString(),
@@ -2174,10 +2174,14 @@ async function handleStripeWebhook(
     const s = evt.data?.object || {};
     const uid = s.metadata?.user_id || s.client_reference_id;
     const amountCents = Math.round(Number(s.amount_total) || 0);
-    if (uid && amountCents > 0) {
+    const taxCents = Math.round(Number(s?.total_details?.amount_tax) || 0);
+    // Stripe adds required sales tax on top (tax_behavior: exclusive) and remits
+    // it directly, so credit only the pre-tax amount we received for credits.
+    const grossCents = Math.max(0, amountCents - taxCents);
+    if (uid && grossCents > 0) {
       // Fetch the actual Stripe fee. Webhook payloads don't carry expanded
       // sub-objects, so read it from the PaymentIntent (id present on the event).
-      // Falls back to the managed payments estimate (6.4% + $0.35) only if we can't.
+      // Falls back to the managed payments estimate (6.5% + $0.35) only if we can't.
       let feeCents: number | null = null;
       try {
         const piId = typeof s.payment_intent === "string" ? s.payment_intent : s.payment_intent?.id;
@@ -2198,12 +2202,9 @@ async function handleStripeWebhook(
         console.error("Stripe fee fetch exception:", e instanceof Error ? e.message : String(e));
       }
       if (feeCents === null) {
-        feeCents = Math.round(amountCents * 0.064 + 35);
+        feeCents = Math.round(grossCents * 0.065 + 35);
         console.error("Stripe fee unavailable, used estimate for session", s.id);
       }
-
-      // Tax Stripe assessed and remitted on this charge (0 when none applies).
-      const taxCents = Math.round(Number(s?.total_details?.amount_tax) || 0);
 
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
       const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
@@ -2213,7 +2214,7 @@ async function handleStripeWebhook(
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: uid,
-          amount_micros: amountCents * 10_000,
+          amount_micros: grossCents * 10_000,
           kind: "topup",
           reference_id: s.id,
           note: "Stripe top-up",
@@ -2230,21 +2231,6 @@ async function handleStripeWebhook(
             kind: "stripe_fee",
             reference_id: s.id,
             note: "Stripe processing fee",
-          }),
-        });
-      }
-      // …and the tax Stripe assessed/remitted, so outstanding credits never exceed
-      // the cash we actually received for this top-up.
-      if (taxCents > 0) {
-        await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
-          method: "POST",
-          headers: { ...authHeaders, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: uid,
-            amount_micros: -taxCents * 10_000,
-            kind: "tax",
-            reference_id: s.id,
-            note: "Sales tax (remitted by Stripe)",
           }),
         });
       }

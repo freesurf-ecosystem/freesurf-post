@@ -1178,9 +1178,9 @@ $("#topup-amount")?.addEventListener("input", (e) => {
   if (!est) return;
   const amt = Number(e.target.value);
   if (!Number.isFinite(amt) || amt <= 0) { est.textContent = ""; return; }
-  const fee = amt * 0.064 + 0.35;
+  const fee = amt * 0.065 + 0.35;
   const net = Math.max(0, amt - fee);
-  est.textContent = `≈ $${net.toFixed(2)} credit for X after the 6.4% + $0.35 fee (+ any sales tax)`;
+  est.textContent = `≈ $${net.toFixed(2)} credit for X after the ~6.5% + $0.35 fee (Stripe adds any required sales tax on top)`;
 });
 
 // Quick top-up amount chips.
