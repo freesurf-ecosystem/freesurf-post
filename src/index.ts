@@ -1609,9 +1609,11 @@ async function handlePost(
   const postId = crypto.randomUUID();
   await persistPostHistory(env, user.sub, postId, body.text, body.mediaUrls, results);
 
-  // Record X metered fee (best-effort) for successful X posts.
+  // Record X metered fee (best-effort) for successful X posts. Bundle's quote is
+  // authoritative; our has_link heuristic remains in the ledger for auditing.
   if (results.some((r) => r.platform === "x" && r.success)) {
-    await recordXFee(user.sub, postId, detectHasLink(body.text), env);
+    const q = bundleTeamId ? await quoteXFee(bundleTeamId, body.text, env) : null;
+    await recordXFee(user.sub, postId, detectHasLink(body.text), env, q?.micros, q ? (q.withUrl ? "WITH_URL" : "CREATE") : undefined);
   }
 
   const response: PostResponse = {
@@ -1954,25 +1956,65 @@ async function handleCancelSchedule(
 const X_PLAIN_FEE_MICROS = 15_000;   // $0.015
 const X_LINK_FEE_MICROS = 200_000;   // $0.20
 
-async function recordXFee(userId: string, postId: string, hasLink: boolean, env: Env) {
+async function recordXFee(
+  userId: string,
+  postId: string,
+  hasLink: boolean,
+  env: Env,
+  quotedMicros?: number,
+  bundleAction?: string
+) {
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return;
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
   try {
+    // Bundle's ruling is authoritative when available; our constants are the fallback.
+    const micros = quotedMicros && quotedMicros > 0 ? -quotedMicros : (hasLink ? -X_LINK_FEE_MICROS : -X_PLAIN_FEE_MICROS);
+    const note = bundleAction ? `X post (Bundle: ${bundleAction})` : (hasLink ? "X post with link" : "X post");
     await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
       method: "POST",
       headers: { ...authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({
         user_id: userId,
-        amount_micros: hasLink ? -X_LINK_FEE_MICROS : -X_PLAIN_FEE_MICROS,
+        amount_micros: micros,
         kind: "x_fee",
         reference_id: postId,
         has_link: hasLink,
-        note: hasLink ? "X post with link" : "X post",
+        note,
       }),
     });
   } catch (e) {
     console.error("recordXFee failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * Ask Bundle for the authoritative X posting cost. Bundle analyzes the text and
+ * quotes TWITTER_CONTENT_CREATE ($0.015) or TWITTER_CONTENT_CREATE_WITH_URL ($0.20).
+ * Returns the fee in microdollars + whether Bundle flagged a URL, or null on failure.
+ */
+async function quoteXFee(teamId: string, text: string, env: Env): Promise<{ micros: number; withUrl: boolean } | null> {
+  if (!env.SOCIAL_API_PROVIDER_KEY) return null;
+  try {
+    const res = await fetch("https://api.bundle.social/api/v1/billing/billable-usage/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ teamId, text, action: "TWITTER_CONTENT_CREATE" }),
+    });
+    if (!res.ok) {
+      console.error("Bundle X quote failed:", res.status);
+      return null;
+    }
+    const data = (await res.json()) as any;
+    const line = (data?.lines || []).find(
+      (l: any) => l.action === "TWITTER_CONTENT_CREATE" || l.action === "TWITTER_CONTENT_CREATE_WITH_URL"
+    );
+    if (!line) return null;
+    const micros = Number(line.amountMicros) || Number(line.unitAmountMicros) || 0;
+    return { micros, withUrl: line.action === "TWITTER_CONTENT_CREATE_WITH_URL" };
+  } catch (e) {
+    console.error("quoteXFee exception:", e instanceof Error ? e.message : String(e));
+    return null;
   }
 }
 
@@ -3428,7 +3470,8 @@ async function handleCron(env: Env): Promise<Response> {
           processed++;
           // Record X metered fee (best-effort) for successful X posts.
           if (results.some((r) => r.platform === "x" && r.success)) {
-            await recordXFee(queuedPost.user_id, queuedPost.id, Boolean(queuedPost.has_link), env);
+            const q = bundleTeamId ? await quoteXFee(bundleTeamId, queuedPost.text, env) : null;
+            await recordXFee(queuedPost.user_id, queuedPost.id, Boolean(queuedPost.has_link), env, q?.micros, q ? (q.withUrl ? "WITH_URL" : "CREATE") : undefined);
           }
         } else {
           failed++;
