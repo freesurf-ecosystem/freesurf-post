@@ -1558,6 +1558,23 @@ async function handlePost(
 
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {
+      // Pre-flight: X posts cost real money. Check the user's own credit balance
+      // against Bundle's quoted fee BEFORE sending, so we never push them negative
+      // (other platforms are unaffected).
+      if (platform === "x" && bundleConfigured && bundleTeamId) {
+        const q = await quoteXFee(bundleTeamId, body.text, env);
+        if (q && q.micros > 0) {
+          const bal = await getUserBalanceMicros(user.sub, env);
+          if (bal < q.micros) {
+            return {
+              platform,
+              success: false,
+              error: `Insufficient X credit — top up in the X fees tab (needs ~$${(q.micros / 1e6).toFixed(3)}). Other platforms still post.`,
+            };
+          }
+        }
+      }
+
       const preferDirect =
         !bundleConfigured || hasDirectCreds(platform, env, userTokens);
 
@@ -2016,6 +2033,20 @@ async function quoteXFee(teamId: string, text: string, env: Env): Promise<{ micr
     console.error("quoteXFee exception:", e instanceof Error ? e.message : String(e));
     return null;
   }
+}
+
+/** Sum the user's credit ledger (microdollars) — our internal balance source of truth. */
+async function getUserBalanceMicros(userId: string, env: Env): Promise<number> {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return 0;
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/post_credits?user_id=eq.${userId}&select=amount_micros`, {
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+    });
+    if (!res.ok) return 0;
+    const rows = (await res.json()) as any[];
+    return rows.reduce((s, r) => s + (Number(r.amount_micros) || 0), 0);
+  } catch { return 0; }
 }
 
 /**
@@ -3436,6 +3467,16 @@ async function handleCron(env: Env): Promise<Response> {
 
         const results: PlatformPostResult[] = await Promise.all(
           (queuedPost.platforms || []).map(async (platform: Platform) => {
+            // Pre-flight X credit check (scheduled posts too — never go negative).
+            if (platform === "x" && bundleTeamId) {
+              const q = await quoteXFee(bundleTeamId, queuedPost.text, env);
+              if (q && q.micros > 0) {
+                const bal = await getUserBalanceMicros(queuedPost.user_id, env);
+                if (bal < q.micros) {
+                  return { platform, success: false, error: "Insufficient X credit — top up in the X fees tab" };
+                }
+              }
+            }
             if (bundleTeamId) {
               const providerResult = await postViaProvider(
                 platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, queuedPost.platform_targets
