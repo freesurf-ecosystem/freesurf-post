@@ -619,18 +619,15 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Analytics Dashboard</h2>
+              <h2 class="card-title">Analytics</h2>
               <p class="card-subtitle">Track your performance across all platforms.</p>
             </div>
           </div>
-          <div id="analytics-content">
-            <div class="card-header"><div><h2 class="card-title">Recent posts</h2><p class="card-subtitle">Latest posts from your connected accounts.</p></div>
-              <select id="analytics-team" class="form-select" style="max-width:200px;"></select>
+          <div class="empty-state">
+            <div class="empty-state-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
             </div>
-            <div class="account-list" id="recent-posts-list"></div>
-            <div style="margin-top:12px;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
-            <div class="analytics-summary" id="analytics-summary"></div>
-            <div class="analytics-platforms" id="analytics-platforms"></div>
+            <p class="empty-state-text">Analytics are in development. Check back soon.</p>
           </div>
         </div>
       </section>

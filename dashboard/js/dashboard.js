@@ -2063,7 +2063,7 @@ async function removeFromQueue(queueId) {
 // ── Analytics Feature ──
 
 async function fetchAnalytics() {
-  if (!session) return;
+  if (!session || !$("#analytics-summary")) return;  // analytics tab is a placeholder for now
   
   try {
     const res = await apiFetch(`/api/analytics`, {
@@ -2082,7 +2082,7 @@ async function fetchAnalytics() {
 }
 
 async function fetchRecentPosts() {
-  if (!session?.access_token) return;
+  if (!session?.access_token || !$("#recent-posts-list")) return;
 
   // Local history (this browser) folded in front of Bundle's recent posts
   const local = (postHistory || []).map((p) => ({
