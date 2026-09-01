@@ -2006,17 +2006,20 @@ async function recordXFee(
 }
 
 /**
- * Ask Bundle for the authoritative X posting cost. Bundle analyzes the text and
- * quotes TWITTER_CONTENT_CREATE ($0.015) or TWITTER_CONTENT_CREATE_WITH_URL ($0.20).
- * Returns the fee in microdollars + whether Bundle flagged a URL, or null on failure.
+ * Ask Bundle for the authoritative X posting cost. Bundle's quote endpoint prices
+ * the action you request — it does NOT scan the text to detect links — so we pick
+ * the action from our link detection and let Bundle set the exact amount.
+ * Returns the fee in microdollars + whether it was priced as a URL post, or null on failure.
  */
 async function quoteXFee(teamId: string, text: string, env: Env): Promise<{ micros: number; withUrl: boolean } | null> {
   if (!env.SOCIAL_API_PROVIDER_KEY) return null;
+  const withUrl = detectHasLink(text);
+  const action = withUrl ? "TWITTER_CONTENT_CREATE_WITH_URL" : "TWITTER_CONTENT_CREATE";
   try {
     const res = await fetch("https://api.bundle.social/api/v1/billing/billable-usage/quote", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId, text, action: "TWITTER_CONTENT_CREATE" }),
+      body: JSON.stringify({ teamId, text, action }),
     });
     if (!res.ok) {
       console.error("Bundle X quote failed:", res.status);
@@ -2028,7 +2031,7 @@ async function quoteXFee(teamId: string, text: string, env: Env): Promise<{ micr
     );
     if (!line) return null;
     const micros = Number(line.amountMicros) || Number(line.unitAmountMicros) || 0;
-    return { micros, withUrl: line.action === "TWITTER_CONTENT_CREATE_WITH_URL" };
+    return { micros, withUrl };
   } catch (e) {
     console.error("quoteXFee exception:", e instanceof Error ? e.message : String(e));
     return null;

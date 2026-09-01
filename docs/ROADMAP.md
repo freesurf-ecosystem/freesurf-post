@@ -4,6 +4,7 @@
 [ ] oauth set up with apple/ google
 [ ] unroll the api functionality out of the index file?
 [ ] migrate / document parts to migrate off of bundle.social
+[ ] byok for those who want to avoid stripe fees
 
 
 ```
