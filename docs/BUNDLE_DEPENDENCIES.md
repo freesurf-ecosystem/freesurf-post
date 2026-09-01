@@ -245,6 +245,10 @@ see or store platform tokens** — we only hold a mapping to a Bundle team.
   link warning in compose.
 - To replace: direct X API billing via our own X keys, plus our own billing
   (Stripe top-ups, pass-through fees + Stripe fees/taxes).
+- Note: Bundle's quote endpoint prices the action you request — it does not scan
+  text for links — so we classify links ourselves (liberal `word.word` regex).
+  When we post X directly, X's `/2/tweets` response returns the actual metered
+  cost, removing the guesswork entirely.
 
 ## 13. API key for all of the above
 
