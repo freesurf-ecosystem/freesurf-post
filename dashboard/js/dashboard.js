@@ -1087,9 +1087,40 @@ function fmtMicros(micros) {
   return `$${(micros / 1_000_000).toFixed(2)}`;
 }
 
+let ledgerTx = [];       // latest fetched transactions (newest first)
+let ledgerVisible = 5;   // how many to show before "Load more"
+
+function renderLedger() {
+  const listEl = $("#ledger-list");
+  const moreBtn = $("#btn-load-more-ledger");
+  if (!listEl) return;
+
+  if (!ledgerTx.length) {
+    listEl.innerHTML = `<div class="account-item"><div class="account-item-status">No transactions yet. Top up to start posting to X.</div></div>`;
+    if (moreBtn) moreBtn.classList.add("hidden");
+    return;
+  }
+
+  listEl.innerHTML = ledgerTx.slice(0, ledgerVisible).map((t) => {
+    const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : t.kind === "stripe_fee" ? "Stripe fee" : t.kind === "tax" ? "Sales tax" : "Adjustment";
+    const detail = t.kind === "x_fee"
+      ? (t.has_link ? "with link" : "plain/media")
+      : (t.note || "");
+    return `
+      <div class="account-item">
+        <div class="account-item-info">
+          <div class="account-item-name">${kind} ${detail ? `<span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(detail)}</span>` : ""}</div>
+          <div class="account-item-status">${fmtDate(t.created_at)}</div>
+        </div>
+        <div class="account-item-status" style="font-weight:600;${t.amount_micros < 0 ? "color:var(--error);" : "color:var(--success);"}">${t.amount_micros < 0 ? "-" : "+"}${fmtMicros(Math.abs(t.amount_micros))}</div>
+      </div>`;
+  }).join("");
+
+  if (moreBtn) moreBtn.classList.toggle("hidden", ledgerTx.length <= ledgerVisible);
+}
+
 async function fetchCredits() {
   const balEl = $("#fees-balance-amount");
-  const listEl = $("#ledger-list");
   if (!session?.access_token) return;
   try {
     const res = await apiFetch(`/api/credits`, {
@@ -1097,30 +1128,18 @@ async function fetchCredits() {
     });
     const data = await res.json();
     if (balEl) balEl.textContent = fmtMicros(data.balanceMicros || 0);
-    if (!listEl) return;
-    const tx = data.transactions || [];
-    if (!tx.length) {
-      listEl.innerHTML = `<div class="account-item"><div class="account-item-status">No transactions yet. Top up to start posting to X.</div></div>`;
-      return;
-    }
-    listEl.innerHTML = tx.map((t) => {
-      const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : t.kind === "stripe_fee" ? "Stripe fee" : t.kind === "tax" ? "Sales tax" : "Adjustment";
-      const detail = t.kind === "x_fee"
-        ? (t.has_link ? "with link" : "plain/media")
-        : (t.note || "");
-      return `
-        <div class="account-item">
-          <div class="account-item-info">
-            <div class="account-item-name">${kind} ${detail ? `<span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(detail)}</span>` : ""}</div>
-            <div class="account-item-status">${fmtDate(t.created_at)}</div>
-          </div>
-          <div class="account-item-status" style="font-weight:600;${t.amount_micros < 0 ? "color:var(--error);" : "color:var(--success);"}">${t.amount_micros < 0 ? "-" : "+"}${fmtMicros(Math.abs(t.amount_micros))}</div>
-        </div>`;
-    }).join("");
+    ledgerTx = data.transactions || [];
+    renderLedger();
   } catch {
+    const listEl = $("#ledger-list");
     if (listEl) listEl.innerHTML = `<div class="account-item"><div class="account-item-status">Could not load credits.</div></div>`;
   }
 }
+
+$("#btn-load-more-ledger")?.addEventListener("click", () => {
+  ledgerVisible += 5;
+  renderLedger();
+});
 
 async function topUp() {
   const statusEl = $("#topup-status");
