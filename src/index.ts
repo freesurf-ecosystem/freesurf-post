@@ -692,6 +692,13 @@ async function handleConnect(
   const teamId = await resolveBundleTeamId(user.sub, url?.searchParams.get("teamId") || undefined, env);
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
+  // Allow clients (e.g. the mobile app) to send us back after OAuth via their
+  // own deep-link scheme; otherwise return to the web dashboard as before.
+  const requestedRedirect = url?.searchParams.get("redirectUrl") || "";
+  const redirectUrl = /^(https?:\/\/|freesurf-post:\/\/)/.test(requestedRedirect)
+    ? requestedRedirect
+    : `${FREESURF.URLS.post}/`;
+
   try {
     const res = await fetch("https://api.bundle.social/api/v1/social-account/connect", {
       method: "POST",
@@ -699,7 +706,7 @@ async function handleConnect(
       body: JSON.stringify({
         type: bsPlatform,
         teamId,
-        redirectUrl: `${FREESURF.URLS.post}/`,
+        redirectUrl,
         ...(platform === "instagram" ? { instagramConnectionMethod: "INSTAGRAM" } : {}),
         ...(platform === "facebook" ? { withBusinessScope: true } : {}),
       }),

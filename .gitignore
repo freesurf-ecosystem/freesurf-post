@@ -2,6 +2,7 @@
 node_modules/
 mobile/node_modules/
 mobile/.expo/
+mobile/android/
 
 # Local test media (not part of the product)
 /test/
