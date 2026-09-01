@@ -409,7 +409,7 @@ $$(".sidebar-nav-item").forEach((link) => {
 // ── Platform Chips ──
 
 // Platforms that are on the roadmap but not ready — shown as "In progress".
-const IN_PROGRESS_PLATFORMS = new Set(["reddit", "pinterest", "slack", "discord", "google_business"]);
+const IN_PROGRESS_PLATFORMS = new Set(["reddit", "google_business"]);
 
 function renderPlatformChips() {
   const container = $("#platform-toggles");
