@@ -1269,7 +1269,7 @@ async function handleBundleAnalytics(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResponse("Bundle not configured", 501, origin);
@@ -1309,7 +1309,7 @@ async function handleBundleAnalytics(
 async function handleAnalyticsRefresh(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
@@ -1376,7 +1376,7 @@ async function handleAnalyticsRefresh(
 async function handleCommentImport(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
@@ -1405,7 +1405,7 @@ async function handleCommentImport(
 async function handleComments(
   request: Request, env: Env, url: URL, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
 
@@ -2332,7 +2332,7 @@ async function handleStripeWebhook(
 async function handleReplies(
   request: Request, env: Env, platform: Platform, postId: string, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   if (platform === "bluesky" && env.BLUESKY_HANDLE && env.BLUESKY_PASSWORD) {
@@ -2382,7 +2382,7 @@ async function handleReplies(
 async function handleReply(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   let body: { platform: Platform; postId: string; text: string; commentId?: string };
