@@ -2439,7 +2439,7 @@ async function handleReply(
           ? data.issues.map((i: any) => `${(i.path || []).join(".")}: ${i.message}`).join("; ")
           : "";
         console.error(`Bundle reply failed (${body.platform}):`, res.status, JSON.stringify(data));
-        return errorResponse(data?.message || issues || "Reply failed", res.status || 502, origin);
+        return errorResponse(issues || data?.message || "Reply failed", res.status || 502, origin);
       }
       return json({ id: data.id || "", platform: body.platform }, 200, headers);
     } catch (e) {
