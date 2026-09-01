@@ -408,19 +408,24 @@ $$(".sidebar-nav-item").forEach((link) => {
 
 // ── Platform Chips ──
 
+// Platforms that are on the roadmap but not ready — shown as "In progress".
+const IN_PROGRESS_PLATFORMS = new Set(["reddit", "pinterest", "slack", "discord", "google_business"]);
+
 function renderPlatformChips() {
   const container = $("#platform-toggles");
   container.innerHTML = PLATFORMS.map((p) => {
     const acc = composeAccounts.find((a) => a.platform === p.key);
     const handle = acc?.handle;
-    return `<label class="platform-chip${handle ? " connected" : ""}" data-platform="${p.key}">
-      ${handle ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${handle ? ` @${handle}` : ""}
+    const inProgress = IN_PROGRESS_PLATFORMS.has(p.key);
+    return `<label class="platform-chip${handle ? " connected" : ""}${inProgress ? " disabled" : ""}" data-platform="${p.key}" title="${inProgress ? "In progress" : ""}">
+      ${handle ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " · soon" : ""}${handle ? ` @${handle}` : ""}
       <input type="checkbox" />
     </label>`;
   }).join("");
 
   container.querySelectorAll(".platform-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
+      if (chip.classList.contains("disabled")) return;
       const cb = chip.querySelector("input");
       cb.checked = !cb.checked;
       chip.classList.toggle("selected", cb.checked);
@@ -757,6 +762,16 @@ function renderAccounts() {
     const status = count
       ? (selectedChannel?.name || handle || "Connected")
       : (p.note || "Not connected");
+
+    // Platforms still on the roadmap — greyed out, no connect action yet.
+    if (IN_PROGRESS_PLATFORMS.has(p.key)) {
+      return `<div class="account-item" style="opacity:0.45;">
+        <div class="account-item-info">
+          <div class="account-item-name">${p.name}${count ? ` @${handle}` : ""}</div>
+          <div class="account-item-status">In progress</div>
+        </div>
+      </div>`;
+    }
 
     const channelUi = count && CHANNEL_PLATFORMS.has(p.key)
       ? (channels.length
