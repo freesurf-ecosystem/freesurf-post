@@ -2291,3 +2291,9 @@ input:-webkit-autofill:focus {
   border-color: var(--brand);
   color: var(--brand);
 }
+/* -- Auth: Google sign-in -- */
+.auth-google { margin-bottom: 4px; }
+.btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.btn-google:hover:not(:disabled) { background: var(--bg-alt); }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 0.8125rem; margin: 14px 0; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
