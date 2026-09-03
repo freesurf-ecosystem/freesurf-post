@@ -4,7 +4,7 @@
     "slug": "freesurf-post-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-windmill.png",
     "userInterfaceStyle": "light",
     "scheme": "freesurf-post",
     "splash": {
