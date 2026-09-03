@@ -721,59 +721,6 @@ function fmtDate(iso) {
 
 // ── Accounts & OAuth ──
 
-// ── Direct connections (our own adapters, no Bundle) ──
-
-async function renderDirectAccounts() {
-  const container = $("#direct-accounts-list");
-  if (!container || !session?.access_token) return;
-  try {
-    const res = await apiFetch(`/api/profiles`);
-    const data = await res.json();
-    const profiles = (data.profiles || []).filter((p) => p.platform !== "bundle");
-    container.innerHTML = profiles.length
-      ? profiles.map((p) => `
-          <div class="account-item">
-            <div class="account-item-info">
-              <div class="account-item-name">${escapeHtml(p.label)} ${p.handle ? `<span style="color:var(--text-muted);font-weight:400;">@${escapeHtml(p.handle)}</span>` : ""}</div>
-              <div class="account-item-status">${escapeHtml(p.platform)}</div>
-            </div>
-            <button class="btn btn-sm btn-ghost" data-remove-token="${p.id}" style="color:var(--error);">Remove</button>
-          </div>`).join("")
-      : `<div class="account-item"><div class="account-item-status">No direct connections yet. Add a Bluesky app password to post without Bundle.</div></div>`;
-    $$("[data-remove-token]").forEach((btn) => btn.addEventListener("click", () => removeDirectAccount(btn.dataset.removeToken)));
-  } catch {
-    container.innerHTML = `<div class="account-item"><div class="account-item-status">Could not load direct connections.</div></div>`;
-  }
-}
-
-async function saveDirectBluesky() {
-  const handle = $("#direct-bsky-handle")?.value.trim() || "";
-  const pass = $("#direct-bsky-pass")?.value.trim() || "";
-  if (!handle || !pass) { showFeedback("Enter both a Bluesky handle and app password.", "error"); return; }
-  if (!session?.access_token) return;
-  try {
-    const res = await apiFetch(`/api/profiles/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ platform: "bluesky", label: "Bluesky", handle, accessToken: pass }),
-    });
-    const data = await res.json();
-    if (!res.ok) { showFeedback(data.error || "Failed to connect Bluesky.", "error"); return; }
-    $("#direct-bsky-pass").value = "";
-    showFeedback("Bluesky connected. Posts to Bluesky now use our adapter.", "success");
-    renderDirectAccounts();
-  } catch { showFeedback("Network error.", "error"); }
-}
-
-async function removeDirectAccount(id) {
-  if (!(await confirmModal("Remove this direct connection?"))) return;
-  try {
-    const res = await apiFetch(`/api/profiles/token/${id}`, { method: "DELETE" });
-    if (!res.ok) { showFeedback("Failed to remove.", "error"); return; }
-    renderDirectAccounts();
-  } catch { showFeedback("Network error.", "error"); }
-}
-
 function renderAccounts() {
   const platformMap = new Map();
   for (const p of connectedProfiles) {
@@ -2316,7 +2263,7 @@ function switchView(viewName) {
   
   // Refresh data for the view
   if (viewName === "compose") fetchTeams();
-  if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); renderDirectAccounts(); }
+  if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); }
   if (viewName === "docs") fetchKeys();
   if (viewName === "drafts") fetchDrafts();
   if (viewName === "hashtags") fetchHashtagGroups();
@@ -2331,6 +2278,5 @@ $("#btn-create-hashtag-group")?.addEventListener("click", showCreateHashtagGroup
 $("#btn-create-reply")?.addEventListener("click", showCreateReplyModal);
 $("#btn-refill-queue")?.addEventListener("click", refillQueue);
 $("#btn-topup")?.addEventListener("click", topUp);
-$("#btn-save-direct-bsky")?.addEventListener("click", saveDirectBluesky);
 
 init();
