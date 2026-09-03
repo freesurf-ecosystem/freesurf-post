@@ -248,22 +248,25 @@ $("#btn-auth-toggle").addEventListener("click", () =>
 );
 $("#btn-auth-back").addEventListener("click", showAuth);
 
-$("#btn-google").addEventListener("click", async () => {
+async function oauthSignIn(provider) {
   const errEl = $("#auth-error");
   errEl.className = "feedback";
   try {
     const supabase = await initSupabase();
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: { redirectTo: window.location.origin },
     });
     if (error) throw error;
-    // Supabase redirects to Google; the page reloads with a session on return.
+    // Supabase redirects to the provider; the page reloads with a session on return.
   } catch (e) {
     errEl.className = "feedback error visible";
-    errEl.textContent = e?.message || "Could not start Google sign-in. Is Google auth enabled in Supabase?";
+    errEl.textContent = e?.message || `Could not start ${provider} sign-in. Is ${provider} auth enabled in Supabase?`;
   }
-});
+}
+
+$("#btn-google").addEventListener("click", () => oauthSignIn("google"));
+$("#btn-apple").addEventListener("click", () => oauthSignIn("apple"));
 
 $("#btn-auth-submit").addEventListener("click", async () => {
   const email = $("#auth-email").value.trim();
