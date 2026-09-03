@@ -1695,7 +1695,7 @@ async function handlePost(
         };
       }
 
-      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles);
+      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles, body.platformOptions);
       if (providerResult.success) return providerResult;
 
       // Only fall back to a direct adapter when one is actually configured;
@@ -1880,7 +1880,8 @@ async function postViaProvider(
   teamId: string,
   instagramImageFit?: "fit" | "crop",
   platformTargets?: Record<string, string>,
-  titles?: Record<string, string>
+  titles?: Record<string, string>,
+  platformOptions?: Record<string, Record<string, unknown>>
 ): Promise<PlatformPostResult> {
   if (!env.SOCIAL_API_PROVIDER_KEY || !teamId) {
     return { platform, success: false, error: "Bundle.social not configured" };
@@ -1922,6 +1923,13 @@ async function postViaProvider(
   // Optional per-platform title (YouTube requires one for videos).
   const title = titles?.[platform];
   if (title) platformData.title = title;
+
+  // Optional per-platform flags (AI disclosure, branded content, etc.) passed
+  // straight through to Bundle's data.<PLATFORM> object.
+  const extra = platformOptions?.[platform];
+  if (extra && typeof extra === "object") {
+    platformData = { ...platformData, ...extra };
+  }
 
   try {
     const now = new Date().toISOString();
@@ -2020,7 +2028,7 @@ async function handleSchedule(
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}) } }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}), ...((body as any).platformOptions ? { __platformOptions: (body as any).platformOptions } : {}) } }),
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -3654,8 +3662,9 @@ async function handleCron(env: Env): Promise<Response> {
             if (bundleTeamId) {
               const storedTargets = (queuedPost.platform_targets || {}) as Record<string, any>;
               const titles = (storedTargets.__titles as Record<string, string> | undefined) || undefined;
+              const platformOptions = (storedTargets.__platformOptions as Record<string, Record<string, unknown>> | undefined) || undefined;
               const providerResult = await postViaProvider(
-                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, storedTargets, titles
+                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, storedTargets, titles, platformOptions
               );
               if (providerResult.success) return providerResult;
               // Only fall back to a direct adapter when env-var creds exist;

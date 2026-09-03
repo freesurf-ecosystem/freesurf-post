@@ -467,6 +467,40 @@ function updatePlatformPreviews() {
       : "No platforms selected";
   }
 
+  updateDisclosures(selected);
+}
+
+// Platforms where we surface compliance toggles (AI disclosure, branded content).
+const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "facebook"]);
+
+function updateDisclosures(platforms) {
+  const panel = $("#disclosures-panel");
+  if (!panel) return;
+  const aiPlatforms = platforms.filter((p) => AI_DISCLOSURE_PLATFORMS.has(p));
+  const tiktok = platforms.includes("tiktok");
+  panel.classList.toggle("hidden", !aiPlatforms.length);
+  $("#opt-tiktok-brand-wrap")?.classList.toggle("hidden", !tiktok);
+}
+
+function collectPlatformOptions() {
+  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  const opts = {};
+  if ($("#opt-ai-generated")?.checked) {
+    for (const p of platforms) {
+      if (AI_DISCLOSURE_PLATFORMS.has(p)) opts[p] = { ...(opts[p] || {}), isAiGenerated: true };
+    }
+  }
+  if ($("#opt-tiktok-brand")?.checked && platforms.includes("tiktok")) {
+    opts.tiktok = { ...(opts.tiktok || {}), isOrganicBrandContent: true };
+  }
+  return opts;
+}
+
+function resetDisclosures() {
+  const ai = $("#opt-ai-generated"); if (ai) ai.checked = false;
+  const br = $("#opt-tiktok-brand"); if (br) br.checked = false;
+}
+
   // Per-post target input (Discord/Slack channel, Pinterest board, Reddit subreddit).
   const targetRow = $("#platform-target-row");
   const targetInput = $("#platform-target-input");
@@ -583,7 +617,7 @@ btnPost.addEventListener("click", async () => {
     const res = await apiFetch(`/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, platformTargets: collectPlatformTargets() }),
+      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
     });
     const data = await res.json();
 
@@ -611,6 +645,7 @@ btnPost.addEventListener("click", async () => {
       charCount.className = "char-count";
       uploadedMedia = [];
       renderMediaPreview();
+      resetDisclosures();
     } else {
       showFeedback(data.error || "Post failed.", "error");
     }
@@ -644,7 +679,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, platformTargets: collectPlatformTargets() }),
+      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
     });
     if (res.ok) {
       showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
@@ -654,6 +689,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
       if (timeEl) timeEl.value = "";
       uploadedMedia = [];
       renderMediaPreview();
+      resetDisclosures();
     } else {
       const err = await res.json();
       showFeedback(err.error || "Failed to schedule.", "error");

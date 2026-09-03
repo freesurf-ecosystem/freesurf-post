@@ -21,6 +21,9 @@ export interface PostRequest {
   platformTargets?: Record<string, string>;
   /** Optional per-platform titles (e.g. { youtube: "My video title" }). */
   titles?: Record<string, string>;
+  /** Optional per-platform extra flags forwarded to the provider, e.g.
+   *  { tiktok: { isOrganicBrandContent: true }, x: { isAiGenerated: true } }. */
+  platformOptions?: Record<string, Record<string, unknown>>;
 }
 
 /** Result of posting to a single platform */

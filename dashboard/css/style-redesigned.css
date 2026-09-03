@@ -2307,3 +2307,7 @@ input:-webkit-autofill:focus {
 .auth-divider { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 0.8125rem; margin: 14px 0; }
 .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 
+
+/* -- Compose disclosures -- */
+.compose-disclosures { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.compose-disclosures .auth-checkbox { font-size: 0.875rem; }
