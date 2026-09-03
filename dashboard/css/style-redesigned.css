@@ -269,7 +269,15 @@ a:hover { text-decoration: underline; }
   text-decoration: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin-left: 6px;
+}
+
+.logo-mark {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--text);
 }
 
 .mobile-logo:hover { text-decoration: none; }
@@ -329,11 +337,12 @@ a:hover { text-decoration: underline; }
 .sidebar-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
+  padding-left: 6px;
 }
 
 .sidebar-logo:hover { text-decoration: none; }
