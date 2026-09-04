@@ -311,14 +311,19 @@ async function handleApi(
     return handleMediaUploadFile(request, env, origin, h);
   }
 
-  // TEMP: bundle discovery probe — REMOVE after use
-  if (url.pathname === "/api/_probe" && request.method === "POST") {
-    return handleProbe(request, env, origin, h);
-  }
-
   // --- POST /api/import — start Bundle post history import ---
   if (url.pathname === "/api/import" && request.method === "POST") {
     return handlePostImport(request, env, origin, h);
+  }
+
+  // --- GET /api/imports — list post history import jobs ---
+  if (url.pathname === "/api/imports" && request.method === "GET") {
+    return handleListImports(request, env, origin, h);
+  }
+
+  // --- GET /api/imports/posts — list imported posts w/ analytics ---
+  if (url.pathname === "/api/imports/posts" && request.method === "GET") {
+    return handleImportedPosts(request, env, origin, h);
   }
 
   // --- POST /api/schedule — schedule a post for later ---
@@ -1584,37 +1589,14 @@ async function handleMediaUploadFile(
 }
 
 /**
- * POST /api/import — Start Bundle post history import.
- * Body: { platform }
+ * POST /api/import — Start a Bundle post history import (backfill posts a social
+ * account published before it was connected, together with analytics when the
+ * platform supports it). Async job → poll GET /api/imports.
+ * Body: { platform, count?, withAnalytics?, importCarousels?, surface?, mediaType? }
+ *   platform: x | bluesky | threads | tiktok | linkedin | instagram | facebook |
+ *             pinterest | youtube | reddit | mastodon
+ *   count: posts to backfill (default 50). Monthly limits apply on Bundle's side.
  */
-/**
- * TEMP probe: forward an arbitrary Bundle /api/v1 request. REMOVE after use.
- */
-async function handleProbe(
-  request: Request, env: Env, origin: string, headers: Record<string, string>
-): Promise<Response> {
-  const user = await authenticateRequest(request, env);
-  if (!user) return errorResponse("Unauthorized", 401, origin);
-  let body: { path: string; method?: string; data?: unknown };
-  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
-  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
-  const p = String(body.path || "");
-  if (!p.startsWith("/api/v1/")) return errorResponse("Bad path", 400, origin);
-  const method = String(body.method || "GET").toUpperCase();
-  const init: RequestInit = { method, headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } };
-  if (method === "POST" || method === "PATCH" || method === "PUT") {
-    (init.headers as Record<string, string>)["Content-Type"] = "application/json";
-    init.body = JSON.stringify(body.data ?? {});
-  }
-  try {
-    const res = await fetch(`https://api.bundle.social${p}`, init);
-    const text = await res.text();
-    return json({ status: res.status, body: text.slice(0, 4000) }, 200, headers);
-  } catch (e) {
-    return json({ error: e instanceof Error ? e.message : String(e) }, 502, headers);
-  }
-}
-
 async function handlePostImport(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
@@ -1622,23 +1604,108 @@ async function handlePostImport(
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
-  let body: { platform: string };
+  let body: {
+    platform?: string; count?: number; withAnalytics?: boolean; importCarousels?: boolean;
+    surface?: string; mediaType?: string;
+  };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  if (!body?.platform) return errorResponse("platform required", 400, origin);
 
   const bsPlatform = bundlePlatform(body.platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
+  const IMPORT_SUPPORTED = ["FACEBOOK", "INSTAGRAM", "THREADS", "TIKTOK", "YOUTUBE", "LINKEDIN", "PINTEREST", "REDDIT", "MASTODON", "BLUESKY", "TWITTER"];
+  if (!IMPORT_SUPPORTED.includes(bsPlatform)) return errorResponse(`Post history import not supported for ${body.platform}`, 400, origin);
 
   const teamId = await getOrCreateBundleTeam(user.sub, env);
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
+  const count = Math.min(Math.max(Math.floor(Number(body.count) || 50), 1), 500);
+  const payload: Record<string, unknown> = {
+    teamId,
+    socialAccountType: bsPlatform,
+    count,
+    withAnalytics: body.withAnalytics !== false,
+  };
+  if (body.importCarousels != null) payload.importCarousels = body.importCarousels;
+  if (body.surface) payload.surface = body.surface;
+  if (body.mediaType) payload.mediaType = body.mediaType;
+
   try {
-    const res = await fetch("https://api.bundle.social/api/v1/post-import", {
+    const res = await fetch("https://api.bundle.social/api/v1/post-history-import/", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId, socialAccountType: bsPlatform }),
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) {
+      console.error(`Bundle post history import failed (${bsPlatform}):`, res.status, JSON.stringify(data));
+      return json(data, res.status, headers);
+    }
+    return json({ import: data, platform: body.platform }, res.status, headers);
+  } catch (e) {
+    console.error("Bundle post import exception:", e instanceof Error ? e.message : String(e));
+    return json({ error: "Import failed" }, 502, headers);
+  }
+}
+
+/**
+ * GET /api/imports — List post history import jobs for the team
+ * (queued / running / finished / failed). Query: ?platform= optional.
+ */
+async function handleListImports(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return json({ imports: [] }, 200, headers);
+
+  const url = new URL(request.url);
+  const platform = url.searchParams.get("platform");
+  const bsPlatform = platform ? bundlePlatform(platform) : null;
+  if (platform && !bsPlatform) return errorResponse("Unknown platform", 400, origin);
+
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return json({ imports: [] }, 200, headers);
+
+  const qs = new URLSearchParams({ teamId });
+  if (bsPlatform) qs.set("socialAccountType", bsPlatform);
+  try {
+    const res = await fetch(`https://api.bundle.social/api/v1/post-history-import/?${qs.toString()}`, {
+      headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
     });
     return json(await res.json(), res.status, headers);
-  } catch { return json({ error: "Import failed" }, 502, headers); }
+  } catch { return json({ error: "Imports unavailable" }, 502, headers); }
+}
+
+/**
+ * GET /api/imports/posts — List posts pulled in by history imports for an account,
+ * with analytics + remaining import capacity. Query: ?platform=&count= optional.
+ */
+async function handleImportedPosts(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return json({ posts: [] }, 200, headers);
+
+  const url = new URL(request.url);
+  const platform = url.searchParams.get("platform");
+  const bsPlatform = platform ? bundlePlatform(platform) : null;
+  if (platform && !bsPlatform) return errorResponse("Unknown platform", 400, origin);
+
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return json({ posts: [] }, 200, headers);
+
+  const qs = new URLSearchParams({ teamId });
+  if (bsPlatform) qs.set("socialAccountType", bsPlatform);
+  const count = url.searchParams.get("count");
+  if (count) qs.set("count", count);
+  try {
+    const res = await fetch(`https://api.bundle.social/api/v1/post-history-import/posts?${qs.toString()}`, {
+      headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+    });
+    return json(await res.json(), res.status, headers);
+  } catch { return json({ error: "Imported posts unavailable" }, 502, headers); }
 }
 
 /**
