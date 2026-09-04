@@ -1564,7 +1564,7 @@ async function handleProbe(
   try {
     const res = await fetch(`https://api.bundle.social${p}`, init);
     const text = await res.text();
-    return json({ status: res.status, body: text.slice(0, 500) }, 200, headers);
+    return json({ status: res.status, body: text.slice(0, 20000) }, 200, headers);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 502, headers);
   }
