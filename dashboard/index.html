@@ -667,10 +667,13 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Posts</h2>
-              <p class="card-subtitle">Engagement per post, broken out by platform. Click Refresh to pull live metrics — pulls aren't automatic (X pulls are metered).</p>
+              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <h2 class="card-title">Posts</h2>
+                <button class="btn btn-primary" id="btn-refresh-analytics">Refresh</button>
+              </div>
+              <p class="card-subtitle" style="margin-top:6px;">Metrics aren't pulled automatically — some platforms (like X) charge per pull. Click <strong>Refresh</strong> to update these numbers whenever you want.</p>
+              <p class="card-subtitle">Engagement per post, broken out by platform. New posts can take time to show engagement.</p>
             </div>
-            <button class="btn btn-secondary btn-sm" id="btn-refresh-analytics">Refresh</button>
           </div>
           <div class="account-list" id="recent-posts-list"></div>
           <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
