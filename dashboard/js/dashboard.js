@@ -468,6 +468,7 @@ function updatePlatformPreviews() {
   }
 
   updateDisclosures(selected);
+  updateComposeWarnings();
 
   // Per-post target input (Discord/Slack channel, Pinterest board, Reddit subreddit).
   const targetRow = $("#platform-target-row");
@@ -1504,15 +1505,42 @@ if (mediaDropzone && mediaInput) {
   });
 }
 
+function updateComposeWarnings() {
+  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  const textLen = textarea ? textarea.value.length : 0;
+  const bsky = $("#bsky-warning");
+  if (bsky) bsky.classList.toggle("hidden", !(platforms.includes("bluesky") && textLen > 300));
+  const ig = $("#ig-ratio-warning");
+  if (ig) {
+    const tallVideo = uploadedMedia.some((m) => m.type === "video" && m.width && m.height && (m.width / m.height) < 4 / 5);
+    ig.classList.toggle("hidden", !(platforms.includes("instagram") && tallVideo));
+  }
+}
+
+function readVideoDims(item) {
+  try {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.muted = true;
+    v.src = item.url;
+    v.onloadedmetadata = () => {
+      item.width = v.videoWidth;
+      item.height = v.videoHeight;
+      updateComposeWarnings();
+    };
+    v.onerror = () => {};
+  } catch {}
+}
+
 function handleMediaUpload(files) {
   files.forEach((file) => {
-    uploadedMedia.push({
-      file,
-      url: URL.createObjectURL(file),
-      type: file.type.startsWith("image/") ? "image" : "video"
-    });
+    const isImage = file.type.startsWith("image/");
+    const item = { file, url: URL.createObjectURL(file), type: isImage ? "image" : "video" };
+    uploadedMedia.push(item);
+    if (!isImage) readVideoDims(item);
   });
   renderMediaPreview();
+  updateComposeWarnings();
 }
 
 function renderMediaPreview() {
@@ -1539,6 +1567,7 @@ function renderMediaPreview() {
       const index = parseInt(e.target.dataset.index);
       uploadedMedia.splice(index, 1);
       renderMediaPreview();
+      updateComposeWarnings();
     });
   });
 }
