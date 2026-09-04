@@ -675,10 +675,31 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
 
   clearFeedback();
   try {
+    // Upload any attached media to Bundle first (scoped to the selected team).
+    const uploadIds = [];
+    for (const m of uploadedMedia) {
+      if (m.uploadId) { uploadIds.push(m.uploadId); continue; }
+      const fd = new FormData();
+      fd.append("file", m.file);
+      const teamId = $("#post-team")?.value;
+      if (teamId) fd.append("teamId", teamId);
+      const upRes = await apiFetch(`/api/media/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: fd,
+      });
+      const upData = await upRes.json();
+      if (!upRes.ok || !upData.uploadId) {
+        showFeedback(upData.error || "Media upload failed.", "error");
+        return;
+      }
+      uploadIds.push(upData.uploadId);
+    }
+
     const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
+      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, mediaUrls: uploadIds.length ? uploadIds : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
     });
     if (res.ok) {
       showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
