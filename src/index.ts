@@ -1339,7 +1339,7 @@ async function handleAnalyticsRefresh(
 
   try {
     const postsRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast`,
       { headers: authHeaders }
     );
     if (!postsRes.ok) return errorResponse("Failed to load posts", 500, origin);
@@ -1364,12 +1364,14 @@ async function handleAnalyticsRefresh(
             continue;
           }
           const d = (await res.json()) as any;
-          console.error(`[analytics-refresh] OK platform=${r.platform} post=${r.postId} resp=${JSON.stringify(d).slice(0, 400)}`);
+          // Bundle nests per-platform numbers under items[] (falls back to top-level/post).
+          const it = (Array.isArray(d.items) && d.items[0]) || d.post || d || {};
           metrics[r.platform] = {
-            likes: num(d.likes ?? d.likeCount ?? d.like_count),
-            comments: num(d.comments ?? d.commentCount ?? d.comment_count),
-            shares: num(d.shares ?? d.shareCount ?? d.share_count ?? d.reposts ?? d.retweet_count ?? d.retweets),
-            views: num(d.views ?? d.viewsCount ?? d.view_count ?? d.impressions ?? d.impression_count),
+            impressions: num(it.impressions ?? d.impressions ?? d.impression_count),
+            views: num(it.views ?? d.views ?? d.view_count ?? it.impressions),
+            likes: num(it.likes ?? d.likes ?? d.likeCount ?? d.like_count),
+            comments: num(it.comments ?? d.comments ?? d.commentCount ?? d.comment_count),
+            shares: num(it.shares ?? it.reposts ?? it.retweet_count ?? d.shares ?? d.shareCount ?? d.share_count ?? d.reposts ?? d.retweet_count ?? d.retweets),
           };
           changed = true;
         } catch {}

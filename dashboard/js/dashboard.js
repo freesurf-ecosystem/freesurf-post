@@ -2207,23 +2207,35 @@ async function fetchAnalytics() {
   fetchRecentPosts();
 }
 
-// Load the Analytics view: show cached aggregate + recent posts, then pull fresh
-// per-post metrics in the background and re-render when the refresh completes.
+// Load the Analytics view from cached data. Live engagement is only pulled when the
+// user hits Refresh (platform pulls can be metered, so we never do it automatically).
 async function loadAnalyticsView() {
   if (!session?.access_token) return;
   fetchAnalytics();
   fetchRecentPosts();
+}
+
+// Manual refresh: pull live per-post engagement from the platforms, then re-render.
+async function refreshAnalytics() {
+  const btn = $("#btn-refresh-analytics");
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Pulling…";
   try {
     await apiFetch(`/api/analytics/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: "{}",
     });
-    fetchAnalytics();
   } catch { /* stale is fine */ }
+  btn.textContent = original;
+  btn.disabled = false;
+  fetchAnalytics();
+  fetchRecentPosts();
 }
 
-$("#btn-refresh-analytics")?.addEventListener("click", loadAnalyticsView);
+$("#btn-refresh-analytics")?.addEventListener("click", refreshAnalytics);
 
 async function fetchRecentPosts() {
   if (!session?.access_token) return;
@@ -2273,10 +2285,17 @@ function renderRecentPosts() {
         .filter((k) => m[k] != null)
         .map((k) => `${k}: <strong>${fmtNum(m[k])}</strong>`)
         .join(" · ");
+      const pulled = ["impressions", "likes", "comments", "shares"].every((k) => m[k] != null);
+      const allZero = pulled && Object.values(m).every((v) => Number(v) === 0);
+      const status = stats && !allZero
+        ? `<span style="font-size:0.8rem;color:var(--text-muted);">${stats}</span>`
+        : pulled
+          ? `<span style="font-size:0.8rem;color:var(--text-muted);">no engagement yet</span>`
+          : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
-          ${stats ? `<span style="font-size:0.8rem;color:var(--text-muted);">${stats}</span>` : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`}
+          ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
         </div>`;
     }).join("");
