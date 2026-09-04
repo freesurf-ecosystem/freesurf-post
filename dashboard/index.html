@@ -503,6 +503,25 @@ curl -X POST https://post.freesurf.tools/api/post \
           </details>
 
           <details class="api-section">
+            <summary>Import post history</summary>
+            <p class="api-text">Backfill posts a connected account published <strong>before</strong> it was connected (via Bundle's async job) — useful for X, whose per-post analytics aren't served passively. Imported posts come back with their analytics (impressions / likes / comments / shares where the platform reports them). Supports <code>x</code>, <code>bluesky</code>, <code>threads</code>, <code>tiktok</code>, <code>linkedin</code>, <code>instagram</code>, <code>facebook</code>, <code>pinterest</code>, <code>youtube</code>, <code>reddit</code>, <code>mastodon</code>.</p>
+            <pre class="api-code"><code># Start an import (async job — runs in the background)
+curl -X POST https://post.freesurf.tools/api/import \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platform":"x","count":50,"withAnalytics":true}'
+
+# Poll job status (queued / running / completed / failed)
+curl "https://post.freesurf.tools/api/imports?platform=x" \
+  -H "Authorization: Bearer fsp_live_..."
+
+# List the imported posts with their analytics + remaining capacity
+curl "https://post.freesurf.tools/api/imports/posts?platform=x&count=50" \
+  -H "Authorization: Bearer fsp_live_..."</code></pre>
+            <p class="api-text"><code>count</code> defaults to 50. Bundle applies monthly import caps (e.g. 100/month on Pro); the posts endpoint returns <code>remainingCapacity</code>. Imports are billed at $0.005 per result. Refresh still only pulls <strong>live</strong> metrics for posts this app published — use import for anything that came before.</p>
+          </details>
+
+          <details class="api-section">
             <summary>Supported platforms</summary>
             <p class="api-text">Platform keys you can pass in <code>platforms</code>:</p>
             <pre class="api-code"><code>Key       Platform
