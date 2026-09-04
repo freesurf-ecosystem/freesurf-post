@@ -1484,7 +1484,8 @@ async function handleForceAnalytics(
     const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify(body.importedPostId ? { importedPostId: targetId, platformType: bs } : { postId: targetId, platformType: bs }),
+      // importedPostId goes alone (no platformType); platform posts take postId + platformType.
+      body: JSON.stringify(body.importedPostId ? { importedPostId: targetId } : { postId: targetId, platformType: bs }),
     });
     const data = (await res.json()) as any;
     if (!res.ok) {
