@@ -1391,10 +1391,13 @@ async function handleAnalyticsRefresh(
         if (!bs) continue;
         if (out()) break;
         try {
-          const res = await fetch(
-            `https://api.bundle.social/api/v1/analytics/post?postId=${encodeURIComponent(r.postId)}&platformType=${bs}`,
-            { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
-          );
+          // Force a live fetch (Bundle POST /analytics/post/force) instead of the
+          // passive GET, which only returns the publish-time snapshot (zeros).
+          const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+            body: JSON.stringify({ postId: r.postId, platformType: bs }),
+          });
           budget--;
           if (!res.ok) {
             const t = await res.text();
@@ -1402,14 +1405,12 @@ async function handleAnalyticsRefresh(
             continue;
           }
           const d = (await res.json()) as any;
-          // Bundle nests per-platform numbers under items[] (falls back to top-level/post).
-          const it = (Array.isArray(d.items) && d.items[0]) || d.post || d || {};
           metrics[r.platform] = {
-            impressions: num(it.impressions ?? d.impressions ?? d.impression_count),
-            views: num(it.views ?? d.views ?? d.view_count ?? it.impressions),
-            likes: num(it.likes ?? d.likes ?? d.likeCount ?? d.like_count),
-            comments: num(it.comments ?? d.comments ?? d.commentCount ?? d.comment_count),
-            shares: num(it.shares ?? it.reposts ?? it.retweet_count ?? d.shares ?? d.shareCount ?? d.share_count ?? d.reposts ?? d.retweet_count ?? d.retweets),
+            impressions: num(d.impressions ?? d.impression_count),
+            views: num(d.views ?? d.view_count ?? d.impressions),
+            likes: num(d.likes ?? d.likeCount ?? d.like_count),
+            comments: num(d.comments ?? d.commentCount ?? d.comment_count),
+            shares: num(d.shares ?? d.shareCount ?? d.share_count ?? d.reposts ?? d.retweet_count ?? d.retweets),
           };
           changed = true;
           // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
