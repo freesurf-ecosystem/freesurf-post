@@ -473,6 +473,16 @@ curl -X POST https://post.freesurf.tools/api/post \
           </details>
 
           <details class="api-section">
+            <summary>Delete a published post</summary>
+            <p class="api-text"><strong>Developer / API only</strong> — irreversible, so it's intentionally not exposed in the UI. Deletes a post already published to a platform (currently X). X deletes are metered at <strong>$0.01</strong> each, drawn from your credit balance.</p>
+            <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/posts/delete \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platform":"x","postId":"<bundle-post-id>"}'</code></pre>
+            <p class="api-text"><code>postId</code> is the Bundle post id — the <code>id</code> from <code>GET /api/bundle-posts</code> or <code>GET /api/posts/recent</code>. There's no undo.</p>
+          </details>
+
+          <details class="api-section">
             <summary>Supported platforms</summary>
             <p class="api-text">Platform keys you can pass in <code>platforms</code>:</p>
             <pre class="api-code"><code>Key       Platform

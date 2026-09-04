@@ -86,6 +86,18 @@ A team is required, same as Post now — by name (`team`) or id (`teamId`).
 `GET /api/scheduled` — list your scheduled posts.
 `DELETE /api/scheduled/:id` — cancel a scheduled post.
 
+## Delete a published post (developer / API only)
+
+`POST /api/posts/delete` — deletes a post already published to a platform.
+Currently supports X (Bundle's metered tweet delete, **$0.01** each from credits).
+Not exposed in the UI because it's irreversible.
+
+```json
+{ "platform": "x", "postId": "<bundle-post-id>" }
+```
+
+`postId` is the Bundle post id (from `GET /api/bundle-posts` or `GET /api/posts/recent`).
+
 ## Media
 
 `POST /api/media/upload` — upload a local file (multipart, field `file`), returns `{ "uploadId": "..." }`.
