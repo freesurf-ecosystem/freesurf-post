@@ -1744,26 +1744,72 @@ async function handleImportedPosts(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY) return json({ posts: [] }, 200, headers);
+  const apiKey = env.SOCIAL_API_PROVIDER_KEY;
+  if (!apiKey) return json({ posts: [] }, 200, headers);
 
   const url = new URL(request.url);
   const platform = url.searchParams.get("platform");
-  const bsPlatform = platform ? bundlePlatform(platform) : null;
-  if (platform && !bsPlatform) return errorResponse("Unknown platform", 400, origin);
-
+  const count = Math.min(Math.max(Math.floor(Number(url.searchParams.get("count")) || 50), 1), 200);
   const teamId = await getOrCreateBundleTeam(user.sub, env);
   if (!teamId) return json({ posts: [] }, 200, headers);
 
-  const qs = new URLSearchParams({ teamId });
-  if (bsPlatform) qs.set("socialAccountType", bsPlatform);
-  const count = url.searchParams.get("count");
-  if (count) qs.set("count", count);
-  try {
+  const fetchPostsFor = async (bsPlatform: string): Promise<any[]> => {
+    const qs = new URLSearchParams({ teamId, socialAccountType: bsPlatform, count: String(count) });
     const res = await fetch(`https://api.bundle.social/api/v1/post-history-import/posts?${qs.toString()}`, {
-      headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      headers: { "x-api-key": apiKey },
     });
-    return json(await res.json(), res.status, headers);
-  } catch { return json({ error: "Imported posts unavailable" }, 502, headers); }
+    if (!res.ok) return [];
+    const data = (await res.json()) as any;
+    const list = Array.isArray(data) ? data : (data?.posts || []);
+    const key = bundlePlatformToKey(bsPlatform);
+    return list.map((p: any) => ({ ...p, platform: key }));
+  };
+
+  try {
+    // Single platform: one tagged fetch (used right after starting an import).
+    if (platform) {
+      const bs = bundlePlatform(platform);
+      if (!bs) return errorResponse("Unknown platform", 400, origin);
+      const posts = await fetchPostsFor(bs);
+      return json({ posts, platform, remainingCapacity: 0 }, 200, headers);
+    }
+
+    // No platform: resolve which accounts have been imported, then aggregate so the
+    // Analytics timeline can weave them in by date.
+    const accountIdToType: Record<string, string> = {};
+    const jobRes = await fetch(`https://api.bundle.social/api/v1/post-history-import/?${new URLSearchParams({ teamId })}`, {
+      headers: { "x-api-key": apiKey },
+    });
+    if (jobRes.ok) {
+      const jobData = (await jobRes.json()) as any;
+      const jobs = Array.isArray(jobData) ? jobData : (jobData?.items || jobData?.imports || []);
+      for (const j of jobs) {
+        if (j.socialAccountId) accountIdToType[j.socialAccountId] = j.socialAccountType || "";
+      }
+    }
+    // Map account ids we can't get a type for from the team roster.
+    const teamRes = await fetch(`https://api.bundle.social/api/v1/team/${teamId}`, {
+      headers: { "x-api-key": apiKey },
+    });
+    if (teamRes.ok) {
+      const team = (await teamRes.json()) as any;
+      for (const sa of team?.socialAccounts || []) {
+        if (accountIdToType[sa.id] == null || !accountIdToType[sa.id]) accountIdToType[sa.id] = sa.type;
+      }
+    }
+
+    const seenTypes = new Set<string>();
+    const byType = new Map<string, any[]>();
+    for (const type of Object.values(accountIdToType)) {
+      if (!type || seenTypes.has(type)) continue;
+      seenTypes.add(type);
+      byType.set(type, await fetchPostsFor(type));
+    }
+    const posts = [...byType.values()].flat();
+    return json({ posts, byPlatform: Object.fromEntries(byType), remainingCapacity: 0 }, 200, headers);
+  } catch {
+    return json({ error: "Imported posts unavailable" }, 502, headers);
+  }
 }
 
 /**

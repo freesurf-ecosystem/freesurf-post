@@ -2361,14 +2361,43 @@ async function loadImportedPosts(platform, count) {
 
 async function fetchRecentPosts() {
   if (!session?.access_token) return;
+  let app = [];
   try {
     const res = await apiFetch(`/api/posts/recent?limit=30`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    recentPostsAll = (await res.json()) || [];
-  } catch {
-    recentPostsAll = [];
-  }
+    app = (await res.json()) || [];
+  } catch { /* ignore */ }
+
+  // Weave imported (pre-app) posts into the same timeline so everything sorts by date.
+  let imported = [];
+  try {
+    const res = await apiFetch(`/api/imports/posts?count=50`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data?.posts || []);
+    imported = list.map((p) => {
+      const a = p.analytics || {};
+      return {
+        kind: "import",
+        date: p.publishedAt || p.importedAt || p.createdAt || p.updatedAt,
+        platform: p.platform || "import",
+        text: p.title || "",
+        metrics: a,
+        url: p.permalink || "",
+      };
+    });
+  } catch { /* ignore */ }
+
+  const appItems = (app || []).map((p) => ({
+    kind: "app", date: p.postedAt || p.created_at, text: p.text || "",
+    results: p.results || [], metrics: p.metrics || {},
+  }));
+
+  recentPostsAll = [...appItems, ...imported]
+    .filter((x) => x.date)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
   recentPostsShown = 6;
   renderRecentPosts();
 }
@@ -2391,22 +2420,50 @@ function renderRecentPosts() {
 
   const posts = recentPostsAll || [];
   if (!posts.length) {
-    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No published posts yet. Post or schedule something and its per-platform metrics will appear here.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No posts yet. Publish something, or use <strong>Import past posts</strong> to pull in history.</p></div>`;
     if (loadMore) loadMore.classList.add("hidden");
     return;
   }
 
+  const statsFor = (m) => ["impressions", "likes", "comments", "shares"]
+    .filter((k) => m[k] != null)
+    .map((k) => `${k}: <strong>${fmtNum(m[k])}</strong>`)
+    .join(" · ");
+
   const visible = posts.slice(0, recentPostsShown);
   container.innerHTML = visible.map((p) => {
+    const when = new Date(p.date).toLocaleString();
+    const text = (p.text || "").replace(/\n/g, " ");
+    const name = escapeHtml(text.length > 160 ? text.slice(0, 160) + "…" : text);
+
+    if (p.kind === "import") {
+      const m = p.metrics || {};
+      const stats = statsFor(m);
+      const pulled = ["impressions", "likes", "comments", "shares"].every((k) => m[k] != null);
+      const status = stats && !(pulled && Object.values(m).every((v) => Number(v) === 0))
+        ? `<span style="font-size:0.8rem;color:var(--text-muted);">${stats}</span>`
+        : pulled
+          ? `<span style="font-size:0.8rem;color:var(--text-muted);">no engagement yet</span>`
+          : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
+      return `
+      <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
+        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${when} · imported</div>
+        <div class="account-item-name">${name || "<i>untitled</i>"}</div>
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
+          <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(p.platform)}</span>
+          ${status}
+          ${p.url ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(p.url)}" target="_blank">View</a>` : ""}
+        </div>
+      </div>`;
+    }
+
+    // App-published post: one row per successful platform + failures inline.
     const rows = (p.results || []).filter((r) => r.success);
     const metrics = p.metrics || {};
     const failed = (p.results || []).filter((r) => !r.success);
     const platformChips = rows.map((r) => {
       const m = metrics[r.platform] || {};
-      const stats = ["impressions", "likes", "comments", "shares"]
-        .filter((k) => m[k] != null)
-        .map((k) => `${k}: <strong>${fmtNum(m[k])}</strong>`)
-        .join(" · ");
+      const stats = statsFor(m);
       const pulled = ["impressions", "likes", "comments", "shares"].every((k) => m[k] != null);
       const allZero = pulled && Object.values(m).every((v) => Number(v) === 0);
       const status = stats && !allZero
@@ -2426,8 +2483,8 @@ function renderRecentPosts() {
       : "";
     return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
-        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${new Date(p.postedAt).toLocaleString()}</div>
-        <div class="account-item-name">${escapeHtml(p.text.length > 160 ? p.text.slice(0, 160) + "…" : p.text)}</div>
+        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${when}</div>
+        <div class="account-item-name">${name || "<i>untitled</i>"}</div>
         ${platformChips}
         ${failedText}
       </div>`;
