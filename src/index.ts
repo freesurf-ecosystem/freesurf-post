@@ -1459,26 +1459,32 @@ async function handleAnalyticsRefresh(
  * POST /api/analytics/force — Force an immediate live analytics fetch for a
  * single post (Bundle POST /api/v1/analytics/post/force). Consumes platform
  * rate limits, so it's a deliberate per-post action.
- * Body: { platform, postId }
+ * Body: { platform, postId }  for posts published through the app, OR
+ *       { platform, importedPostId } for imported (historical) posts — the
+ *       profilePost id returned by the import endpoints.
  */
 async function handleForceAnalytics(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+  const apiKey = env.SOCIAL_API_PROVIDER_KEY;
+  if (!apiKey) return errorResponse("Not configured", 501, origin);
 
-  let body: { platform?: string; postId?: string };
+  let body: { platform?: string; postId?: string; importedPostId?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
-  if (!body?.platform || !body?.postId) return errorResponse("platform and postId required", 400, origin);
+  if (!body?.platform) return errorResponse("platform required", 400, origin);
   const bs = bundlePlatform(body.platform);
   if (!bs) return errorResponse("Unknown platform", 400, origin);
+  if (body.postId && body.importedPostId) return errorResponse("Provide postId OR importedPostId, not both", 400, origin);
+  if (!body.postId && !body.importedPostId) return errorResponse("postId or importedPostId required", 400, origin);
 
+  const targetId = body.postId || body.importedPostId;
   try {
     const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ postId: body.postId, platformType: bs }),
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify(body.importedPostId ? { importedPostId: targetId, platformType: bs } : { postId: targetId, platformType: bs }),
     });
     const data = (await res.json()) as any;
     if (!res.ok) {
@@ -1495,7 +1501,7 @@ async function handleForceAnalytics(
           headers: { ...authHeaders, "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: user.sub, amount_micros: -5_000, kind: "x_fee",
-            reference_id: body.postId, has_link: false, note: "X analytics read (per post)",
+            reference_id: String(targetId), has_link: false, note: "X analytics read (per post)",
           }),
         });
       } catch { /* best-effort */ }
