@@ -2215,18 +2215,20 @@ async function loadAnalyticsView() {
   fetchRecentPosts();
 }
 
-// Manual refresh: pull live per-post engagement from the platforms, then re-render.
+// Manual refresh: pull live per-post engagement for the posts currently shown
+// (bounded so the X per-read cost reflects what the user is actually looking at).
 async function refreshAnalytics() {
   const btn = $("#btn-refresh-analytics");
   if (!btn || btn.disabled) return;
   btn.disabled = true;
   const original = btn.textContent;
-  btn.textContent = "Pulling…";
+  const pulling = Math.max(recentPostsShown, 6);
+  btn.textContent = `Pulling ${pulling} posts…`;
   try {
     await apiFetch(`/api/analytics/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: "{}",
+      body: JSON.stringify({ limit: pulling }),
     });
   } catch { /* stale is fine */ }
   btn.textContent = original;

@@ -1341,9 +1341,17 @@ async function handleAnalyticsRefresh(
   // (confirmed via /billing/billable-usage/quote → "X post read", 5000 micros).
   const X_POST_READ_FEE_MICROS = 5_000;
 
+  // Optional { limit } scopes the refresh to the N most recent posted posts so a
+  // click only pulls (and bills for) what the user is currently looking at.
+  let limit = 0;
+  try {
+    const body = (await request.json().catch(() => null)) as { limit?: number } | null;
+    limit = Math.min(Math.max(Number(body?.limit) || 0, 0), 50);
+  } catch { /* ignore malformed body */ }
+
   try {
     const postsRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast${limit ? `&limit=${limit}` : ""}`,
       { headers: authHeaders }
     );
     if (!postsRes.ok) return errorResponse("Failed to load posts", 500, origin);
