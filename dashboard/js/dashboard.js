@@ -2255,6 +2255,15 @@ $("#btn-refresh-analytics")?.addEventListener("click", refreshAnalytics);
 $("#btn-import-history")?.addEventListener("click", startHistoryImport);
 $("#import-platform")?.addEventListener("change", updateImportEstimate);
 $("#import-count")?.addEventListener("input", updateImportEstimate);
+$("#btn-toggle-import")?.addEventListener("click", () => {
+  const panel = $("#import-history-panel");
+  if (!panel) return;
+  panel.classList.toggle("hidden");
+  if (!panel.classList.contains("hidden")) {
+    populateImportPlatforms();
+    updateImportEstimate();
+  }
+});
 
 async function startHistoryImport() {
   const btn = $("#btn-import-history");

@@ -686,18 +686,17 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
         <div class="card">
           <div class="card-header">
             <div>
-              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <h2 class="card-title">Posts</h2>
                 <button class="btn btn-primary" id="btn-refresh-analytics">Refresh</button>
+                <button class="btn btn-secondary" id="btn-toggle-import">Import past posts</button>
               </div>
               <p class="card-subtitle" style="margin-top:6px;">Metrics aren't pulled automatically — some platforms (like X) charge per pull (~$0.005 per X post). Click <strong>Refresh</strong> to pull the posts shown here (load more first to refresh more).</p>
               <p class="card-subtitle">Engagement per post, broken out by platform. New posts can take time to show engagement.</p>
             </div>
           </div>
-          <div class="account-list" id="recent-posts-list"></div>
-          <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
 
-          <div class="import-history-section" id="import-history-section">
+          <div class="import-history-panel hidden" id="import-history-panel">
             <div class="import-history-header">
               <span class="card-subtitle" style="margin:0;">Import past posts</span>
               <span class="form-helper">Backfills posts from before this app — shows their real analytics per post.</span>
@@ -711,6 +710,9 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             </div>
             <div class="account-list" id="imported-posts-list" style="margin-top:6px;"></div>
           </div>
+
+          <div class="account-list" id="recent-posts-list"></div>
+          <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
         </div>
       </section>
 
