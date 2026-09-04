@@ -2225,10 +2225,10 @@ async function refreshAnalytics() {
   const pulling = Math.max(recentPostsShown, 6);
   btn.textContent = `Pulling ${pulling} posts…`;
   try {
-    await apiFetch(`/api/analytics/refresh`, {
+    await apiFetch(`/api/analytics/refresh?limit=${pulling}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ limit: pulling }),
+      body: "{}",
     });
   } catch { /* stale is fine */ }
   btn.textContent = original;
