@@ -2092,7 +2092,7 @@ async function removeFromQueue(queueId) {
 // ── Analytics Feature ──
 
 async function fetchAnalytics() {
-  if (!session || !$("#analytics-summary")) return;  // analytics tab is a placeholder for now
+  if (!session) return;
   
   try {
     const res = await apiFetch(`/api/analytics`, {
@@ -2110,8 +2110,26 @@ async function fetchAnalytics() {
   fetchRecentPosts();
 }
 
+// Load the Analytics view: show cached aggregate + recent posts, then pull fresh
+// per-post metrics in the background and re-render when the refresh completes.
+async function loadAnalyticsView() {
+  if (!session?.access_token) return;
+  fetchAnalytics();
+  fetchRecentPosts();
+  try {
+    await apiFetch(`/api/analytics/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: "{}",
+    });
+    fetchAnalytics();
+  } catch { /* stale is fine */ }
+}
+
+$("#btn-refresh-analytics")?.addEventListener("click", loadAnalyticsView);
+
 async function fetchRecentPosts() {
-  if (!session?.access_token || !$("#recent-posts-list")) return;
+  if (!session?.access_token) return;
 
   // Local history (this browser) folded in front of Bundle's recent posts
   const local = (postHistory || []).map((p) => ({
@@ -2299,7 +2317,7 @@ async function init() {
   if ($("#view-drafts")) fetchDrafts();
   if ($("#view-hashtags")) fetchHashtagGroups();
   if ($("#view-queue")) fetchQueue();
-  if ($("#view-analytics")) fetchAnalytics();
+  if ($("#view-analytics")) loadAnalyticsView();
 }
 
 // ── Navigation ──
@@ -2331,7 +2349,7 @@ function switchView(viewName) {
   if (viewName === "drafts") fetchDrafts();
   if (viewName === "hashtags") fetchHashtagGroups();
   if (viewName === "queue") fetchQueue();
-  if (viewName === "analytics") fetchAnalytics();
+  if (viewName === "analytics") loadAnalyticsView();
   if (viewName === "fees") fetchCredits();
 }
 
