@@ -1428,7 +1428,7 @@ async function handleAnalyticsRefresh(
         refreshed.push(post.id);
       }
     }
-    return json({ refreshed: refreshed.length, posts: refreshed }, 200, headers);
+    return json({ refreshed: refreshed.length, posts: refreshed, limit: limit, postsLoaded: posts.length }, 200, headers);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Analytics refresh exception:", msg);
