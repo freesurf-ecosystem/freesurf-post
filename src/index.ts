@@ -1358,8 +1358,13 @@ async function handleAnalyticsRefresh(
             `https://api.bundle.social/api/v1/analytics/post?postId=${encodeURIComponent(r.postId)}&platformType=${bs}`,
             { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
           );
-          if (!res.ok) continue;
+          if (!res.ok) {
+            const t = await res.text();
+            console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
+            continue;
+          }
           const d = (await res.json()) as any;
+          console.error(`[analytics-refresh] OK platform=${r.platform} post=${r.postId} resp=${JSON.stringify(d).slice(0, 400)}`);
           metrics[r.platform] = {
             likes: num(d.likes ?? d.likeCount ?? d.like_count),
             comments: num(d.comments ?? d.commentCount ?? d.comment_count),
