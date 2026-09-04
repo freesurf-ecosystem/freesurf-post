@@ -316,6 +316,11 @@ async function handleApi(
     return handlePostImport(request, env, origin, h);
   }
 
+  // TEMP: bundle endpoint discovery probe — REMOVE after finding import path
+  if (url.pathname === "/api/_probe" && request.method === "POST") {
+    return handleProbe(request, env, origin, h);
+  }
+
   // --- POST /api/schedule — schedule a post for later ---
   if (url.pathname === "/api/schedule" && request.method === "POST") {
     return handleSchedule(request, env, origin, h);
@@ -1536,6 +1541,35 @@ async function handleMediaUploadFile(
  * POST /api/import — Start Bundle post history import.
  * Body: { platform }
  */
+/**
+ * TEMP probe: forward an arbitrary Bundle /api/v1 request to discover the real
+ * post-history-import route. REMOVE after use. Restricted to GET/POST + /api/v1/.
+ */
+async function handleProbe(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  let body: { path: string; method?: string; data?: unknown };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+  const p = String(body.path || "");
+  if (!p.startsWith("/api/v1/")) return errorResponse("Bad path", 400, origin);
+  const method = String(body.method || "POST").toUpperCase();
+  const init: RequestInit = { method, headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } };
+  if (method === "POST" || method === "PATCH") {
+    (init.headers as Record<string, string>)["Content-Type"] = "application/json";
+    init.body = JSON.stringify(body.data ?? {});
+  }
+  try {
+    const res = await fetch(`https://api.bundle.social${p}`, init);
+    const text = await res.text();
+    return json({ status: res.status, body: text.slice(0, 500) }, 200, headers);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : String(e) }, 502, headers);
+  }
+}
+
 async function handlePostImport(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
