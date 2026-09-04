@@ -1364,8 +1364,9 @@ async function handleAnalyticsRefresh(
     }
     return json({ refreshed: refreshed.length, posts: refreshed }, 200, headers);
   } catch (e) {
-    console.error("Analytics refresh exception:", e instanceof Error ? e.message : String(e));
-    return json({ error: "Analytics refresh failed" }, 502, headers);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Analytics refresh exception:", msg);
+    return json({ error: "Analytics refresh failed", detail: msg }, 502, headers);
   }
 }
 
@@ -3427,7 +3428,7 @@ async function handleGetAnalytics(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
@@ -3512,7 +3513,7 @@ async function handleGetAnalyticsTrends(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
