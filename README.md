@@ -7,6 +7,14 @@ Threads, TikTok, and YouTube from a single dashboard or API.
 Built by [FreeSurf](https://freesurf.tools), for people who post the same update to many
 platforms and don't want to pay $6–$99/month for tools like Buffer or Hootsuite.
 
+> **Open source — with a note on self-hosting.** FreeSurf Post is open source (GPL-3.0) and
+> the code is public, so you can read it, contribute, or deploy it to your own Cloudflare and
+> Supabase accounts. It isn't yet a turnkey self-hosted package: publishing depends on hosted
+> integrations — [bundle.social](https://bundle.social) holds the platform tokens today, and
+> the platform/API calls are paid services — so a fully independent self-host needs those same
+> accounts and keys. We're open-sourcing the stack first and plan to add self-host packaging as
+> the integrations become self-contained.
+
 ## What it does
 
 - **One dashboard** — compose, add media, pick platforms and teams, and post or schedule.
