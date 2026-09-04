@@ -2406,6 +2406,17 @@ function humanError(s) {
   return String(s || "").replace(/^Bundle error:\s*/i, "").replace(/^Bundle:\s*/i, "").replace(/^Bundle\.social[^:]*:\s*/i, "");
 }
 
+// Imported X replies to other accounts start with a handle; anything else is a post.
+// (Reply-vs-post isn't flagged by the import source, so this is a best-effort label.)
+function isReplyText(text) {
+  return /^\s*@[\w.]+/.test(String(text || ""));
+}
+
+function itemBadge(p, text) {
+  const label = p.kind === "import" ? (isReplyText(text) ? "Reply" : "Post") : "Post";
+  return `<span style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;padding:1px 7px;border-radius:999px;background:var(--bg-alt);border:1px solid var(--border);color:var(--text-secondary);font-weight:600;">${label}</span>`;
+}
+
 function fmtNum(n) {
   n = Number(n) || 0;
   if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
@@ -2447,7 +2458,7 @@ function renderRecentPosts() {
           : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
       return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
-        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${when} · imported</div>
+        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${when} · imported ${itemBadge(p, p.text)}</div>
         <div class="account-item-name">${name || "<i>untitled</i>"}</div>
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(p.platform)}</span>
@@ -2476,6 +2487,7 @@ function renderRecentPosts() {
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
+          ${r.platform === "x" && r.postId ? `<button class="btn btn-xs btn-ghost" data-delete-post="${escapeHtml(r.postId)}" style="color:var(--error);" title="Delete from X (permanent, $0.01)">Delete</button>` : ""}
         </div>`;
     }).join("");
     const failedText = failed.length
@@ -2483,7 +2495,7 @@ function renderRecentPosts() {
       : "";
     return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
-        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${when}</div>
+        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${when} ${itemBadge(p, p.text)}</div>
         <div class="account-item-name">${name || "<i>untitled</i>"}</div>
         ${platformChips}
         ${failedText}
@@ -2500,6 +2512,35 @@ function renderRecentPosts() {
 $("#btn-load-more-posts")?.addEventListener("click", () => {
   recentPostsShown += 6;
   renderRecentPosts();
+});
+
+// Delete a post from the platform itself (currently X). The wording is deliberate —
+// this removes it from the platform, not just from this analytics list.
+$("#recent-posts-list")?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-delete-post]");
+  if (!btn || !session?.access_token) return;
+  const postId = btn.dataset.deletePost;
+  const ok = window.confirm(
+    "Delete this post from X permanently?\n\nThis deletes the actual post from X — it is NOT just removing it from this list. There is no undo, and the delete is metered at $0.01 from your credit balance."
+  );
+  if (!ok) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Deleting…";
+  try {
+    const res = await apiFetch(`/api/posts/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ platform: "x", postId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || data?.error || "Delete failed");
+    fetchRecentPosts();
+  } catch (err) {
+    btn.textContent = original;
+    btn.disabled = false;
+    window.alert(`Delete failed: ${err.message}`);
+  }
 });
 
 // ── Helper Functions ──
