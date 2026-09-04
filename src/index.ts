@@ -443,6 +443,11 @@ async function handleApi(
     return handleAnalyticsRefresh(request, env, origin, h);
   }
 
+  // POST /api/analytics/force — force a fresh live analytics fetch for one post
+  if (url.pathname === "/api/analytics/force" && request.method === "POST") {
+    return handleForceAnalytics(request, env, origin, h);
+  }
+
   // --- Usage API (per-platform post counts for billing/tabulation) ---
   if (url.pathname === "/api/usage" && request.method === "GET") {
     return handleUsage(request, env, origin, h);
@@ -1446,6 +1451,58 @@ async function handleAnalyticsRefresh(
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Analytics refresh exception:", msg);
     return json({ error: "Analytics refresh failed", detail: msg }, 502, headers);
+  }
+}
+
+/**
+ * POST /api/analytics/force — Force an immediate live analytics fetch for a
+ * single post (Bundle POST /api/v1/analytics/post/force). Consumes platform
+ * rate limits, so it's a deliberate per-post action.
+ * Body: { platform, postId }
+ */
+async function handleForceAnalytics(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { platform?: string; postId?: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  if (!body?.platform || !body?.postId) return errorResponse("platform and postId required", 400, origin);
+  const bs = bundlePlatform(body.platform);
+  if (!bs) return errorResponse("Unknown platform", 400, origin);
+
+  try {
+    const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ postId: body.postId, platformType: bs }),
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) {
+      console.error(`Bundle force analytics failed (${bs}):`, res.status, JSON.stringify(data));
+      return json(data, res.status, headers);
+    }
+    // X per-post analytics force-fetch is a metered read (TWITTER_POST_READ).
+    if (body.platform === "x" && env.SUPABASE_SERVICE_ROLE_KEY) {
+      const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+      const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
+          method: "POST",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.sub, amount_micros: -5_000, kind: "x_fee",
+            reference_id: body.postId, has_link: false, note: "X analytics read (per post)",
+          }),
+        });
+      } catch { /* best-effort */ }
+    }
+    return json(data, 200, headers);
+  } catch (e) {
+    console.error("Force analytics exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Force analytics failed", 502, origin);
   }
 }
 
