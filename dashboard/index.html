@@ -522,6 +522,27 @@ curl "https://post.freesurf.tools/api/imports/posts?platform=x&count=50" \
           </details>
 
           <details class="api-section">
+            <summary>Comments &amp; replies</summary>
+            <p class="api-text">Pull the comments on one of your posts, then reply straight to a specific comment. Replying posts live and is metered like a post — <strong>$0.015</strong> plain, <strong>$0.20</strong> with a link — drawn from your credit balance.</p>
+            <pre class="api-code"><code># 1) Import the comments for a post (async — poll /api/comments until they appear)
+curl -X POST https://post.freesurf.tools/api/comments/import \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platform":"x","postId":"<post-id>"}'
+
+# 2) List the fetched comments (each has an id, authorName, text, publishedAt)
+curl "https://post.freesurf.tools/api/comments?platform=x&postId=<post-id>" \
+  -H "Authorization: Bearer fsp_live_..."
+
+# 3) Reply to one of those comments (commentId = the comment's id from step 2)
+curl -X POST https://post.freesurf.tools/api/reply \
+  -H "Authorization: Bearer fsp_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"platform":"x","postId":"<post-id>","commentId":"<comment-id>","text":"Thanks for the note!"}'</code></pre>
+            <p class="api-text"><code>postId</code> is the recorded <code>postId</code> of the original post (its per-platform result from <code>GET /api/posts/recent</code>). Works on X and Bluesky today.</p>
+          </details>
+
+          <details class="api-section">
             <summary>Supported platforms</summary>
             <p class="api-text">Platform keys you can pass in <code>platforms</code>:</p>
             <pre class="api-code"><code>Key       Platform
