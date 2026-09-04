@@ -1776,7 +1776,7 @@ async function handleImportedPosts(
 
     // No platform: resolve which accounts have been imported, then aggregate so the
     // Analytics timeline can weave them in by date.
-    const accountIdToType: Record<string, string> = {};
+    const importedAccountIds = new Set<string>();
     const jobRes = await fetch(`https://api.bundle.social/api/v1/post-history-import/?${new URLSearchParams({ teamId })}`, {
       headers: { "x-api-key": apiKey },
     });
@@ -1784,17 +1784,19 @@ async function handleImportedPosts(
       const jobData = (await jobRes.json()) as any;
       const jobs = Array.isArray(jobData) ? jobData : (jobData?.items || jobData?.imports || []);
       for (const j of jobs) {
-        if (j.socialAccountId) accountIdToType[j.socialAccountId] = j.socialAccountType || "";
+        if (j.socialAccountId) importedAccountIds.add(j.socialAccountId);
       }
     }
-    // Map account ids we can't get a type for from the team roster.
+    // Jobs don't include the platform type, so map the imported account ids via the
+    // team roster (only those — never un-imported accounts).
+    const accountIdToType: Record<string, string> = {};
     const teamRes = await fetch(`https://api.bundle.social/api/v1/team/${teamId}`, {
       headers: { "x-api-key": apiKey },
     });
     if (teamRes.ok) {
       const team = (await teamRes.json()) as any;
       for (const sa of team?.socialAccounts || []) {
-        if (accountIdToType[sa.id] == null || !accountIdToType[sa.id]) accountIdToType[sa.id] = sa.type;
+        if (importedAccountIds.has(sa.id)) accountIdToType[sa.id] = sa.type;
       }
     }
 
