@@ -498,13 +498,13 @@ curl -X POST https://post.freesurf.tools/api/post \
             <pre class="api-code"><code>curl -X POST https://post.freesurf.tools/api/posts/delete \
   -H "Authorization: Bearer fsp_live_..." \
   -H "Content-Type: application/json" \
-  -d '{"platform":"x","postId":"<bundle-post-id>"}'</code></pre>
-            <p class="api-text"><code>postId</code> is the Bundle post id — the <code>id</code> from <code>GET /api/bundle-posts</code> or <code>GET /api/posts/recent</code>. There's no undo.</p>
+  -d '{"platform":"x","postId":"<post-id>"}'</code></pre>
+            <p class="api-text"><code>postId</code> is the recorded <code>postId</code> from <code>GET /api/posts/recent</code> for that platform's result. There's no undo.</p>
           </details>
 
           <details class="api-section">
             <summary>Import post history</summary>
-            <p class="api-text">Backfill posts a connected account published <strong>before</strong> it was connected (via Bundle's async job) — useful for X, whose per-post analytics aren't served passively. Imported posts come back with their analytics (impressions / likes / comments / shares where the platform reports them). Supports <code>x</code>, <code>bluesky</code>, <code>threads</code>, <code>tiktok</code>, <code>linkedin</code>, <code>instagram</code>, <code>facebook</code>, <code>pinterest</code>, <code>youtube</code>, <code>reddit</code>, <code>mastodon</code>.</p>
+            <p class="api-text">Backfill posts a connected account published <strong>before</strong> it was connected (runs as an async job) — useful for X, whose per-post analytics aren't served passively. Imported posts come back with their analytics (impressions / likes / comments / shares where the platform reports them). Supports <code>x</code>, <code>bluesky</code>, <code>threads</code>, <code>tiktok</code>, <code>linkedin</code>, <code>instagram</code>, <code>facebook</code>, <code>pinterest</code>, <code>youtube</code>, <code>reddit</code>, <code>mastodon</code>.</p>
             <pre class="api-code"><code># Start an import (async job — runs in the background)
 curl -X POST https://post.freesurf.tools/api/import \
   -H "Authorization: Bearer fsp_live_..." \
@@ -518,7 +518,7 @@ curl "https://post.freesurf.tools/api/imports?platform=x" \
 # List the imported posts with their analytics + remaining capacity
 curl "https://post.freesurf.tools/api/imports/posts?platform=x&count=50" \
   -H "Authorization: Bearer fsp_live_..."</code></pre>
-            <p class="api-text"><code>count</code> defaults to 50. Bundle applies monthly import caps (e.g. 100/month on Pro); the posts endpoint returns <code>remainingCapacity</code>. Imports are billed at $0.005 per result. Refresh still only pulls <strong>live</strong> metrics for posts this app published — use import for anything that came before.</p>
+            <p class="api-text"><code>count</code> defaults to 50. Monthly import caps apply (e.g. 100/month on Pro); the posts endpoint returns <code>remainingCapacity</code>. Imports are billed at $0.005 per result. Refresh still only pulls <strong>live</strong> metrics for posts this app published — use import for anything that came before.</p>
           </details>
 
           <details class="api-section">
@@ -557,7 +557,7 @@ google_business Google Business</code></pre>
                 <tr><td>Post history import (per result)</td><td class="num">$0.005</td></tr>
               </tbody>
             </table>
-            <p class="limits-note">Source: X and bundle.social</p>
+            <p class="limits-note">Source: X (metered at cost)</p>
             <p class="api-text">Credits endpoints:</p>
             <pre class="api-code"><code>curl https://post.freesurf.tools/api/credits \
   -H "Authorization: Bearer fsp_live_..."
@@ -591,7 +591,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
                 <tr><td>Snapchat</td><td class="num">20</td></tr>
               </tbody>
             </table>
-            <p class="limits-note">Source: bundle.social platform limits until we transition to our own keys.</p>
+            <p class="limits-note">Source: daily limits per connected account.</p>
           </details>
 
           <details class="api-section">
@@ -696,13 +696,21 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
           </div>
           <div class="account-list" id="recent-posts-list"></div>
           <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
-        </div>
-        <div class="card" style="margin-top:16px;">
-          <div class="card-header">
-            <div><h2 class="card-title">Overview</h2><p class="card-subtitle">Totals across all published posts (last 30 days).</p></div>
+
+          <div class="import-history-section" id="import-history-section">
+            <div class="import-history-header">
+              <span class="card-subtitle" style="margin:0;">Import past posts</span>
+              <span class="form-helper">Backfills posts from before this app — shows their real analytics per post.</span>
+            </div>
+            <div class="import-history-controls">
+              <select class="form-input" id="import-platform" style="max-width:150px;"></select>
+              <input type="number" class="form-input" id="import-count" min="1" max="200" step="1" value="20" style="max-width:90px;" title="Number of recent posts to import" />
+              <span class="form-helper" id="import-cost-estimate"></span>
+              <button class="btn btn-primary btn-sm" id="btn-import-history">Import</button>
+              <span class="form-helper" id="import-status"></span>
+            </div>
+            <div class="account-list" id="imported-posts-list" style="margin-top:6px;"></div>
           </div>
-          <div class="analytics-summary" id="analytics-summary"></div>
-          <div class="analytics-platforms" id="analytics-platforms"></div>
         </div>
       </section>
 
@@ -750,7 +758,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
               <tr><td>Post history import (per result)</td><td class="num">$0.005</td></tr>
             </tbody>
           </table>
-          <p class="limits-note">Source: X and bundle.social</p>
+          <p class="limits-note">Source: X (metered at cost)</p>
 
           <h3 style="margin:32px 0 8px;font-size:1rem;">Transaction fees</h3>
           <table class="limits-table">
@@ -853,3 +861,4 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
 </script>
 </body>
 </html>
+

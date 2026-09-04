@@ -1300,7 +1300,7 @@ async function fetchConnectUrl(platform) {
       window.location.href = data.url;
     }
   } catch {
-    alert("Unable to connect. Open https://bundle.social/dashboard to connect accounts.");
+    alert("Unable to start the connect flow right now. Please try again in a moment.");
   }
 }
 
@@ -2188,30 +2188,45 @@ async function removeFromQueue(queueId) {
 
 // ── Analytics Feature ──
 
-async function fetchAnalytics() {
-  if (!session) return;
-  
-  try {
-    const res = await apiFetch(`/api/analytics`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      renderAnalytics(data);
-    }
-  } catch (error) {
-    console.error("Failed to fetch analytics:", error);
-  }
+const IMPORT_PLATFORMS = [
+  { key: "x", name: "X" }, { key: "bluesky", name: "Bluesky" }, { key: "threads", name: "Threads" },
+  { key: "tiktok", name: "TikTok" }, { key: "linkedin", name: "LinkedIn" }, { key: "instagram", name: "Instagram" },
+  { key: "facebook", name: "Facebook" }, { key: "pinterest", name: "Pinterest" }, { key: "youtube", name: "YouTube" },
+  { key: "reddit", name: "Reddit" }, { key: "mastodon", name: "Mastodon" },
+];
+const IMPORT_COST_PER_X_RESULT = 0.005; // $ per imported X result (metered)
 
-  fetchRecentPosts();
+function populateImportPlatforms() {
+  const sel = $("#import-platform");
+  if (!sel) return;
+  if (sel.options.length) return;
+  IMPORT_PLATFORMS.forEach((p) => {
+    const o = document.createElement("option");
+    o.value = p.key;
+    o.textContent = p.name;
+    sel.appendChild(o);
+  });
+}
+
+function updateImportEstimate() {
+  const sel = $("#import-platform");
+  const cnt = Math.max(1, Math.floor(Number($("#import-count")?.value) || 1));
+  if (!sel) return;
+  const cost = sel.value === "x" ? (cnt * IMPORT_COST_PER_X_RESULT) : 0;
+  const el = $("#import-cost-estimate");
+  if (el) {
+    el.textContent = cost > 0
+      ? `~$${cost.toFixed(2)} X fee ($${IMPORT_COST_PER_X_RESULT}/result)`
+      : "no X fees";
+  }
 }
 
 // Load the Analytics view from cached data. Live engagement is only pulled when the
 // user hits Refresh (platform pulls can be metered, so we never do it automatically).
 async function loadAnalyticsView() {
   if (!session?.access_token) return;
-  fetchAnalytics();
+  populateImportPlatforms();
+  updateImportEstimate();
   fetchRecentPosts();
 }
 
@@ -2233,11 +2248,107 @@ async function refreshAnalytics() {
   } catch { /* stale is fine */ }
   btn.textContent = original;
   btn.disabled = false;
-  fetchAnalytics();
   fetchRecentPosts();
 }
 
 $("#btn-refresh-analytics")?.addEventListener("click", refreshAnalytics);
+$("#btn-import-history")?.addEventListener("click", startHistoryImport);
+$("#import-platform")?.addEventListener("change", updateImportEstimate);
+$("#import-count")?.addEventListener("input", updateImportEstimate);
+
+async function startHistoryImport() {
+  const btn = $("#btn-import-history");
+  const status = $("#import-status");
+  if (!btn || btn.disabled) return;
+  const platform = $("#import-platform")?.value || "x";
+  const count = Math.min(Math.max(Math.floor(Number($("#import-count")?.value) || 20), 1), 200);
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Importing…";
+  if (status) status.textContent = "Starting import…";
+  try {
+    const res = await apiFetch(`/api/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ platform, count, withAnalytics: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || data?.message || "Import failed");
+    const jobId = data?.import?.id || data?.id || "";
+    if (status) status.textContent = `Import started — processing up to ${count} ${platform} posts…`;
+    await pollImport(jobId, platform, count, status);
+  } catch (e) {
+    if (status) status.textContent = `Import failed: ${e.message}`;
+  } finally {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+}
+
+async function pollImport(jobId, platform, count, status) {
+  for (let i = 0; i < 15; i++) {
+    await new Promise((r) => setTimeout(r, 8000));
+    try {
+      const res = await apiFetch(`/api/imports?platform=${encodeURIComponent(platform)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      const items = data?.items || data?.imports || [];
+      const job = items.find((j) => j.id === jobId) || items[0];
+      if (!job) continue;
+      if (job.status === "COMPLETED" || job.status === "FINISHED") {
+        if (status) status.textContent = `Imported ${job.postsImported || "—"} posts${job.analyticsImported != null ? ` (${job.analyticsImported} with analytics)` : ""}.`;
+        await loadImportedPosts(platform, count);
+        return;
+      }
+      if (job.status === "FAILED" || job.status === "ERROR") {
+        if (status) status.textContent = `Import failed: ${job.error || job.status}`;
+        return;
+      }
+      if (status) status.textContent = `Import ${String(job.status).toLowerCase()} — ${job.postsImported || 0} done…`;
+    } catch { /* keep polling */ }
+  }
+  if (status) status.textContent = "Still processing — check back shortly.";
+}
+
+async function loadImportedPosts(platform, count) {
+  const container = $("#imported-posts-list");
+  if (!container) return;
+  container.innerHTML = `<span class="form-helper">Loading imported posts…</span>`;
+  try {
+    const res = await apiFetch(`/api/imports/posts?platform=${encodeURIComponent(platform)}&count=${count}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    const posts = Array.isArray(data) ? data : (data?.posts || []);
+    if (!posts.length) {
+      container.innerHTML = `<span class="form-helper">No posts were imported.</span>`;
+      return;
+    }
+    const cap = data?.remainingCapacity;
+    const capNote = cap != null ? ` (${cap} import slots left this month)` : "";
+    container.innerHTML = `<span class="form-helper" style="display:block;margin-bottom:4px;">Imported ${posts.length} posts${capNote} — historical, before this app.</span>` +
+      posts.map((p) => {
+        const a = p.analytics || {};
+        const t = (p.title || "").replace(/\n/g, " ");
+        const text = t.length > 140 ? t.slice(0, 140) + "…" : t;
+        const stats = ["impressions", "likes", "comments", "shares"]
+          .filter((k) => a[k] != null)
+          .map((k) => `${k}: <strong>${fmtNum(a[k])}</strong>`)
+          .join(" · ");
+        const when = new Date(p.publishedAt || p.importedAt || p.createdAt).toLocaleString();
+        return `
+        <div class="account-item imported-item">
+          <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(when)} · imported</div>
+          <div class="account-item-name">${text ? escapeHtml(text) : "<i>untitled</i>"}</div>
+          ${stats ? `<div style="font-size:0.8rem;color:var(--text-muted);">${stats}</div>` : `<div style="font-size:0.8rem;color:var(--text-muted);">no analytics</div>`}
+          ${p.permalink ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(p.permalink)}" target="_blank" style="align-self:flex-start;">View</a>` : ""}
+        </div>`;
+      }).join("");
+  } catch {
+    container.innerHTML = `<span class="form-helper">Could not load imported posts.</span>`;
+  }
+}
 
 async function fetchRecentPosts() {
   if (!session?.access_token) return;
@@ -2324,63 +2435,6 @@ $("#btn-load-more-posts")?.addEventListener("click", () => {
   recentPostsShown += 6;
   renderRecentPosts();
 });
-
-function renderAnalytics(data) {
-  const summaryContainer = $("#analytics-summary");
-  const platformsContainer = $("#analytics-platforms");
-  
-  // Render summary metrics
-  const totals = data.totals || { posts: 0, likes: 0, comments: 0, shares: 0 };
-  summaryContainer.innerHTML = `
-    <div class="analytics-metric-card">
-      <div class="analytics-metric-label">Posts</div>
-      <div class="analytics-metric-value">${totals.posts}</div>
-    </div>
-    <div class="analytics-metric-card">
-      <div class="analytics-metric-label">Likes</div>
-      <div class="analytics-metric-value">${totals.likes}</div>
-    </div>
-    <div class="analytics-metric-card">
-      <div class="analytics-metric-label">Comments</div>
-      <div class="analytics-metric-value">${totals.comments}</div>
-    </div>
-    <div class="analytics-metric-card">
-      <div class="analytics-metric-label">Shares</div>
-      <div class="analytics-metric-value">${totals.shares}</div>
-    </div>
-  `;
-  
-  // Render platform breakdown
-  const analytics = data.analytics || {};
-  platformsContainer.innerHTML = PLATFORMS.map((p) => {
-    const stats = analytics[p.key] || { posts: 0, likes: 0, comments: 0, shares: 0 };
-    return `
-      <div class="analytics-platform-card">
-        <div class="analytics-platform-header">
-          <span class="analytics-platform-name">${p.name}</span>
-        </div>
-        <div class="analytics-platform-stats">
-          <div class="analytics-stat-row">
-            <span class="analytics-stat-label">Posts</span>
-            <span class="analytics-stat-value">${stats.posts}</span>
-          </div>
-          <div class="analytics-stat-row">
-            <span class="analytics-stat-label">Likes</span>
-            <span class="analytics-stat-value">${stats.likes}</span>
-          </div>
-          <div class="analytics-stat-row">
-            <span class="analytics-stat-label">Comments</span>
-            <span class="analytics-stat-value">${stats.comments}</span>
-          </div>
-          <div class="analytics-stat-row">
-            <span class="analytics-stat-label">Shares</span>
-            <span class="analytics-stat-value">${stats.shares}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join("");
-}
 
 // ── Helper Functions ──
 
