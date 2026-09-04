@@ -468,6 +468,33 @@ function updatePlatformPreviews() {
   }
 
   updateDisclosures(selected);
+
+  // Per-post target input (Discord/Slack channel, Pinterest board, Reddit subreddit).
+  const targetRow = $("#platform-target-row");
+  const targetInput = $("#platform-target-input");
+  const targetPlatform = selected.find((p) => PLATFORM_TARGETS[p]);
+  if (targetRow && targetInput) {
+    if (targetPlatform) {
+      targetRow.classList.remove("hidden");
+      $("#platform-target-label").textContent = PLATFORM_TARGETS[targetPlatform].label;
+      targetInput.placeholder = PLATFORM_TARGETS[targetPlatform].placeholder;
+      targetInput.dataset.platform = targetPlatform;
+    } else {
+      targetRow.classList.add("hidden");
+      delete targetInput.dataset.platform;
+    }
+  }
+
+  // Remind users to select a Page/Channel for Facebook, LinkedIn, YouTube.
+  const reminder = $("#channel-reminder");
+  if (reminder) {
+    const needsChannel = selected.some((p) => {
+      if (!CHANNEL_PLATFORMS.has(p)) return false;
+      const acc = composeAccounts.find((a) => a.platform === p);
+      return !acc || !acc.selectedChannelId;
+    });
+    reminder.classList.toggle("hidden", !needsChannel);
+  }
 }
 
 // Platforms where we surface compliance toggles (AI disclosure, branded content).
@@ -499,34 +526,6 @@ function collectPlatformOptions() {
 function resetDisclosures() {
   const ai = $("#opt-ai-generated"); if (ai) ai.checked = false;
   const br = $("#opt-tiktok-brand"); if (br) br.checked = false;
-}
-
-  // Per-post target input (Discord/Slack channel, Pinterest board, Reddit subreddit).
-  const targetRow = $("#platform-target-row");
-  const targetInput = $("#platform-target-input");
-  const targetPlatform = selected.find((p) => PLATFORM_TARGETS[p]);
-  if (targetRow && targetInput) {
-    if (targetPlatform) {
-      targetRow.classList.remove("hidden");
-      $("#platform-target-label").textContent = PLATFORM_TARGETS[targetPlatform].label;
-      targetInput.placeholder = PLATFORM_TARGETS[targetPlatform].placeholder;
-      targetInput.dataset.platform = targetPlatform;
-    } else {
-      targetRow.classList.add("hidden");
-      delete targetInput.dataset.platform;
-    }
-  }
-
-  // Remind users to select a Page/Channel for Facebook, LinkedIn, YouTube.
-  const reminder = $("#channel-reminder");
-  if (reminder) {
-    const needsChannel = selected.some((p) => {
-      if (!CHANNEL_PLATFORMS.has(p)) return false;
-      const acc = composeAccounts.find((a) => a.platform === p);
-      return !acc || !acc.selectedChannelId;
-    });
-    reminder.classList.toggle("hidden", !needsChannel);
-  }
 }
 
 function collectPlatformTargets() {
