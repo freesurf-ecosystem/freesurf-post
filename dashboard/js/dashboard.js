@@ -1384,6 +1384,47 @@ function renderDayPosts() {
   });
 }
 
+async function renderUpcoming() {
+  const container = $("#upcoming-list");
+  if (!container) return;
+  if (!scheduledPosts.length) {
+    container.innerHTML = `<div class="empty-state-text">No upcoming posts. Compose something and schedule it.</div>`;
+    return;
+  }
+  container.innerHTML = scheduledPosts.map((p) => {
+    const mediaBadge = p.mediaUrls?.length
+      ? `<span class="draft-platform-tag">📎 ${p.mediaUrls.length} media</span>`
+      : "";
+    return `
+      <div class="account-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleString()} ${mediaBadge}</div>
+        <div class="sli-text" style="font-size:0.9rem;">${esc(p.text.slice(0, 200))}${p.text.length > 200 ? "…" : ""}</div>
+        <div class="upcoming-media" data-media-for="${p.id}" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button>
+      </div>`;
+  }).join("");
+
+  container.querySelectorAll("[data-cancel]").forEach((btn) => {
+    btn.addEventListener("click", async () => cancelScheduled(btn.dataset.cancel));
+  });
+
+  // Fetch media previews for posts that carry uploads.
+  const postsWithMedia = scheduledPosts.filter((p) => p.mediaUrls?.length);
+  for (const p of postsWithMedia) {
+    const slot = container.querySelector(`[data-media-for="${p.id}"]`);
+    if (!slot) continue;
+    try {
+      const res = await apiFetch(`/api/uploads?ids=${encodeURIComponent(p.mediaUrls.join(","))}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const items = (await res.json()) || [];
+      slot.innerHTML = items.map((u) => u.thumbnailUrl
+        ? `<img src="${esc(u.thumbnailUrl)}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--border);" alt="media" />`
+        : "").join("");
+    } catch {}
+  }
+}
+
 async function fetchScheduled() {
   if (!session?.access_token) return;
   try {
@@ -1393,6 +1434,7 @@ async function fetchScheduled() {
     scheduledPosts = (await res.json()) || [];
   } catch { scheduledPosts = []; }
   renderCalendar();
+  renderUpcoming();
 }
 
 async function fetchHistory() {

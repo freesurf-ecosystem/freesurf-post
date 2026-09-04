@@ -331,6 +331,11 @@ async function handleApi(
     return handleRecentPosts(request, env, origin, h);
   }
 
+  // --- GET /api/uploads?ids=a,b,c — resolve upload ids to preview URLs ---
+  if (url.pathname === "/api/uploads" && request.method === "GET") {
+    return handleUploads(request, env, origin, h);
+  }
+
   // --- POST /api/posts/delete — delete a published post from a platform ---
   // Body: { platform: "x", postId: "<bundle-post-id>" }. X deletes are metered ($0.01).
   if (url.pathname === "/api/posts/delete" && request.method === "POST") {
@@ -2075,7 +2080,7 @@ async function handleScheduled(
       { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
     );
     const posts = (await res.json()) as any[];
-    return json(posts.map((p: any) => ({ id: p.id, text: p.text, platforms: p.platforms, scheduledAt: p.scheduled_at, createdAt: p.created_at })), 200, headers);
+    return json(posts.map((p: any) => ({ id: p.id, text: p.text, platforms: p.platforms, scheduledAt: p.scheduled_at, createdAt: p.created_at, mediaUrls: p.media_urls || [] })), 200, headers);
   } catch { return json([], 200, headers); }
 }
 
@@ -3659,6 +3664,33 @@ async function handleDeletePost(
   }
 
   return errorResponse(`Delete not yet proxied for ${body.platform}`, 501, origin);
+}
+
+/**
+ * GET /api/uploads?ids=a,b,c — resolve Bundle upload ids to preview info
+ * ({ id, url, thumbnailUrl, type }) so scheduled posts can show their media.
+ */
+async function handleUploads(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return json([], 200, headers);
+  const url = new URL(request.url);
+  const ids = (url.searchParams.get("ids") || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8);
+  if (!ids.length) return json([], 200, headers);
+  const out = [];
+  for (const id of ids) {
+    try {
+      const res = await fetch(`https://api.bundle.social/api/v1/upload/${encodeURIComponent(id)}`, {
+        headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      });
+      if (!res.ok) continue;
+      const d = (await res.json()) as any;
+      out.push({ id, url: d.url || "", thumbnailUrl: d.thumbnailUrl || d.iconUrl || d.url || "", type: d.type || "", mime: d.mime || "" });
+    } catch {}
+  }
+  return json(out, 200, headers);
 }
 
 /**
