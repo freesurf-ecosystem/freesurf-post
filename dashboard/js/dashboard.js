@@ -1137,7 +1137,7 @@ function renderLedger() {
   listEl.innerHTML = ledgerTx.slice(0, ledgerVisible).map((t) => {
     const kind = t.kind === "topup" ? "Top-up" : t.kind === "x_fee" ? "X fee" : t.kind === "stripe_fee" ? "Stripe fee" : t.kind === "tax" ? "Sales tax" : "Adjustment";
     const detail = t.kind === "x_fee"
-      ? (t.has_link ? "with link" : "plain/media")
+      ? (t.note ? t.note : (t.has_link ? "with link" : "plain/media"))
       : (t.note || "");
     return `
       <div class="account-item">

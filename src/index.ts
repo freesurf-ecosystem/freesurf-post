@@ -316,11 +316,6 @@ async function handleApi(
     return handlePostImport(request, env, origin, h);
   }
 
-  // TEMP: pricing probe — REMOVE after use
-  if (url.pathname === "/api/_probe" && request.method === "POST") {
-    return handleProbe(request, env, origin, h);
-  }
-
   // --- POST /api/schedule — schedule a post for later ---
   if (url.pathname === "/api/schedule" && request.method === "POST") {
     return handleSchedule(request, env, origin, h);
@@ -1342,6 +1337,10 @@ async function handleAnalyticsRefresh(
     return Number.isFinite(v) ? v : 0;
   };
 
+  // Bundle meters X reads: TWITTER_POST_READ $0.005 per per-post analytics fetch
+  // (confirmed via /billing/billable-usage/quote → "X post read", 5000 micros).
+  const X_POST_READ_FEE_MICROS = 5_000;
+
   try {
     const postsRes = await fetch(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast`,
@@ -1379,6 +1378,26 @@ async function handleAnalyticsRefresh(
             shares: num(it.shares ?? it.reposts ?? it.retweet_count ?? d.shares ?? d.shareCount ?? d.share_count ?? d.reposts ?? d.retweet_count ?? d.retweets),
           };
           changed = true;
+          // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
+          // Tabulate them in the X-fee ledger so refreshes show up on the fees page.
+          if (r.platform === "x") {
+            try {
+              await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
+                method: "POST",
+                headers: { ...authHeaders, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  user_id: user.sub,
+                  amount_micros: -X_POST_READ_FEE_MICROS,
+                  kind: "x_fee",
+                  reference_id: r.postId,
+                  has_link: false,
+                  note: "X analytics read (per post)",
+                }),
+              });
+            } catch (e) {
+              console.error("record X analytics read fee failed:", e instanceof Error ? e.message : String(e));
+            }
+          }
         } catch {}
       }
       if (changed) {
@@ -1541,35 +1560,6 @@ async function handleMediaUploadFile(
  * POST /api/import — Start Bundle post history import.
  * Body: { platform }
  */
-/**
- * TEMP probe: forward an arbitrary Bundle /api/v1 request to query pricing.
- * REMOVE after use. Restricted to GET/POST + /api/v1/.
- */
-async function handleProbe(
-  request: Request, env: Env, origin: string, headers: Record<string, string>
-): Promise<Response> {
-  const user = await authenticateRequest(request, env);
-  if (!user) return errorResponse("Unauthorized", 401, origin);
-  let body: { path: string; method?: string; data?: unknown };
-  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
-  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
-  const p = String(body.path || "");
-  if (!p.startsWith("/api/v1/")) return errorResponse("Bad path", 400, origin);
-  const method = String(body.method || "POST").toUpperCase();
-  const init: RequestInit = { method, headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } };
-  if (method === "POST" || method === "PATCH") {
-    (init.headers as Record<string, string>)["Content-Type"] = "application/json";
-    init.body = JSON.stringify(body.data ?? {});
-  }
-  try {
-    const res = await fetch(`https://api.bundle.social${p}`, init);
-    const text = await res.text();
-    return json({ status: res.status, body: text.slice(0, 20000) }, 200, headers);
-  } catch (e) {
-    return json({ error: e instanceof Error ? e.message : String(e) }, 502, headers);
-  }
-}
-
 async function handlePostImport(
   request: Request, env: Env, origin: string, headers: Record<string, string>
 ): Promise<Response> {
