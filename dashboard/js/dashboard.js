@@ -1374,6 +1374,33 @@ async function fetchScheduled() {
   renderCalendar();
 }
 
+async function fetchRecentPublished() {
+  const container = $("#published-list");
+  if (!container || !session?.access_token) return;
+  try {
+    const res = await apiFetch(`/api/posts/recent?limit=10`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const posts = (await res.json()) || [];
+    container.innerHTML = posts.length === 0
+      ? `<div class="empty-state-text">Nothing published yet.</div>`
+      : posts.map((p) => `
+          <div class="account-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+            <div class="account-item-status" style="font-size:0.72rem;color:var(--text-muted);">${new Date(p.postedAt).toLocaleString()}</div>
+            <div class="account-item-name">${escapeHtml(p.text.length > 120 ? p.text.slice(0, 120) + "…" : p.text)}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${(p.results || []).map((r) => r.success
+                ? `<span style="font-size:0.75rem;color:var(--success);">${escapeHtml(r.platform)} ✓</span>`
+                : `<span style="font-size:0.75rem;color:var(--error);" title="${escapeHtml(r.error || "failed")}">${escapeHtml(r.platform)} ✗</span>`).join("")}
+              ${(p.platforms || []).filter((pl) => !(p.results || []).some((r) => r.platform === pl))
+                .map((pl) => `<span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(pl)} …</span>`).join("")}
+            </div>
+          </div>`).join("");
+  } catch {
+    container.innerHTML = `<div class="empty-state-text">Could not load published posts.</div>`;
+  }
+}
+
 async function schedulePost() {
   const text = $("#sched-text")?.value?.trim();
   const timeInput = $("#sched-time")?.value;
@@ -2226,6 +2253,7 @@ async function init() {
   renderPlatformChips();
   await refreshAuth();
   await fetchScheduled();
+  await fetchRecentPublished();
 
   // Re-render accounts now that profiles are loaded (connection state + handles)
   renderAccounts();

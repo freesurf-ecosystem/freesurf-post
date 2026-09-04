@@ -326,6 +326,11 @@ async function handleApi(
     return handleScheduled(request, env, origin, h);
   }
 
+  // --- GET /api/posts/recent — recent published posts with per-platform results ---
+  if (url.pathname === "/api/posts/recent" && request.method === "GET") {
+    return handleRecentPosts(request, env, origin, h);
+  }
+
   // --- DELETE /api/scheduled/:id — cancel scheduled post ---
   const scheduleMatch = url.pathname.match(/^\/api\/scheduled\/([a-f0-9-]+)$/);
   if (scheduleMatch && request.method === "DELETE") {
@@ -3603,6 +3608,37 @@ async function handleUsage(
     return json({ usage: counts }, 200, headers);
   } catch {
     return errorResponse("Usage unavailable", 502, origin);
+  }
+}
+
+/**
+ * GET /api/posts/recent — recent published posts with per-platform results
+ * (successes + errors surfaced from the cron), newest first.
+ */
+async function handleRecentPosts(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json([], 200, headers);
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 10, 1), 30);
+    const res = await fetch(
+      `${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=${limit}&select=id,text,platforms,results,posted_at,created_at`,
+      { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
+    );
+    if (!res.ok) return json([], 200, headers);
+    const posts = (await res.json()) as any[];
+    return json(posts.map((p: any) => ({
+      id: p.id,
+      text: p.text,
+      platforms: p.platforms || [],
+      postedAt: p.posted_at || p.created_at,
+      results: Array.isArray(p.results) ? p.results : [],
+    })), 200, headers);
+  } catch {
+    return json([], 200, headers);
   }
 }
 
