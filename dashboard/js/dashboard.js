@@ -2306,8 +2306,8 @@ async function pollImport(jobId, platform, count, status) {
       const job = items.find((j) => j.id === jobId) || items[0];
       if (!job) continue;
       if (job.status === "COMPLETED" || job.status === "FINISHED") {
-        if (status) status.textContent = `Imported ${job.postsImported || "—"} posts${job.analyticsImported != null ? ` (${job.analyticsImported} with analytics)` : ""}.`;
-        await loadImportedPosts(platform, count);
+        if (status) status.textContent = `Imported ${job.postsImported || "—"} posts — now interleaved into the timeline below by date.`;
+        fetchRecentPosts();
         return;
       }
       if (job.status === "FAILED" || job.status === "ERROR") {
@@ -2318,45 +2318,6 @@ async function pollImport(jobId, platform, count, status) {
     } catch { /* keep polling */ }
   }
   if (status) status.textContent = "Still processing — check back shortly.";
-}
-
-async function loadImportedPosts(platform, count) {
-  const container = $("#imported-posts-list");
-  if (!container) return;
-  container.innerHTML = `<span class="form-helper">Loading imported posts…</span>`;
-  try {
-    const res = await apiFetch(`/api/imports/posts?platform=${encodeURIComponent(platform)}&count=${count}`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    const posts = Array.isArray(data) ? data : (data?.posts || []);
-    if (!posts.length) {
-      container.innerHTML = `<span class="form-helper">No posts were imported.</span>`;
-      return;
-    }
-    const cap = data?.remainingCapacity;
-    const capNote = cap != null ? ` (${cap} import slots left this month)` : "";
-    container.innerHTML = `<span class="form-helper" style="display:block;margin-bottom:4px;">Imported ${posts.length} posts${capNote} — historical, before this app.</span>` +
-      posts.map((p) => {
-        const a = p.analytics || {};
-        const t = (p.title || "").replace(/\n/g, " ");
-        const text = t.length > 140 ? t.slice(0, 140) + "…" : t;
-        const stats = ["impressions", "likes", "comments", "shares"]
-          .filter((k) => a[k] != null)
-          .map((k) => `${k}: <strong>${fmtNum(a[k])}</strong>`)
-          .join(" · ");
-        const when = new Date(p.publishedAt || p.importedAt || p.createdAt).toLocaleString();
-        return `
-        <div class="account-item imported-item">
-          <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(when)} · imported</div>
-          <div class="account-item-name">${text ? escapeHtml(text) : "<i>untitled</i>"}</div>
-          ${stats ? `<div style="font-size:0.8rem;color:var(--text-muted);">${stats}</div>` : `<div style="font-size:0.8rem;color:var(--text-muted);">no analytics</div>`}
-          ${p.permalink ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(p.permalink)}" target="_blank" style="align-self:flex-start;">View</a>` : ""}
-        </div>`;
-      }).join("");
-  } catch {
-    container.innerHTML = `<span class="form-helper">Could not load imported posts.</span>`;
-  }
 }
 
 async function fetchRecentPosts() {
