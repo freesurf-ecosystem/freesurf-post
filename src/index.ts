@@ -1966,7 +1966,11 @@ async function postViaProvider(
     const data = (await res.json()) as any;
     if (!res.ok) {
       console.error(`Bundle post failed (${platform}):`, res.status, JSON.stringify(data));
-      return { platform, success: false, error: `Bundle error: ${data.message || res.status}` };
+      const issues = Array.isArray(data?.issues)
+        ? data.issues.map((i: any) => i.message).filter(Boolean).join("; ")
+        : "";
+      const reason = `${data.message || "Bundle error"}${issues ? ` — ${issues}` : ""}`;
+      return { platform, success: false, error: reason.slice(0, 300) };
     }
 
     console.log(`Bundle post success (${platform}):`, JSON.stringify({ id: data.id, externalData: data.externalData }));
