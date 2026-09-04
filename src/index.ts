@@ -3707,7 +3707,7 @@ async function handleRecentPosts(
     const url = new URL(request.url);
     const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 10, 1), 30);
     const res = await fetch(
-      `${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=${limit}&select=id,text,platforms,results,posted_at,created_at`,
+      `${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=${limit}&select=id,text,platforms,results,metrics,posted_at,created_at`,
       { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
     );
     if (!res.ok) return json([], 200, headers);
@@ -3718,6 +3718,7 @@ async function handleRecentPosts(
       platforms: p.platforms || [],
       postedAt: p.posted_at || p.created_at,
       results: Array.isArray(p.results) ? p.results : [],
+      metrics: p.metrics || {},
     })), 200, headers);
   } catch {
     return json([], 200, headers);

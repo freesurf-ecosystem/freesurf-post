@@ -667,20 +667,20 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Analytics</h2>
-              <p class="card-subtitle">Aggregated across your published posts (last 30 days).</p>
+              <h2 class="card-title">Posts</h2>
+              <p class="card-subtitle">Engagement per post, broken out by platform. Refresh pulls the latest metrics.</p>
             </div>
             <button class="btn btn-secondary btn-sm" id="btn-refresh-analytics">Refresh</button>
           </div>
-          <div class="analytics-summary" id="analytics-summary"></div>
-          <div class="analytics-platforms" id="analytics-platforms"></div>
+          <div class="account-list" id="recent-posts-list"></div>
+          <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
         </div>
         <div class="card" style="margin-top:16px;">
           <div class="card-header">
-            <div><h2 class="card-title">Recent posts</h2><p class="card-subtitle">Latest posts from Bundle.</p></div>
+            <div><h2 class="card-title">Overview</h2><p class="card-subtitle">Totals across all published posts (last 30 days).</p></div>
           </div>
-          <div class="account-list" id="recent-posts-list"></div>
-          <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
+          <div class="analytics-summary" id="analytics-summary"></div>
+          <div class="analytics-platforms" id="analytics-platforms"></div>
         </div>
       </section>
 

@@ -2227,30 +2227,23 @@ $("#btn-refresh-analytics")?.addEventListener("click", loadAnalyticsView);
 
 async function fetchRecentPosts() {
   if (!session?.access_token) return;
-
-  // Local history (this browser) folded in front of Bundle's recent posts
-  const local = (postHistory || []).map((p) => ({
-    id: p.id,
-    status: "posted",
-    createdAt: p.postedAt,
-    platforms: (p.results || []).map((r) => r.platform),
-    text: p.text,
-    url: (p.results || []).find((r) => r.success && r.postUrl)?.postUrl,
-  }));
-
   try {
-    const teamQ = analyticsTeamId ? `?teamId=${encodeURIComponent(analyticsTeamId)}` : "";
-    const res = await apiFetch(`/api/bundle-posts${teamQ}`, {
+    const res = await apiFetch(`/api/posts/recent?limit=30`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    const data = await res.json();
-    recentPostsAll = [...local, ...(data.posts || [])];
+    recentPostsAll = (await res.json()) || [];
   } catch {
-    recentPostsAll = local;
+    recentPostsAll = [];
   }
-
-  recentPostsShown = 5;
+  recentPostsShown = 6;
   renderRecentPosts();
+}
+
+function fmtNum(n) {
+  n = Number(n) || 0;
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  return String(n);
 }
 
 function renderRecentPosts() {
@@ -2260,21 +2253,40 @@ function renderRecentPosts() {
 
   const posts = recentPostsAll || [];
   if (!posts.length) {
-    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No recent posts yet.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No published posts yet. Post or schedule something and its per-platform metrics will appear here.</p></div>`;
     if (loadMore) loadMore.classList.add("hidden");
     return;
   }
 
   const visible = posts.slice(0, recentPostsShown);
-  container.innerHTML = visible.map((p) => `
-    <div class="account-item">
-      <div class="account-item-info">
-        <div class="account-item-name">${escapeHtml(p.text || "(no text)")}</div>
-        <div class="account-item-status">${escapeHtml((p.platforms || []).join(", ") || p.status || "")}${p.createdAt ? ` · ${fmtDate(p.createdAt)}` : ""}</div>
-      </div>
-      ${p.url ? `<a class="btn btn-sm btn-ghost" href="${p.url}" target="_blank">View</a>` : ""}
-    </div>
-  `).join("");
+  container.innerHTML = visible.map((p) => {
+    const rows = (p.results || []).filter((r) => r.success);
+    const metrics = p.metrics || {};
+    const failed = (p.results || []).filter((r) => !r.success);
+    const platformChips = rows.map((r) => {
+      const m = metrics[r.platform] || {};
+      const stats = ["impressions", "likes", "comments", "shares"]
+        .filter((k) => m[k] != null)
+        .map((k) => `${k}: <strong>${fmtNum(m[k])}</strong>`)
+        .join(" · ");
+      return `
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
+          <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
+          ${stats ? `<span style="font-size:0.8rem;color:var(--text-muted);">${stats}</span>` : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`}
+          ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
+        </div>`;
+    }).join("");
+    const failedText = failed.length
+      ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(r.error || "failed")}</span>`).join(" · ")}</div>`
+      : "";
+    return `
+      <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
+        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);">${new Date(p.postedAt).toLocaleString()}</div>
+        <div class="account-item-name">${escapeHtml(p.text.length > 160 ? p.text.slice(0, 160) + "…" : p.text)}</div>
+        ${platformChips}
+        ${failedText}
+      </div>`;
+  }).join("");
 
   if (loadMore) {
     const remaining = Math.max(0, posts.length - recentPostsShown);
@@ -2283,13 +2295,8 @@ function renderRecentPosts() {
   }
 }
 
-$("#analytics-team")?.addEventListener("change", (e) => {
-  analyticsTeamId = e.target.value || "";
-  fetchRecentPosts();
-});
-
 $("#btn-load-more-posts")?.addEventListener("click", () => {
-  recentPostsShown += 5;
+  recentPostsShown += 6;
   renderRecentPosts();
 });
 
