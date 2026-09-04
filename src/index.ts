@@ -331,6 +331,12 @@ async function handleApi(
     return handleRecentPosts(request, env, origin, h);
   }
 
+  // --- POST /api/posts/delete — delete a published post from a platform ---
+  // Body: { platform: "x", postId: "<bundle-post-id>" }. X deletes are metered ($0.01).
+  if (url.pathname === "/api/posts/delete" && request.method === "POST") {
+    return handleDeletePost(request, env, origin, h);
+  }
+
   // --- DELETE /api/scheduled/:id — cancel scheduled post ---
   const scheduleMatch = url.pathname.match(/^\/api\/scheduled\/([a-f0-9-]+)$/);
   if (scheduleMatch && request.method === "DELETE") {
@@ -3609,6 +3615,46 @@ async function handleUsage(
   } catch {
     return errorResponse("Usage unavailable", 502, origin);
   }
+}
+
+/**
+ * POST /api/posts/delete — delete a published post from a platform via Bundle.
+ * Currently supports X (DELETE /api/v1/misc/twitter/tweet; metered $0.01).
+ */
+async function handleDeletePost(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+
+  let body: { platform?: string; postId?: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  if (!body.platform || !body.postId) return errorResponse("platform and postId required", 400, origin);
+
+  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
+  if (body.platform === "x") {
+    try {
+      const res = await fetch("https://api.bundle.social/api/v1/misc/twitter/tweet", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+        body: JSON.stringify({ teamId, postId: body.postId }),
+      });
+      const data = (await res.json()) as any;
+      if (!res.ok) {
+        console.error(`Bundle X delete failed:`, res.status, JSON.stringify(data));
+        return errorResponse(data?.message || "Delete failed", res.status || 502, origin);
+      }
+      return json({ success: data?.success !== false }, 200, headers);
+    } catch (e) {
+      console.error(`Bundle X delete exception:`, e instanceof Error ? e.message : String(e));
+      return errorResponse("Delete failed", 502, origin);
+    }
+  }
+
+  return errorResponse(`Delete not yet proxied for ${body.platform}`, 501, origin);
 }
 
 /**
