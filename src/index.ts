@@ -1343,33 +1343,41 @@ async function handleAnalyticsRefresh(
 
   // Optional { limit } scopes the refresh to the N most recent posted posts so a
   // click only pulls (and bills for) what the user is currently looking at.
-  let limit = 0;
+  // Default 10 (bounded); the free-plan 50-subrequest cap is enforced by budget.
+  let limit = 10;
   try {
     const body = (await request.json().catch(() => null)) as { limit?: number } | null;
-    limit = Math.min(Math.max(Number(body?.limit) || 0, 0), 50);
+    if (typeof body?.limit === "number") limit = Math.min(Math.max(Math.floor(body.limit), 1), 50);
   } catch { /* ignore malformed body */ }
 
   try {
     const postsRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast${limit ? `&limit=${limit}` : ""}`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast&limit=${limit}`,
       { headers: authHeaders }
     );
     if (!postsRes.ok) return errorResponse("Failed to load posts", 500, origin);
     const posts = (await postsRes.json()) as any[];
 
+    // Cloudflare free-plan default is 50 subrequests per invocation; leave headroom.
+    let budget = 40;
+    const out = () => budget <= 0;
+
     const refreshed: string[] = [];
     for (const post of posts) {
+      if (out()) break;
       const metrics: Record<string, any> = post.metrics || {};
       let changed = false;
       for (const r of (post.results || []) as any[]) {
         if (!r?.success || !r?.postId) continue;
         const bs = bundlePlatform(r.platform);
         if (!bs) continue;
+        if (out()) break;
         try {
           const res = await fetch(
             `https://api.bundle.social/api/v1/analytics/post?postId=${encodeURIComponent(r.postId)}&platformType=${bs}`,
             { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
           );
+          budget--;
           if (!res.ok) {
             const t = await res.text();
             console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
@@ -1389,6 +1397,7 @@ async function handleAnalyticsRefresh(
           // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
           // Tabulate them in the X-fee ledger so refreshes show up on the fees page.
           if (r.platform === "x") {
+            if (out()) break;
             try {
               await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
                 method: "POST",
@@ -1402,18 +1411,20 @@ async function handleAnalyticsRefresh(
                   note: "X analytics read (per post)",
                 }),
               });
+              budget--;
             } catch (e) {
               console.error("record X analytics read fee failed:", e instanceof Error ? e.message : String(e));
             }
           }
         } catch {}
       }
-      if (changed) {
+      if (changed && !out()) {
         await fetch(`${supabaseUrl}/rest/v1/post_posts?id=eq.${post.id}`, {
           method: "PATCH",
           headers: { ...authHeaders, "Content-Type": "application/json" },
           body: JSON.stringify({ metrics }),
         });
+        budget--;
         refreshed.push(post.id);
       }
     }
