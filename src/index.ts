@@ -703,7 +703,7 @@ async function handleConnect(
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Bundle not configured", 501, origin);
+    return errorResponse("Not configured", 501, origin);
   }
 
   const bsPlatform = bundlePlatform(platform);
@@ -860,7 +860,7 @@ async function handleGetPost(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const res = await fetch(`https://api.bundle.social/api/v1/post/${id}`, {
@@ -890,7 +890,7 @@ async function handleDisconnect(
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Bundle not configured", 501, origin);
+    return errorResponse("Not configured", 501, origin);
   }
 
   const bsPlatform = bundlePlatform(platform);
@@ -934,7 +934,7 @@ async function handleChannel(
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Bundle not configured", 501, origin);
+    return errorResponse("Not configured", 501, origin);
   }
 
   const bsPlatform = bundlePlatform(platform);
@@ -1017,7 +1017,7 @@ async function handleCreateTeam(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { label: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -1137,7 +1137,7 @@ async function handleDeleteTeam(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
@@ -1288,7 +1288,7 @@ async function handleBundleAnalytics(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Bundle not configured", 501, origin);
+    return errorResponse("Not configured", 501, origin);
   }
 
   const url = new URL(request.url);
@@ -1327,7 +1327,7 @@ async function handleAnalyticsRefresh(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
@@ -1395,7 +1395,7 @@ async function handleCommentImport(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { postId: string; platform: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -1424,7 +1424,7 @@ async function handleComments(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   const postId = url.searchParams.get("postId");
   if (!postId) return errorResponse("postId required", 400, origin);
@@ -1450,7 +1450,7 @@ async function handleMediaUpload(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { url: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -1477,7 +1477,7 @@ async function handleMediaUploadFile(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   let form: FormData;
   try { form = await request.formData(); } catch { return errorResponse("Invalid form data", 400, origin); }
@@ -1534,7 +1534,7 @@ async function handlePostImport(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { platform: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -1708,7 +1708,7 @@ async function handlePost(
         return {
           platform,
           success: false,
-          error: "Couldn't set up your posting team (Bundle team limit reached — try again or upgrade).",
+          error: "Couldn't set up your posting team (posting limit reached — try again or upgrade).",
         };
       }
 
@@ -1901,7 +1901,7 @@ async function postViaProvider(
   platformOptions?: Record<string, Record<string, unknown>>
 ): Promise<PlatformPostResult> {
   if (!env.SOCIAL_API_PROVIDER_KEY || !teamId) {
-    return { platform, success: false, error: "Bundle.social not configured" };
+    return { platform, success: false, error: "Posting is not configured yet" };
   }
 
   // Map our platform names to Bundle.social's ALL CAPS format
@@ -1974,7 +1974,7 @@ async function postViaProvider(
       const issues = Array.isArray(data?.issues)
         ? data.issues.map((i: any) => i.message).filter(Boolean).join("; ")
         : "";
-      const reason = `${data.message || "Bundle error"}${issues ? ` — ${issues}` : ""}`;
+      const reason = `${data.message || "Publishing error"}${issues ? ` — ${issues}` : ""}`;
       return { platform, success: false, error: reason.slice(0, 300) };
     }
 
@@ -2009,7 +2009,7 @@ async function postViaProvider(
     };
   } catch (e) {
     console.error(`Bundle post exception (${platform}):`, e instanceof Error ? e.message : String(e));
-    return { platform, success: false, error: e instanceof Error ? e.message : "Bundle error" };
+    return { platform, success: false, error: e instanceof Error ? e.message : "Publishing error" };
   }
 }
 
@@ -3635,7 +3635,7 @@ async function handleDeletePost(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Bundle not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { platform?: string; postId?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -3834,3 +3834,5 @@ async function handleCron(env: Env): Promise<Response> {
     return json({ error: "Cron failed" }, 500);
   }
 }
+
+

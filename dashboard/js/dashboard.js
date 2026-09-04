@@ -1461,7 +1461,7 @@ async function fetchHistory() {
               <div class="account-item-status" style="font-size:0.72rem;color:var(--text-muted);">${new Date(p.postedAt).toLocaleString()}</div>
               <div class="account-item-name">${escapeHtml(p.text.length > 120 ? p.text.slice(0, 120) + "…" : p.text)}</div>
               <div style="display:flex;flex-wrap:wrap;gap:8px;">${chips}</div>
-              ${fails.length ? `<div style="font-size:0.75rem;color:var(--text-muted);">${fails.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(r.error || "failed")}</span>`).join("<br/>")}</div>` : ""}
+              ${fails.length ? `<div style="font-size:0.75rem;color:var(--text-muted);">${fails.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join("<br/>")}</div>` : ""}
             </div>`;
         }).join("");
   } catch {
@@ -2239,6 +2239,10 @@ async function fetchRecentPosts() {
   renderRecentPosts();
 }
 
+function humanError(s) {
+  return String(s || "").replace(/^Bundle error:\s*/i, "").replace(/^Bundle:\s*/i, "").replace(/^Bundle\.social[^:]*:\s*/i, "");
+}
+
 function fmtNum(n) {
   n = Number(n) || 0;
   if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
@@ -2277,7 +2281,7 @@ function renderRecentPosts() {
         </div>`;
     }).join("");
     const failedText = failed.length
-      ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(r.error || "failed")}</span>`).join(" · ")}</div>`
+      ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join(" · ")}</div>`
       : "";
     return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
