@@ -29,7 +29,10 @@ function ThemedNavigator() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(Boolean(data.session)));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => setSession(Boolean(s)));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
+      console.log("[App] auth state change, session=", Boolean(s));
+      setSession(Boolean(s));
+    });
     return () => listener.subscription.unsubscribe();
   }, []);
 

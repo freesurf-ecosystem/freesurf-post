@@ -61,13 +61,35 @@ export default function AuthScreen() {
         options: { redirectTo, skipBrowserRedirect: true },
       });
       if (error) { Alert.alert("Error", error.message); return; }
-      if (!data?.url) return;
+      if (!data?.url) { console.log("[Auth] no OAuth url returned"); return; }
+      console.log("[Auth] opening auth session; redirectTo=", redirectTo);
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      console.log("[Auth] auth result type=", result.type);
       if (result.type === "success") {
-        const code = new URL(result.url).searchParams.get("code");
-        if (code) {
-          const { error: ex } = await supabase.auth.exchangeCodeForSession(code);
-          if (ex) Alert.alert("Error", ex.message);
+        // Supabase may hand back a PKCE `code` (query) OR an implicit
+        // `access_token` (URL fragment). Handle both so we always set the session.
+        const url = result.url;
+        const hash = url.includes("#") ? url.split("#")[1] ?? "" : "";
+        const hashParams = new URLSearchParams(hash);
+        const code = hashParams.get("code") ?? new URL(url).searchParams.get("code");
+        const accessToken = hashParams.get("access_token");
+        console.log("[Auth] got code=", !!code, " accessToken=", !!accessToken, " url=", url.slice(0, 90));
+        try {
+          if (accessToken) {
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: hashParams.get("refresh_token") ?? "",
+            });
+          } else if (code) {
+            const { error: ex } = await supabase.auth.exchangeCodeForSession(code);
+            if (ex) { console.log("[Auth] exchange error", ex.message); Alert.alert("Error", ex.message); }
+          } else {
+            console.log("[Auth] neither code nor access_token found in callback URL");
+            Alert.alert("Sign-in incomplete", "No session was returned. Please try again.");
+          }
+        } catch (ex: any) {
+          console.log("[Auth] setSession/exchange threw", ex?.message || ex);
+          Alert.alert("Error", ex?.message || "Sign-in failed.");
         }
       } else if (result.type === "dismiss") {
         Alert.alert("Canceled", "Sign-in was canceled.");
