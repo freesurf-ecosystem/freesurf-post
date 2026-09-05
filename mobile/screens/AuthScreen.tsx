@@ -13,6 +13,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 const TERMS_URL = "https://freesurf.tools/terms";
 const PRIVACY_URL = "https://freesurf.tools/privacy";
+const AI_URL = "https://freesurf.tools/ai-processing";
 const DIGEST_URL = "https://feedfree.tech";
 
 export default function AuthScreen() {
@@ -169,7 +170,7 @@ export default function AuthScreen() {
             <TouchableOpacity onPress={() => setAgree(!agree)} style={styles.checkRow}>
               <Text style={{ color: colors.brand, fontWeight: "700", fontSize: 18 }}>{agree ? "☑" : "☐"}</Text>
               <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
-                I agree to the {link(TERMS_URL, "Terms")} and {link(PRIVACY_URL, "Privacy Policy")}
+                I agree to the {link(TERMS_URL, "Terms")}, {link(PRIVACY_URL, "Privacy Policy")}, and {link(AI_URL, "AI Processing")}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setDigest(!digest)} style={styles.checkRow}>
