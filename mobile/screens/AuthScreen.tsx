@@ -1,11 +1,19 @@
 import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, Linking,
 } from "react-native";
 import { Eye, EyeOff } from "lucide-react-native";
+import * as WebBrowser from "expo-web-browser";
+import * as AuthSession from "expo-auth-session";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
+
+WebBrowser.maybeCompleteAuthSession();
+
+const TERMS_URL = "https://freesurf.tools/terms";
+const PRIVACY_URL = "https://freesurf.tools/privacy";
+const DIGEST_URL = "https://feedfree.tech";
 
 export default function AuthScreen() {
   const { colors } = useTheme();
@@ -14,23 +22,58 @@ export default function AuthScreen() {
   const [confirm, setConfirm] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
+  const [agree, setAgree] = useState(false);
+  const [digest, setDigest] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  const link = (url: string, label: string) => (
+    <Text style={{ color: colors.brand, textDecorationLine: "underline" }} onPress={() => Linking.openURL(url)}>{label}</Text>
+  );
+
   async function handleSubmit() {
     if (!email.trim() || !password) return;
+    if (mode === "signup" && !agree) { Alert.alert("Consent required", "Please agree to the Terms and Privacy Policy."); return; }
+    if (mode === "signup" && password !== confirm) { Alert.alert("Error", "Passwords don't match."); return; }
+    if (mode === "signup" && password.length < 6) { Alert.alert("Error", "Password must be at least 6 characters."); return; }
     setLoading(true);
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) Alert.alert("Error", error.message);
       } else {
-        if (password !== confirm) { Alert.alert("Error", "Passwords don't match."); return; }
-        if (password.length < 6) { Alert.alert("Error", "Password must be at least 6 characters."); return; }
         const { error } = await supabase.auth.signUp({ email: email.trim(), password });
         if (error) Alert.alert("Error", error.message);
         else Alert.alert("Check your email", "Confirm your email to finish creating your account.");
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function oauth(provider: "google" | "apple") {
+    if (mode === "signup" && !agree) { Alert.alert("Consent required", "Please agree to the Terms and Privacy Policy."); return; }
+    setLoading(true);
+    try {
+      const redirectTo = AuthSession.makeRedirectUri();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (error) { Alert.alert("Error", error.message); return; }
+      if (!data?.url) return;
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type === "success") {
+        const code = new URL(result.url).searchParams.get("code");
+        if (code) {
+          const { error: ex } = await supabase.auth.exchangeCodeForSession(code);
+          if (ex) Alert.alert("Error", ex.message);
+        }
+      } else if (result.type === "dismiss") {
+        Alert.alert("Canceled", "Sign-in was canceled.");
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Sign-in failed.");
     } finally {
       setLoading(false);
     }
@@ -41,9 +84,24 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={styles.inner}>
+      <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <Text style={[styles.title, { color: colors.text }]}>FreeSurf Post</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>Cross-post everywhere from your phone.</Text>
+
+        <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+          <TouchableOpacity style={[styles.oauthBtn, { borderColor: colors.border }]} onPress={() => oauth("google")} disabled={loading}>
+            <Text style={[styles.oauthText, { color: colors.text }]}>Continue with Google</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.oauthBtn, { borderColor: colors.border }]} onPress={() => oauth("apple")} disabled={loading}>
+            <Text style={[styles.oauthText, { color: colors.text }]}>Continue with Apple</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.orRow}>
+          <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+          <Text style={{ color: colors.textMuted }}>or</Text>
+          <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+        </View>
 
         <TextInput style={inputStyle} placeholder="Email" placeholderTextColor={placeholder} value={email} onChangeText={setEmail}
           autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
@@ -64,6 +122,23 @@ export default function AuthScreen() {
           </View>
         )}
 
+        {mode === "signup" && (
+          <>
+            <TouchableOpacity onPress={() => setAgree(!agree)} style={styles.checkRow}>
+              <Text style={{ color: colors.brand, fontWeight: "700", fontSize: 18 }}>{agree ? "☑" : "☐"}</Text>
+              <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
+                I agree to the {link(TERMS_URL, "Terms")} and {link(PRIVACY_URL, "Privacy Policy")}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setDigest(!digest)} style={styles.checkRow}>
+              <Text style={{ color: colors.textMuted, fontWeight: "700", fontSize: 18 }}>{digest ? "☑" : "☐"}</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 13, flex: 1 }}>
+                Subscribe to the {link(DIGEST_URL, "FeedFree Digest")} — Curated blog-length social posts covering AI, SEO, social media marketing and more - from X and LinkedIn
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
         <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand }]} onPress={handleSubmit} disabled={loading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{mode === "signin" ? "Sign in" : "Create account"}</Text>}
         </TouchableOpacity>
@@ -73,19 +148,24 @@ export default function AuthScreen() {
             {mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center" },
-  inner: { paddingHorizontal: 28 },
+  container: { flex: 1 },
+  inner: { paddingHorizontal: 28, paddingVertical: 48, flexGrow: 1, justifyContent: "center" },
   title: { fontSize: 28, fontWeight: "700", textAlign: "center", marginBottom: 6 },
-  subtitle: { fontSize: 15, textAlign: "center", marginBottom: 32 },
+  subtitle: { fontSize: 15, textAlign: "center", marginBottom: 28 },
+  oauthBtn: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 13, alignItems: "center" },
+  oauthText: { fontSize: 14, fontWeight: "600" },
+  orRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
+  orLine: { flex: 1, height: 1 },
   input: { borderWidth: 1, borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 12 },
   passwordWrap: { position: "relative" },
   eyeBtn: { position: "absolute", right: 14, top: 13 },
+  checkRow: { flexDirection: "row", gap: 10, alignItems: "flex-start", marginBottom: 10 },
   btn: { borderRadius: 10, padding: 15, alignItems: "center", marginBottom: 16 },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   switch: { textAlign: "center", fontSize: 14 },

@@ -10,7 +10,9 @@
     "splash": {
       "backgroundColor": "#fafbfc"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "package": "tools.freesurf.post",
       "versionCode": 1
@@ -21,17 +23,26 @@
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
-            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1"
+            ]
           }
         ]
       }
     },
     "extra": {
-      "eas": { "projectId": "" }
-    }
+      "eas": {
+        "projectId": ""
+      }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }
