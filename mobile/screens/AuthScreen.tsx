@@ -31,6 +31,16 @@ export default function AuthScreen() {
     <Text style={{ color: colors.brand, textDecorationLine: "underline" }} onPress={() => Linking.openURL(url)}>{label}</Text>
   );
 
+  // FeedFree Digest opt-in → invokes the same edge function the web login uses.
+  async function subscribeDigest(address: string) {
+    try {
+      const { error } = await supabase.functions.invoke("feedfree-create-signup", { body: { email: address, topics: [] } });
+      return error ? " Note: we couldn't subscribe you to the FeedFree Digest — join at feedfree.tech." : "";
+    } catch {
+      return " Note: we couldn't subscribe you to the FeedFree Digest — join at feedfree.tech.";
+    }
+  }
+
   async function handleSubmit() {
     if (!email.trim() || !password) return;
     if (mode === "signup" && !agree) { Alert.alert("Consent required", "Please agree to the Terms and Privacy Policy."); return; }
@@ -44,7 +54,10 @@ export default function AuthScreen() {
       } else {
         const { error } = await supabase.auth.signUp({ email: email.trim(), password });
         if (error) Alert.alert("Error", error.message);
-        else Alert.alert("Check your email", "Confirm your email to finish creating your account.");
+        else {
+          const note = digest ? await subscribeDigest(email.trim()) : "";
+          Alert.alert("Check your email", "Confirm your email to finish creating your account." + note);
+        }
       }
     } finally {
       setLoading(false);
@@ -90,6 +103,13 @@ export default function AuthScreen() {
         } catch (ex: any) {
           console.log("[Auth] setSession/exchange threw", ex?.message || ex);
           Alert.alert("Error", ex?.message || "Sign-in failed.");
+        }
+        if (digest) {
+          try {
+            const { data: sessData } = await supabase.auth.getSession();
+            const addr = sessData.session?.user?.email;
+            if (addr) await subscribeDigest(addr);
+          } catch { /* non-critical */ }
         }
       } else if (result.type === "dismiss") {
         Alert.alert("Canceled", "Sign-in was canceled.");
@@ -154,7 +174,7 @@ export default function AuthScreen() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setDigest(!digest)} style={styles.checkRow}>
               <Text style={{ color: colors.textMuted, fontWeight: "700", fontSize: 18 }}>{digest ? "☑" : "☐"}</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 13, flex: 1 }}>
+              <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
                 Subscribe to the {link(DIGEST_URL, "FeedFree Digest")} — Curated blog-length social posts covering AI, SEO, social media marketing and more - from X and LinkedIn
               </Text>
             </TouchableOpacity>
