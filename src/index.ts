@@ -12,7 +12,7 @@ import { FREESURF } from "./freesurf.config";
 
 export interface Env {
   SUPABASE_JWT_SECRET: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;  // for querying the accounts table
+  SUPABASE_SECRET_KEY?: string;  // for querying the accounts table
   SUPABASE_URL?: string;
 
   // Encryption key for token storage
@@ -43,7 +43,7 @@ export interface Env {
   TIKTOK_CLIENT_ID?: string;  TIKTOK_CLIENT_SECRET?: string;
   TIKTOK_REDIRECT_URI?: string;
 
-  // Fallback env vars (used when SUPABASE_SERVICE_ROLE_KEY is not set — single-user mode)
+  // Fallback env vars (used when SUPABASE_SECRET_KEY is not set — single-user mode)
   BLUESKY_HANDLE?: string;  BLUESKY_PASSWORD?: string;
   LINKEDIN_ACCESS_TOKEN?: string;  LINKEDIN_AUTHOR?: string;
   FACEBOOK_ACCESS_TOKEN?: string;  FACEBOOK_PAGE_ID?: string;
@@ -115,15 +115,15 @@ async function authenticateRequest(request: Request, env: Env): Promise<{ sub: s
   const token = apiKeyHeader || bearer;
 
   // API key path
-  if (token.startsWith("fsp_") && env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (token.startsWith("fsp_") && env.SUPABASE_SECRET_KEY) {
     const hash = await sha256Hex(token);
     const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
     const res = await fetch(
       `${supabaseUrl}/rest/v1/post_api_keys?key_hash=eq.${hash}&revoked_at=is.null&select=id,user_id`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -135,8 +135,8 @@ async function authenticateRequest(request: Request, env: Env): Promise<{ sub: s
       await fetch(`${supabaseUrl}/rest/v1/post_api_keys?id=eq.${key.id}`, {
         method: "PATCH",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ last_used_at: new Date().toISOString() }),
@@ -468,12 +468,12 @@ async function handleProfiles(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SUPABASE_SECRET_KEY) {
     return json({ profiles: [], mode: "single-user" }, 200, headers);
   }
 
   try {
-    const tokens = await fetchUserTokens(user.sub, env.SUPABASE_SERVICE_ROLE_KEY);
+    const tokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY);
     return json({ profiles: listConnectedProfiles(tokens), mode: "multi-user" }, 200, headers);
   } catch {
     return json({ profiles: [], mode: "error" }, 200, headers);
@@ -492,7 +492,7 @@ async function handleSaveToken(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Service role key not configured", 500, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Service role key not configured", 500, origin);
 
   try {
     const body = await request.json() as {
@@ -512,8 +512,8 @@ async function handleSaveToken(
       {
         method: "POST",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
           "Content-Type": "application/json",
           Prefer: "return=representation",
         },
@@ -551,11 +551,11 @@ async function handleDeleteToken(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/post_accounts?id=eq.${id}&user_id=eq.${user.sub}`, {
       method: "DELETE",
-      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+      headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` },
     });
     if (!res.ok) return errorResponse("Failed to remove", res.status || 500, origin);
     return json({ ok: true }, 200, headers);
@@ -568,11 +568,11 @@ async function handleDeleteToken(
  * isolated. The team id is stored in post_bundle_teams.
  */
 async function getOrCreateBundleTeam(userId: string, env: Env): Promise<string | null> {
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return null;
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = {
-    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    apikey: env.SUPABASE_SECRET_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
   };
 
   try {
@@ -649,13 +649,13 @@ async function getOrCreateBundleTeam(userId: string, env: Env): Promise<string |
  * (post_bundle_teams.id) if provided, otherwise the user's active team.
  */
 async function resolveBundleTeamId(userId: string, teamId: string | undefined, env: Env): Promise<string | null> {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  if (!env.SUPABASE_SECRET_KEY) return null;
   if (!teamId) return getOrCreateBundleTeam(userId, env);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = {
-    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    apikey: env.SUPABASE_SECRET_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
   };
   try {
     const res = await fetch(
@@ -680,15 +680,15 @@ async function resolveTeamId(
   env: Env
 ): Promise<string | null> {
   if (teamId) return resolveBundleTeamId(userId, teamId, env);
-  if (teamLabel && env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (teamLabel && env.SUPABASE_SECRET_KEY) {
     const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
     try {
       const res = await fetch(
         `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${userId}&label=ilike.${encodeURIComponent(teamLabel)}&select=bundle_team_id&limit=1`,
         {
           headers: {
-            apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey: env.SUPABASE_SECRET_KEY,
+            Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
           },
         }
       );
@@ -717,7 +717,7 @@ async function handleConnect(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
     return errorResponse("Not configured", 501, origin);
   }
 
@@ -771,7 +771,7 @@ async function handleBundleAccounts(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
     return json([], 200, headers);
   }
 
@@ -826,7 +826,7 @@ async function handleBundlePosts(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
     return json({ posts: [] }, 200, headers);
   }
 
@@ -904,7 +904,7 @@ async function handleDisconnect(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
     return errorResponse("Not configured", 501, origin);
   }
 
@@ -948,7 +948,7 @@ async function handleChannel(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
     return errorResponse("Not configured", 501, origin);
   }
 
@@ -1001,13 +1001,13 @@ async function handleGetTeams(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json({ teams: [] }, 200, headers);
+  if (!env.SUPABASE_SECRET_KEY) return json({ teams: [] }, 200, headers);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&order=created_at.asc&select=*`,
-      { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
+      { headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }
     );
     if (!res.ok) return json({ teams: [] }, 200, headers);
     const teams = (await res.json()) as any[];
@@ -1032,14 +1032,14 @@ async function handleCreateTeam(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { label: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
   const label = (body.label || "").trim() || "Default";
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
 
   try {
     const dupRes = await fetch(
@@ -1085,10 +1085,10 @@ async function handleActivateTeam(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
   try {
     await fetch(`${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&is_active=eq.true`, {
       method: "PATCH",
@@ -1114,7 +1114,7 @@ async function handleRenameTeam(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { label: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -1122,7 +1122,7 @@ async function handleRenameTeam(
   if (!label) return errorResponse("Label required", 400, origin);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
   try {
     const dupRes = await fetch(
       `${supabaseUrl}/rest/v1/post_bundle_teams?user_id=eq.${user.sub}&label=ilike.${encodeURIComponent(label)}&select=id&limit=1`,
@@ -1152,10 +1152,10 @@ async function handleDeleteTeam(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
   try {
     const getRes = await fetch(
       `${supabaseUrl}/rest/v1/post_bundle_teams?id=eq.${id}&user_id=eq.${user.sub}&select=bundle_team_id`,
@@ -1188,7 +1188,7 @@ async function handleListKeys(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json({ keys: [] }, 200, headers);
+  if (!env.SUPABASE_SECRET_KEY) return json({ keys: [] }, 200, headers);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   try {
@@ -1196,8 +1196,8 @@ async function handleListKeys(
       `${supabaseUrl}/rest/v1/post_api_keys?user_id=eq.${user.sub}&order=created_at.desc&select=id,name,created_at,last_used_at,revoked_at,key_hash`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -1226,7 +1226,7 @@ async function handleCreateKey(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { name?: string };
   try { body = (await request.json()) as any; } catch { body = {}; }
@@ -1240,8 +1240,8 @@ async function handleCreateKey(
     const res = await fetch(`${supabaseUrl}/rest/v1/post_api_keys`, {
       method: "POST",
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
@@ -1268,15 +1268,15 @@ async function handleRevokeKey(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   try {
     const res = await fetch(`${supabaseUrl}/rest/v1/post_api_keys?id=eq.${id}&user_id=eq.${user.sub}`, {
       method: "PATCH",
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ revoked_at: new Date().toISOString() }),
@@ -1302,7 +1302,7 @@ async function handleBundleAnalytics(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
     return errorResponse("Not configured", 501, origin);
   }
 
@@ -1342,10 +1342,10 @@ async function handleAnalyticsRefresh(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
 
   const num = (n: unknown): number => {
     const v = Number(n);
@@ -1493,9 +1493,9 @@ async function handleForceAnalytics(
       return json(data, res.status, headers);
     }
     // X per-post analytics force-fetch is a metered read (TWITTER_POST_READ).
-    if (body.platform === "x" && env.SUPABASE_SERVICE_ROLE_KEY) {
+    if (body.platform === "x" && env.SUPABASE_SECRET_KEY) {
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-      const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+      const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
       try {
         await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
           method: "POST",
@@ -1523,7 +1523,7 @@ async function handleCommentImport(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { postId: string; platform: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -1552,7 +1552,7 @@ async function handleComments(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const postId = url.searchParams.get("postId");
   if (!postId) return errorResponse("postId required", 400, origin);
@@ -1578,7 +1578,7 @@ async function handleMediaUpload(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { url: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -1605,7 +1605,7 @@ async function handleMediaUploadFile(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let form: FormData;
   try { form = await request.formData(); } catch { return errorResponse("Invalid form data", 400, origin); }
@@ -1667,7 +1667,7 @@ async function handlePostImport(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: {
     platform?: string; count?: number; withAnalytics?: boolean; importCarousels?: boolean;
@@ -1897,8 +1897,8 @@ async function handlePost(
 
   // Fetch per-user platform tokens first (needed for direct adapter fallback)
   let userTokens: PlatformToken[] = [];
-  if (env.SUPABASE_SERVICE_ROLE_KEY) {
-    userTokens = await fetchUserTokens(user.sub, env.SUPABASE_SERVICE_ROLE_KEY);
+  if (env.SUPABASE_SECRET_KEY) {
+    userTokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY);
   }
 
   if (env.RATE_LIMITS) {
@@ -1937,7 +1937,7 @@ async function handlePost(
   // API keys), falling back to direct adapters when Bundle isn't configured or
   // a platform post fails. When direct credentials exist (e.g. own X keys), we
   // prefer them so we can migrate off Bundle gradually.
-  const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.SUPABASE_SERVICE_ROLE_KEY);
+  const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.SUPABASE_SECRET_KEY);
   const bundleTeamId = bundleConfigured ? await resolveTeamId(user.sub, body.teamId, body.team, env) : null;
 
   const results: PlatformPostResult[] = await Promise.all(
@@ -2042,14 +2042,14 @@ async function persistPostHistory(
   mediaUrls: string[] | undefined,
   results: PlatformPostResult[]
 ): Promise<void> {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return;
+  if (!env.SUPABASE_SECRET_KEY) return;
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   try {
     await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
       method: "POST",
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY!,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY!,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2303,8 +2303,8 @@ async function handleSchedule(
   if (isNaN(scheduledAt.getTime())) return errorResponse("Invalid scheduledAt date", 400, origin);
   if (scheduledAt <= new Date()) return errorResponse("scheduledAt must be in the future", 400, origin);
 
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Scheduling requires SUPABASE_SERVICE_ROLE_KEY", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) {
+    return errorResponse("Scheduling requires SUPABASE_SECRET_KEY", 501, origin);
   }
 
   const bundleTeamId = env.SOCIAL_API_PROVIDER_KEY
@@ -2314,7 +2314,7 @@ async function handleSchedule(
   try {
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
-      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
       body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}), ...((body as any).platformOptions ? { __platformOptions: (body as any).platformOptions } : {}) } }),
     });
     if (!res.ok) {
@@ -2338,12 +2338,12 @@ async function handleScheduled(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json([], 200, headers);
+  if (!env.SUPABASE_SECRET_KEY) return json([], 200, headers);
 
   try {
     const res = await fetch(
       `${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.scheduled&order=scheduled_at.asc`,
-      { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
+      { headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }
     );
     const posts = (await res.json()) as any[];
     return json(posts.map((p: any) => ({ id: p.id, text: p.text, platforms: p.platforms, scheduledAt: p.scheduled_at, createdAt: p.created_at, mediaUrls: p.media_urls || [] })), 200, headers);
@@ -2362,11 +2362,11 @@ async function handleCancelSchedule(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts?id=eq.${id}&user_id=eq.${user.sub}`, {
-      method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+      method: "DELETE", headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` },
     });
     return json({ deleted: true }, 200, headers);
   } catch { return errorResponse("Cancel failed", 500, origin); }
@@ -2386,9 +2386,9 @@ async function recordXFee(
   quotedMicros?: number,
   bundleAction?: string
 ) {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return;
+  if (!env.SUPABASE_SECRET_KEY) return;
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
   try {
     // Bundle's ruling is authoritative when available; our constants are the fallback.
     const micros = quotedMicros && quotedMicros > 0 ? -quotedMicros : (hasLink ? -X_LINK_FEE_MICROS : -X_PLAIN_FEE_MICROS);
@@ -2445,11 +2445,11 @@ async function quoteXFee(teamId: string, text: string, env: Env): Promise<{ micr
 
 /** Sum the user's credit ledger (microdollars) — our internal balance source of truth. */
 async function getUserBalanceMicros(userId: string, env: Env): Promise<number> {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return 0;
+  if (!env.SUPABASE_SECRET_KEY) return 0;
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   try {
     const res = await fetch(`${supabaseUrl}/rest/v1/post_credits?user_id=eq.${userId}&select=amount_micros`, {
-      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+      headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` },
     });
     if (!res.ok) return 0;
     const rows = (await res.json()) as any[];
@@ -2465,10 +2465,10 @@ async function handleGetCredits(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json({ balanceMicros: 0, transactions: [] }, 200, headers);
+  if (!env.SUPABASE_SECRET_KEY) return json({ balanceMicros: 0, transactions: [] }, 200, headers);
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-  const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/post_credits?user_id=eq.${user.sub}&select=amount_micros,kind,reference_id,has_link,note,created_at&order=created_at.desc`,
@@ -2551,7 +2551,7 @@ async function handleStripeWebhook(
 ): Promise<Response> {
   const secret = env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return errorResponse("Stripe not configured", 501, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const raw = await request.text();
   const sig = request.headers.get("stripe-signature") || "";
@@ -2608,7 +2608,7 @@ async function handleStripeWebhook(
       }
 
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-      const authHeaders = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+      const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
       // Credit the gross top-up…
       await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
         method: "POST",
@@ -2914,13 +2914,13 @@ async function handleHealthCheck(
   // Check Supabase connectivity
   const dbStart = Date.now();
   try {
-    if (env.SUPABASE_SERVICE_ROLE_KEY) {
+    if (env.SUPABASE_SECRET_KEY) {
       const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
       const response = await fetch(`${supabaseUrl}/rest/v1/`, {
         method: "HEAD",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       });
 
@@ -3053,7 +3053,7 @@ async function handleGetDrafts(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3061,8 +3061,8 @@ async function handleGetDrafts(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.draft&order=updated_at.desc`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3090,7 +3090,7 @@ async function handleCreateDraft(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { text: string; platforms?: Platform[]; media?: Array<{ type: string; name: string }> };
   try {
@@ -3108,8 +3108,8 @@ async function handleCreateDraft(
     const res = await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
       method: "POST",
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
@@ -3147,7 +3147,7 @@ async function handleDeleteDraft(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3156,8 +3156,8 @@ async function handleDeleteDraft(
       {
         method: "DELETE",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3186,7 +3186,7 @@ async function handleGetHashtags(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3194,8 +3194,8 @@ async function handleGetHashtags(
       `${supabaseUrl}/rest/v1/post_content?user_id=eq.${user.sub}&type=eq.hashtag_group&order=created_at.desc`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3224,7 +3224,7 @@ async function handleCreateHashtagGroup(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { name: string; platform: Platform; hashtags: string[] };
   try {
@@ -3248,8 +3248,8 @@ async function handleCreateHashtagGroup(
     const res = await fetch(`${supabaseUrl}/rest/v1/post_content`, {
       method: "POST",
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
@@ -3289,7 +3289,7 @@ async function handleDeleteHashtagGroup(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3298,8 +3298,8 @@ async function handleDeleteHashtagGroup(
       {
         method: "DELETE",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3328,7 +3328,7 @@ async function handleGetSavedReplies(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3336,8 +3336,8 @@ async function handleGetSavedReplies(
       `${supabaseUrl}/rest/v1/post_content?user_id=eq.${user.sub}&type=eq.saved_reply&order=created_at.desc`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3366,7 +3366,7 @@ async function handleCreateSavedReply(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { title: string; content: string; platforms?: Platform[] };
   try {
@@ -3387,8 +3387,8 @@ async function handleCreateSavedReply(
     const res = await fetch(`${supabaseUrl}/rest/v1/post_content`, {
       method: "POST",
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
@@ -3428,7 +3428,7 @@ async function handleDeleteSavedReply(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3437,8 +3437,8 @@ async function handleDeleteSavedReply(
       {
         method: "DELETE",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3467,7 +3467,7 @@ async function handleGetQueue(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3475,8 +3475,8 @@ async function handleGetQueue(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.queued&order=created_at.asc`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3504,7 +3504,7 @@ async function handleAddToQueue(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { text: string; platforms: Platform[]; scheduleTime?: string; mediaUrls?: string[] };
   try {
@@ -3530,8 +3530,8 @@ async function handleAddToQueue(
     const res = await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
       method: "POST",
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
@@ -3569,7 +3569,7 @@ async function handleRefillQueue(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { targetCount?: number };
   try {
@@ -3588,8 +3588,8 @@ async function handleRefillQueue(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.queued&select=id`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3607,8 +3607,8 @@ async function handleRefillQueue(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.draft&limit=${needed}&order=updated_at.desc&select=*`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3628,8 +3628,8 @@ async function handleRefillQueue(
       const res = await fetch(`${supabaseUrl}/rest/v1/post_posts`, {
         method: "POST",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
           "Content-Type": "application/json",
           Prefer: "return=representation",
         },
@@ -3677,7 +3677,7 @@ async function handleRemoveFromQueue(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -3686,8 +3686,8 @@ async function handleRemoveFromQueue(
       {
         method: "DELETE",
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3716,7 +3716,7 @@ async function handleGetAnalytics(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const url = new URL(request.url);
   const startDate = url.searchParams.get("start") || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -3730,8 +3730,8 @@ async function handleGetAnalytics(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&created_at=gte.${startDate}&created_at=lte.${endDate}&select=*`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3801,7 +3801,7 @@ async function handleGetAnalyticsTrends(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   const url = new URL(request.url);
   const days = parseInt(url.searchParams.get("days") || "30");
@@ -3815,8 +3815,8 @@ async function handleGetAnalyticsTrends(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&created_at=gte.${startDate}&order=created_at.desc&select=*`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3864,7 +3864,7 @@ async function handleUsage(
 ): Promise<Response> {
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   try {
     const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
@@ -3872,8 +3872,8 @@ async function handleUsage(
       `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=platforms`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -3901,7 +3901,7 @@ async function handleDeletePost(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) return errorResponse("Not configured", 501, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
   let body: { platform?: string; postId?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
@@ -3968,13 +3968,13 @@ async function handleRecentPosts(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) return json([], 200, headers);
+  if (!env.SUPABASE_SECRET_KEY) return json([], 200, headers);
   try {
     const url = new URL(request.url);
     const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 10, 1), 30);
     const res = await fetch(
       `${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=${limit}&select=id,text,platforms,results,metrics,posted_at,created_at`,
-      { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
+      { headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }
     );
     if (!res.ok) return json([], 200, headers);
     const posts = (await res.json()) as any[];
@@ -3995,7 +3995,7 @@ async function handleRecentPosts(
  * Handle cron job to process scheduled posts from the queue
  */
 async function handleCron(env: Env): Promise<Response> {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SUPABASE_SECRET_KEY) {
     return json({ error: "Not configured" }, 501);
   }
 
@@ -4008,8 +4008,8 @@ async function handleCron(env: Env): Promise<Response> {
       `${supabaseUrl}/rest/v1/post_posts?status=in.(scheduled,queued)&scheduled_at=lte.${now}&limit=10&order=scheduled_at.asc&select=*`,
       {
         headers: {
-          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
         },
       }
     );
@@ -4070,8 +4070,8 @@ async function handleCron(env: Env): Promise<Response> {
           {
             method: "PATCH",
             headers: {
-              apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-              Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+              apikey: env.SUPABASE_SECRET_KEY,
+              Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ status: "posted", posted_at: now, results }),

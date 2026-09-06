@@ -19,7 +19,7 @@ const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
 
 /**
  * Fetch all platform tokens for a given user from Supabase.
- * Uses the service_role key (set as Worker secret SUPABASE_SERVICE_ROLE_KEY).
+ * Uses the service_role key (set as Worker secret SUPABASE_SECRET_KEY).
  */
 export async function fetchUserTokens(
   userId: string,
