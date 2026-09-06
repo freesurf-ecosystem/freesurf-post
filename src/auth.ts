@@ -79,17 +79,7 @@ export async function validateSupabaseJWT(
         signature,
         data
       );
-    } else {
-      // HS256 (legacy symmetric signing)
-      const key = await crypto.subtle.importKey(
-        "raw",
-        new TextEncoder().encode(jwtSecret),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["verify"]
-      );
-      valid = await crypto.subtle.verify("HMAC", key, signature, data);
-    }
+    } else { return null; // reject legacy HS256 signing }
 
     if (!valid) return null;
 
