@@ -37,13 +37,12 @@ async function getJwks(): Promise<{ keys?: Jwk[] } | null> {
 }
 
 /**
- * Validate a Supabase-issued JWT.
- * Supports both HS256 (legacy symmetric) and ES256 (asymmetric — the current
- * Supabase default for user access tokens) signatures.
+ * Validate a Supabase-issued user JWT using asymmetric (JWKS) verification only.
+ * Legacy HS256/symmetric tokens are NOT accepted.
  * Returns { sub, email } on success, null on failure.
  */
 export async function validateSupabaseJWT(
-  jwtSecret: string,
+  _jwtSecret: string,
   authHeader: string | null
 ): Promise<{ sub: string; email: string } | null> {
   if (!authHeader?.startsWith("Bearer ")) return null;
@@ -56,31 +55,30 @@ export async function validateSupabaseJWT(
       alg?: string;
       kid?: string;
     };
+
+    // Reject legacy HS256 symmetric tokens — we only trust asymmetric signatures.
+    if (header.alg !== "ES256") return null;
+
     const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
     const signature = base64urlDecode(parts[2]);
 
-    let valid = false;
+    const jwks = await getJwks();
+    const jwk = jwks?.keys?.find((k) => k.kid === header.kid);
+    if (!jwk || !jwk.x || !jwk.y) return null;
 
-    if (header.alg === "ES256") {
-      const jwks = await getJwks();
-      const jwk = jwks?.keys?.find((k) => k.kid === header.kid);
-      if (!jwk || !jwk.x || !jwk.y) return null;
-
-      const publicKey = await crypto.subtle.importKey(
-        "jwk",
-        { kty: "EC", crv: "P-256", x: jwk.x, y: jwk.y },
-        { name: "ECDSA", namedCurve: "P-256" },
-        false,
-        ["verify"]
-      );
-      valid = await crypto.subtle.verify(
-        { name: "ECDSA", hash: "SHA-256" },
-        publicKey,
-        signature,
-        data
-      );
-    } else { return null; // reject legacy HS256 signing }
-
+    const publicKey = await crypto.subtle.importKey(
+      "jwk",
+      { kty: "EC", crv: "P-256", x: jwk.x, y: jwk.y },
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["verify"]
+    );
+    const valid = await crypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-256" },
+      publicKey,
+      signature,
+      data
+    );
     if (!valid) return null;
 
     const payload = JSON.parse(
