@@ -72,7 +72,11 @@ export default function AuthScreen() {
       const redirectTo = AuthSession.makeRedirectUri();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo, skipBrowserRedirect: true },
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+          ...(provider === "google" ? { scopes: "openid email" } : {}),
+        },
       });
       if (error) { Alert.alert("Error", error.message); return; }
       if (!data?.url) { console.log("[Auth] no OAuth url returned"); return; }
