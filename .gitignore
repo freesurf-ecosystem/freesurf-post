@@ -6,3 +6,11 @@ mobile/android/
 
 # Local test media (not part of the product)
 /test/
+
+# EAS / store signing credentials (secret - never commit)
+credentials.json
+credentials/
+*.jks
+*.p12
+*.keystore
+*.mobileprovision
