@@ -132,7 +132,7 @@ export default function AuthScreen() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.container, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: colors.text }]}>Free Surf Post</Text>
+        <Text style={[styles.title, { color: colors.text }]}>FreeSurf Post</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>Cross-post everywhere from your phone.</Text>
 
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
