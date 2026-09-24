@@ -94,10 +94,21 @@ Cancel a scheduled post.
 
 ### GET /api/metrics/:platform/:postId
 
-Get engagement metrics for a post.
+Get engagement metrics for a single published post.
+
+**You need the platform's post id for that post first.** This is the id the
+platform assigned when it published the post (for X, the tweet id) — not the
+bundle post id. Find it by:
+
+- Reading the `POST /api/post` response — each entry in `results[]` has `postId` and `postUrl`.
+- Listing your recent posts — `GET /api/posts/recent` (per-platform `results[].postId`) or `GET /api/bundle-posts?platform=<platform>`.
+- Checking your own profile on the platform and taking the id from the post's URL, e.g. `x.com/<handle>/status/<tweet-id>` for X.
+
+Then request metrics for that id:
 
 ```
 GET /api/metrics/bluesky/abc123
+GET /api/metrics/x/<tweet-id>
 ```
 
 **Response:**
@@ -111,6 +122,9 @@ GET /api/metrics/bluesky/abc123
   "clicks": 89
 }
 ```
+
+> Auth: this endpoint currently takes a Supabase JWT (dashboard); API-key access
+> is not enabled yet. Coverage varies by platform — see the platform support table.
 
 ---
 
@@ -306,7 +320,7 @@ const res = await fetch("https://post.cnxt.to/api/post", {
 | Platform | Post | Metrics | Replies | Notes |
 |---|---|---|---|---|
 | Bluesky | ✅ | ✅ | ✅ | App Password or Bundle |
-| X (Twitter) | ✅ | ✅ | Via Bundle | OAuth 1.0a or Bundle |
+| X (Twitter) | ✅ | Needs tweet id | Via Bundle | OAuth 1.0a or Bundle |
 | LinkedIn | ✅ | Via Bundle | Via Bundle | Bundle preferred |
 | Facebook | ✅ | Via Bundle | Via Bundle | Bundle preferred |
 | Instagram | ✅ | Via Bundle | Via Bundle | Media required |
