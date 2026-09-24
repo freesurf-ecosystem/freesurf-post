@@ -98,6 +98,25 @@ Not exposed in the UI because it's irreversible.
 
 `postId` is the Bundle post id (from `GET /api/bundle-posts` or `GET /api/posts/recent`).
 
+## Analytics
+
+`GET /api/metrics/:platform/:postId` — engagement metrics for one published post
+(likes, shares, comments, impressions). Auth: API key or JWT.
+
+You need the platform's **post id** first (for X, the tweet id — not the bundle id):
+
+- the `POST /api/post` response — `results[].postId`;
+- `GET /api/posts/recent` — per-platform `results[].postId`;
+- or the post URL on your own profile (`x.com/<handle>/status/<tweet-id>`).
+
+```
+GET /api/metrics/x/<tweet-id>
+```
+
+Coverage varies by platform: X metrics come from the X API; Instagram, Facebook,
+LinkedIn, Threads, and TikTok profile/post analytics are also available via
+`GET /api/analytics/:platform?type=post&postId=...`.
+
 ## Media
 
 `POST /api/media/upload` — upload a local file (multipart, field `file`), returns `{ "uploadId": "..." }`.

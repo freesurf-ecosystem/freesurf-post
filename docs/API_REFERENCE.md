@@ -123,8 +123,8 @@ GET /api/metrics/x/<tweet-id>
 }
 ```
 
-> Auth: this endpoint currently takes a Supabase JWT (dashboard); API-key access
-> is not enabled yet. Coverage varies by platform — see the platform support table.
+> Auth: accepts an API key (`FSP-API-KEY: fsp_live_...`) or a Supabase JWT
+> (dashboard). Coverage varies by platform — see the platform support table.
 
 ---
 

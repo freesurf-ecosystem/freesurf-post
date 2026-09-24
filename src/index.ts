@@ -2809,10 +2809,7 @@ async function handleMetrics(
   origin: string,
   headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(
-    env.SUPABASE_JWT_SECRET,
-    request.headers.get("Authorization")
-  );
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
   switch (platform) {
