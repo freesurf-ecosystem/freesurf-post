@@ -98,24 +98,37 @@ Not exposed in the UI because it's irreversible.
 
 `postId` is the Bundle post id (from `GET /api/bundle-posts` or `GET /api/posts/recent`).
 
-## Analytics
+## Metrics
 
-`GET /api/metrics/:platform/:postId` — engagement metrics for one published post
-(likes, shares, comments, impressions). Auth: API key or JWT.
+`GET /api/metrics/:platform/:postId` — engagement metrics for one published post.
 
-You need the platform's **post id** first (for X, the tweet id — not the bundle id):
-
-- the `POST /api/post` response — `results[].postId`;
-- `GET /api/posts/recent` — per-platform `results[].postId`;
-- or the post URL on your own profile (`x.com/<handle>/status/<tweet-id>`).
+`postId` is the per-platform post id recorded when the post was created — the
+value in `results[].postId` from `POST /api/post`, or from `GET /api/posts/recent`.
+Metrics are proxied from Bundle.social, so no platform credentials are needed
+(works for X, Instagram, Facebook, LinkedIn, Threads, TikTok, YouTube, and Bluesky).
 
 ```
-GET /api/metrics/x/<tweet-id>
+GET /api/metrics/x/<postId>
 ```
 
-Coverage varies by platform: X metrics come from the X API; Instagram, Facebook,
-LinkedIn, Threads, and TikTok profile/post analytics are also available via
-`GET /api/analytics/:platform?type=post&postId=...`.
+Response:
+
+```json
+{
+  "platform": "x",
+  "postId": "...",
+  "impressions": 23,
+  "views": 0,
+  "likes": 2,
+  "comments": 1,
+  "shares": 0,
+  "clicks": 0
+}
+```
+
+Auth: API key or JWT. X metric reads are metered (~$0.005/read) from credits.
+For a raw Bundle pass-through, `GET /api/analytics/:platform?type=post&postId=...`
+is also available.
 
 ## Media
 

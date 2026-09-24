@@ -96,35 +96,32 @@ Cancel a scheduled post.
 
 Get engagement metrics for a single published post.
 
-**You need the platform's post id for that post first.** This is the id the
-platform assigned when it published the post (for X, the tweet id) — not the
-bundle post id. Find it by:
-
-- Reading the `POST /api/post` response — each entry in `results[]` has `postId` and `postUrl`.
-- Listing your recent posts — `GET /api/posts/recent` (per-platform `results[].postId`) or `GET /api/bundle-posts?platform=<platform>`.
-- Checking your own profile on the platform and taking the id from the post's URL, e.g. `x.com/<handle>/status/<tweet-id>` for X.
-
-Then request metrics for that id:
+`postId` is the per-platform post id recorded when the post was created — the
+value in `results[].postId` from `POST /api/post`, or from `GET /api/posts/recent`.
+Metrics are proxied through Bundle.social, so no platform credentials are needed
+and it works for X, Instagram, Facebook, LinkedIn, Threads, TikTok, YouTube, and Bluesky.
 
 ```
-GET /api/metrics/bluesky/abc123
-GET /api/metrics/x/<tweet-id>
+GET /api/metrics/x/<postId>
+GET /api/metrics/bluesky/<postId>
 ```
 
 **Response:**
 ```json
 {
-  "platform": "bluesky",
-  "likes": 42,
-  "shares": 7,
-  "comments": 12,
-  "impressions": 1520,
-  "clicks": 89
+  "platform": "x",
+  "postId": "...",
+  "impressions": 23,
+  "views": 0,
+  "likes": 2,
+  "comments": 1,
+  "shares": 0,
+  "clicks": 0
 }
 ```
 
 > Auth: accepts an API key (`FSP-API-KEY: fsp_live_...`) or a Supabase JWT
-> (dashboard). Coverage varies by platform — see the platform support table.
+> (dashboard). X metric reads are metered (~$0.005/read) from credits.
 
 ---
 
@@ -320,7 +317,7 @@ const res = await fetch("https://post.cnxt.to/api/post", {
 | Platform | Post | Metrics | Replies | Notes |
 |---|---|---|---|---|
 | Bluesky | ✅ | ✅ | ✅ | App Password or Bundle |
-| X (Twitter) | ✅ | Needs tweet id | Via Bundle | OAuth 1.0a or Bundle |
+| X (Twitter) | ✅ | Via Bundle | Via Bundle | OAuth 1.0a or Bundle |
 | LinkedIn | ✅ | Via Bundle | Via Bundle | Bundle preferred |
 | Facebook | ✅ | Via Bundle | Via Bundle | Bundle preferred |
 | Instagram | ✅ | Via Bundle | Via Bundle | Media required |

@@ -2812,58 +2812,77 @@ async function handleMetrics(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  switch (platform) {
-    case "bluesky": {
-      if (!env.BLUESKY_HANDLE || !env.BLUESKY_PASSWORD) {
-        return errorResponse("Bluesky not configured", 500, origin);
-      }
-      const metrics = await getBlueskyMetrics(postId, env.BLUESKY_HANDLE, env.BLUESKY_PASSWORD);
-      return json(metrics, 200, headers);
+  const apiKey = env.SOCIAL_API_PROVIDER_KEY;
+  if (!apiKey) return errorResponse("Not configured", 501, origin);
+
+  const bsPlatform = bundlePlatform(platform);
+  if (!bsPlatform) return errorResponse(`Unknown platform: ${platform}`, 400, origin);
+
+  const num = (n: unknown): number => {
+    const v = Number(n);
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  try {
+    // Proxy Bundle's per-post analytics (the same live fetch the dashboard
+    // refresh uses). Bundle holds the platform credentials, so no per-platform
+    // tokens are needed here.
+    const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify({ postId, platformType: bsPlatform }),
+    });
+    const data = (await res.json()) as any;
+
+    if (!res.ok) {
+      console.error(`Bundle metrics failed (${bsPlatform}):`, res.status, JSON.stringify(data));
+      return errorResponse(`Metrics unavailable (${res.status})`, res.status || 502, origin);
     }
-    case "linkedin": {
-      if (!env.LINKEDIN_ACCESS_TOKEN) {
-        return errorResponse("LinkedIn not configured", 500, origin);
+
+    // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
+    if (platform === "x" && env.SUPABASE_SECRET_KEY) {
+      const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
+          method: "POST",
+          headers: {
+            apikey: env.SUPABASE_SECRET_KEY,
+            Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.sub,
+            amount_micros: -5_000,
+            kind: "x_fee",
+            reference_id: postId,
+            has_link: false,
+            note: "X analytics read (per post)",
+          }),
+        });
+      } catch (e) {
+        console.error("record X analytics read fee failed:", e instanceof Error ? e.message : String(e));
       }
-      const metrics = await getLinkedInMetrics(postId, env.LINKEDIN_ACCESS_TOKEN);
-      return json(metrics, 200, headers);
     }
-    case "facebook": {
-      if (!env.FACEBOOK_ACCESS_TOKEN) {
-        return errorResponse("Facebook not configured", 500, origin);
-      }
-      const metrics = await getFacebookMetrics(postId, env.FACEBOOK_ACCESS_TOKEN);
-      return json(metrics, 200, headers);
-    }
-    case "instagram": {
-      if (!env.INSTAGRAM_ACCESS_TOKEN) {
-        return errorResponse("Instagram not configured", 500, origin);
-      }
-      const metrics = await getInstagramMetrics(postId, env.INSTAGRAM_ACCESS_TOKEN);
-      return json(metrics, 200, headers);
-    }
-    case "tiktok": {
-      if (!env.TIKTOK_ACCESS_TOKEN) {
-        return errorResponse("TikTok not configured", 500, origin);
-      }
-      const metrics = await getTikTokMetrics(postId, env.TIKTOK_ACCESS_TOKEN);
-      return json(metrics, 200, headers);
-    }
-    case "threads": {
-      if (!env.THREADS_ACCESS_TOKEN) {
-        return errorResponse("Threads not configured", 500, origin);
-      }
-      const metrics = await getThreadsMetrics(postId, env.THREADS_ACCESS_TOKEN);
-      return json(metrics, 200, headers);
-    }
-    case "x": {
-      if (!env.X_BEARER_TOKEN) {
-        return errorResponse("X Bearer token not configured", 500, origin);
-      }
-      const metrics = await getXMetrics(postId, env.X_BEARER_TOKEN);
-      return json(metrics, 200, headers);
-    }
-    default:
-      return errorResponse(`Unknown platform: ${platform}`, 400, origin);
+
+    return json(
+      {
+        platform,
+        postId,
+        impressions: num(data.impressions ?? data.impression_count),
+        views: num(data.views ?? data.view_count ?? data.impressions),
+        likes: num(data.likes ?? data.likeCount ?? data.like_count),
+        comments: num(data.comments ?? data.commentCount ?? data.comment_count),
+        shares: num(
+          data.shares ?? data.shareCount ?? data.share_count ?? data.reposts ?? data.retweet_count ?? data.retweets
+        ),
+        clicks: num(data.clicks ?? data.click_count),
+      },
+      200,
+      headers
+    );
+  } catch (e) {
+    console.error("Bundle metrics exception:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Metrics unavailable", 502, origin);
   }
 }
 
