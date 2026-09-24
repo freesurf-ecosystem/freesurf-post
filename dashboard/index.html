@@ -220,6 +220,13 @@
                   <span class="auth-checkbox-sub">Curated blog-length social posts covering AI, SEO, social media marketing and more - from X and LinkedIn</span>
                 </span>
               </label>
+              <label class="auth-checkbox">
+                <input type="checkbox" id="auth-ecosystem" />
+                <span>
+                  <span class="auth-checkbox-main">FreeSurf product updates</span>
+                  <span class="auth-checkbox-sub">Occasional news about our other free tools. Unsubscribe any time.</span>
+                </span>
+              </label>
             </div>
             <button class="btn btn-primary btn-full" id="btn-auth-submit">Sign in</button>
             <button class="btn btn-ghost btn-full" id="btn-auth-toggle">Don't have an account? Sign up</button>
@@ -500,6 +507,25 @@ curl -X POST https://post.freesurf.tools/api/post \
   -H "Content-Type: application/json" \
   -d '{"platform":"x","postId":"<post-id>"}'</code></pre>
             <p class="api-text"><code>postId</code> is the recorded <code>postId</code> from <code>GET /api/posts/recent</code> for that platform's result. There's no undo.</p>
+          </details>
+
+          <details class="api-section">
+            <summary>Metrics</summary>
+            <p class="api-text">Pull engagement metrics for one published post with <code>GET /api/metrics/:platform/:postId</code>. <code>postId</code> is the per-platform post id recorded when the post was created — the value in <code>results[].postId</code> from <code>POST /api/post</code>, or from <code>GET /api/posts/recent</code>.</p>
+            <p class="api-text">Metrics are proxied through Bundle.social, so no platform credentials are needed and it works for X, Instagram, Facebook, LinkedIn, Threads, TikTok, YouTube, and Bluesky.</p>
+            <pre class="api-code"><code>curl https://post.freesurf.tools/api/metrics/x/&lt;postId&gt; \
+  -H "Authorization: Bearer fsp_live_..."</code></pre>
+            <pre class="api-code"><code>{
+  "platform": "x",
+  "postId": "...",
+  "impressions": 23,
+  "views": 0,
+  "likes": 2,
+  "comments": 1,
+  "shares": 0,
+  "clicks": 0
+}</code></pre>
+            <p class="api-text">Auth: API key or JWT. X metric reads are metered (~$0.005/read) from credits.</p>
           </details>
 
           <details class="api-section">

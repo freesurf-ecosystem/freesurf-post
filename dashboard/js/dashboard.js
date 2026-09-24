@@ -213,6 +213,7 @@ function showAuth() {
   $("#auth-confirm").value = "";
   $("#auth-terms").checked = false;
   $("#auth-newsletter").checked = false;
+  $("#auth-ecosystem").checked = false;
   const errEl = $("#auth-error");
   errEl.className = "feedback";
   errEl.textContent = "";
@@ -312,9 +313,46 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       const { data: signUpData, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
 
-      // Record the shared ecosystem terms agreement.
+      // Record the shared ecosystem terms agreement in public.consents.
+      //
+      // Post requires login, so this always runs against a real auth user.
+      // `signUpData.user.id` is the auth UID and is present whether or not email
+      // confirmation is enabled (confirmation withholds the session, not the
+      // user record). The RLS policy on consents checks auth.uid() = user_id, so
+      // we must use the real UID - an invented id could never satisfy it.
+      //
+      // NOTE: the previous version omitted user_id entirely (NOT NULL, so every
+      // insert was rejected) and used a trailing .catch(), which never fires
+      // because Supabase resolves with { error } rather than rejecting.
       if ($("#auth-terms").checked) {
-        supabase.from("consents").insert({ type: "terms", version: "1" }).then(() => {}).catch(() => {});
+        const userId = signUpData?.user?.id;
+        if (!userId) {
+          console.error("[post] no auth user id after signUp - skipping terms consent");
+        } else {
+          const { error: consentError } = await supabase.from("consents").insert({
+            user_id: userId,
+            type: "terms",
+            version: "2026.09.17",
+            context: "post_signup",
+          });
+          if (consentError) {
+            console.error("[post] terms consent insert failed:", consentError.message);
+          }
+        }
+      }
+
+      // Record the FreeSurf product-updates opt-in (single opt-in, no
+      // confirmation email). A duplicate is a no-op: the unique constraint on
+      // (email, list) means they are already subscribed.
+      if ($("#auth-ecosystem").checked) {
+        const { error: subError } = await supabase.from("update_subscriptions").insert({
+          email: email.trim().toLowerCase(),
+          list: "ecosystem_updates",
+          source: "post_signup",
+        });
+        if (subError && subError.code !== "23505") {
+          console.error("[post] ecosystem subscription insert failed:", subError.message);
+        }
       }
 
       let digestNote = "";
