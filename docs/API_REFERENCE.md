@@ -46,6 +46,26 @@ Publish to one or more platforms simultaneously.
 
 ---
 
+### POST /api/posts/delete
+
+Delete a post already published to a platform. Currently **X only** (Bundle's
+metered tweet delete, ~**$0.01** each, billed from credits).
+
+```json
+{ "platform": "x", "postId": "<per-platform post id from the post result>" }
+```
+
+For X, `postId` is the id returned in `results[].postId` when the post was
+created (a Bundle post id). Auth accepts a Supabase JWT or an API key
+(`FSP-API-KEY: fsp_live_...`).
+
+**Response:**
+```json
+{ "success": true }
+```
+
+---
+
 ### POST /api/schedule
 
 Queue a post for future publishing via cron.
