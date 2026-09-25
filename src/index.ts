@@ -4019,6 +4019,25 @@ async function handleRecentPosts(
           }
         }
       } catch { /* best-effort — never block the list */ }
+
+    // The list endpoint omits error detail, so fetch the full post for the
+    // errored ones (bounded) to surface the platform's reason.
+    const erroredIds = [...bundleById.values()]
+      .filter((bp) => bp?.status === "ERROR")
+      .map((bp) => bp.id)
+      .filter(Boolean)
+      .slice(0, 5);
+    for (const id of erroredIds) {
+      try {
+        const dr = await fetch(`https://api.bundle.social/api/v1/post/${id}`, {
+          headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+        });
+        if (dr.ok) {
+          const detail = (await dr.json()) as any;
+          bundleById.set(id, { ...(bundleById.get(id) || {}), ...detail });
+        }
+      } catch { /* best-effort */ }
+    }
     }
 
     const deliveryReason = (bp: any): string => {
