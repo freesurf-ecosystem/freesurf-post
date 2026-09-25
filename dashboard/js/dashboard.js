@@ -2503,7 +2503,7 @@ function renderRecentPosts() {
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
-          ${r.postId ? `<button class="btn btn-xs btn-secondary" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}">Refresh</button>` : ""}
+          ${r.postId ? `<button class="btn btn-xs btn-secondary" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}. The platform allows up to 6 refreshes per post per day.">Refresh</button>` : ""}
           ${delivery}
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
