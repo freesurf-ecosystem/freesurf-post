@@ -713,6 +713,14 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
   if (isNaN(dt.getTime())) { showFeedback("Pick a valid schedule time.", "error"); return; }
 
   clearFeedback();
+  const scheduleBtn = $("#btn-schedule-compose");
+  const scheduleLabel = scheduleBtn?.textContent || "Schedule";
+  const setScheduling = (on, label) => {
+    if (!scheduleBtn) return;
+    scheduleBtn.disabled = on;
+    scheduleBtn.textContent = on ? label || "Scheduling…" : scheduleLabel;
+  };
+  setScheduling(true, uploadedMedia.length ? "Uploading…" : "Scheduling…");
   try {
     // Upload any attached media to Bundle first (scoped to the selected team).
     const uploadIds = [];
@@ -755,6 +763,8 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     }
   } catch {
     showFeedback("Network error.", "error");
+  } finally {
+    setScheduling(false);
   }
 });
 
@@ -2748,6 +2758,7 @@ function switchView(viewName) {
   if (viewName === "history") fetchHistory();
   if (viewName === "analytics") loadAnalyticsView();
   if (viewName === "fees") fetchCredits();
+  if (viewName === "schedule") fetchScheduled();
 }
 
 // ── Event Listeners ──
