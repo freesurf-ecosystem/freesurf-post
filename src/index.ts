@@ -1474,7 +1474,7 @@ async function handleForceAnalytics(
   const apiKey = env.SOCIAL_API_PROVIDER_KEY;
   if (!apiKey) return errorResponse("Not configured", 501, origin);
 
-  let body: { platform?: string; postId?: string; importedPostId?: string };
+  let body: { platform?: string; postId?: string; importedPostId?: string; postRowId?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
   if (!body?.platform) return errorResponse("platform required", 400, origin);
   const bs = bundlePlatform(body.platform);
@@ -1508,6 +1508,36 @@ async function handleForceAnalytics(
             reference_id: String(targetId), has_link: false, note: "X analytics read (per post)",
           }),
         });
+      } catch { /* best-effort */ }
+    }
+
+    // Persist the forced metrics onto the app post row (when the caller passes
+    // its id) so History/Analytics reflect the refresh without a full re-pull.
+    if (body.postRowId && body.platform && env.SUPABASE_SECRET_KEY) {
+      const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+      const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
+      const num = (n: unknown): number => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
+      try {
+        const cur = await fetch(
+          `${supabaseUrl}/rest/v1/post_posts?id=eq.${body.postRowId}&user_id=eq.${user.sub}&select=metrics`,
+          { headers: authHeaders }
+        );
+        const rows = cur.ok ? ((await cur.json()) as any[]) : [];
+        const metrics: Record<string, any> = rows[0]?.metrics || {};
+        if (!body.importedPostId) {
+          metrics[body.platform] = {
+            impressions: num(data.impressions ?? data.impression_count),
+            views: num(data.views ?? data.view_count ?? data.impressions),
+            likes: num(data.likes ?? data.likeCount ?? data.like_count),
+            comments: num(data.comments ?? data.commentCount ?? data.comment_count),
+            shares: num(data.shares ?? data.shareCount ?? data.share_count ?? data.reposts ?? data.retweet_count ?? data.retweets),
+          };
+          await fetch(`${supabaseUrl}/rest/v1/post_posts?id=eq.${body.postRowId}&user_id=eq.${user.sub}`, {
+            method: "PATCH",
+            headers: { ...authHeaders, "Content-Type": "application/json" },
+            body: JSON.stringify({ metrics }),
+          });
+        }
       } catch { /* best-effort */ }
     }
     return json(data, 200, headers);

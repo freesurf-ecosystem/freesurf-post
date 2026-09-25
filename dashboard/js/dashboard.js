@@ -2506,6 +2506,7 @@ function renderRecentPosts() {
           ${delivery}
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
+          ${r.postId ? `<button class="btn btn-xs btn-ghost" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}">Refresh</button>` : ""}
           ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}"><span class="comments-chevron" style="display:inline-block;transition:transform .15s ease;margin-right:4px;">\u25B8</span>Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}
           ${r.platform === "x" && r.postId ? `<button class="btn btn-xs btn-ghost" data-delete-post="${escapeHtml(r.postId)}" style="color:var(--error);" title="Delete from X (permanent, $0.01)">Delete</button>` : ""}
         </div>
@@ -2666,6 +2667,33 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   if (importBtn) {
     const panel = importBtn.closest(".post-comments");
     if (panel) await importComments(panel, importBtn.dataset.commentsPlatform, importBtn.dataset.commentsPostId);
+  }
+});
+
+// Per-post metrics refresh — pulls just one post (bounded X spend) instead of
+// the whole list. Persists via /api/analytics/force (postRowId), then re-renders.
+$("#recent-posts-list")?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-force-post]");
+  if (!btn || !session?.access_token) return;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const res = await apiFetch(`/api/analytics/force`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        platform: btn.dataset.forcePlatform,
+        postId: btn.dataset.forcePost,
+        postRowId: btn.dataset.forceRow,
+      }),
+    });
+    if (!res.ok) throw new Error("Refresh failed");
+    await fetchRecentPosts();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = original;
+    window.alert(`Refresh failed: ${err.message}`);
   }
 });
 
