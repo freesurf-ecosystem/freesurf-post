@@ -14,3 +14,11 @@ credentials/
 *.p12
 *.keystore
 *.mobileprovision
+
+# Local env / secrets — never commit
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+*.local
