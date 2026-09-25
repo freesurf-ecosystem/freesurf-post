@@ -2481,13 +2481,17 @@ function renderRecentPosts() {
         : pulled
           ? `<span style="font-size:0.8rem;color:var(--text-muted);">no engagement yet</span>`
           : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
+      const commentCount = Number(m.comments) || 0;
+      const canComments = r.postId && (r.platform === "x" || r.platform === "bluesky");
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
+          ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}">Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}
           ${r.platform === "x" && r.postId ? `<button class="btn btn-xs btn-ghost" data-delete-post="${escapeHtml(r.postId)}" style="color:var(--error);" title="Delete from X (permanent, $0.01)">Delete</button>` : ""}
-        </div>`;
+        </div>
+        ${canComments ? `<div class="post-comments hidden" data-comments-for="${escapeHtml(r.postId)}" style="border-left:2px solid var(--border);padding-left:10px;margin:2px 0 8px 0;"></div>` : ""}`;
     }).join("");
     const failedText = failed.length
       ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join(" · ")}</div>`
@@ -2539,6 +2543,109 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
     btn.textContent = original;
     btn.disabled = false;
     window.alert(`Delete failed: ${err.message}`);
+  }
+});
+
+// ── Comments (view-only, in the Analytics tab) ──
+// Lists a post's replies via GET /api/comments, and lazily loads them from the
+// platform via POST /api/comments/import (Bundle, metered) when the user asks.
+
+async function fetchComments(platform, postId) {
+  const res = await apiFetch(`/api/comments?platform=${encodeURIComponent(platform)}&postId=${encodeURIComponent(postId)}`);
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => ({}));
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+function renderCommentsPanel(panel, platform, postId, items) {
+  const platformLabel = platform === "x" ? "X" : platform === "bluesky" ? "Bluesky" : platform;
+  const loadBtn = `<button class="btn btn-xs btn-secondary" data-import-comments="1" data-comments-platform="${escapeHtml(platform)}" data-comments-post-id="${escapeHtml(postId)}">Load from ${platformLabel}</button>`;
+
+  if (!items.length) {
+    panel.innerHTML = `
+      <div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        No comments loaded yet. ${loadBtn}
+      </div>`;
+    return;
+  }
+
+  const rows = items.map((c) => {
+    const when = c.publishedAt ? new Date(c.publishedAt).toLocaleString() : "";
+    const author = escapeHtml(c.authorName || "unknown");
+    const handle = c.authorProfileUrl ? "@" + escapeHtml((c.authorProfileUrl.split("/").pop() || "")) : "";
+    const avatar = c.authorAvatarUrl
+      ? `<img src="${escapeHtml(c.authorAvatarUrl)}" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+      : "";
+    return `
+      <div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border-light);">
+        ${avatar}
+        <div style="min-width:0;">
+          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">
+            ${c.authorProfileUrl
+              ? `<a href="${escapeHtml(c.authorProfileUrl)}" target="_blank" rel="noopener" style="font-weight:700;color:var(--text);">${author}</a>`
+              : `<span style="font-weight:700;color:var(--text);">${author}</span>`}
+            ${handle ? `<span>${handle}</span>` : ""}
+            ${when ? `<span>${escapeHtml(when)}</span>` : ""}
+          </div>
+          <div style="font-size:0.85rem;white-space:pre-wrap;margin-top:2px;">${escapeHtml(c.text || "")}</div>
+        </div>
+      </div>`;
+  }).join("");
+
+  panel.innerHTML = `
+    <div style="padding:4px 0 0;">
+      ${rows}
+      <div style="padding:8px 0;">${loadBtn} <span style="font-size:0.72rem;color:var(--text-muted);">checks for new replies (~$0.005 each)</span></div>
+    </div>`;
+}
+
+async function importComments(panel, platform, postId) {
+  const platformLabel = platform === "x" ? "X" : platform === "bluesky" ? "Bluesky" : platform;
+  panel.innerHTML = `<div style="padding:8px 0;color:var(--text-muted);font-size:0.8rem;"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments from ${platformLabel}…</div>`;
+  try {
+    await apiFetch(`/api/comments/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform, postId }),
+    });
+  } catch { /* fall through to polling */ }
+
+  // The import is async — poll until comments appear (or give up).
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    const items = await fetchComments(platform, postId);
+    if (items.length) {
+      panel.dataset.loaded = "1";
+      renderCommentsPanel(panel, platform, postId, items);
+      return;
+    }
+  }
+  panel.dataset.loaded = "1";
+  renderCommentsPanel(panel, platform, postId, await fetchComments(platform, postId));
+}
+
+$("#recent-posts-list")?.addEventListener("click", async (e) => {
+  const showBtn = e.target.closest("[data-show-comments]");
+  if (showBtn) {
+    const postId = showBtn.dataset.showComments;
+    const platform = showBtn.dataset.commentsPlatform;
+    const panel = document.querySelector(`[data-comments-for="${postId}"]`);
+    if (!panel) return;
+    const wasHidden = panel.classList.contains("hidden");
+    panel.classList.toggle("hidden");
+    if (wasHidden && !panel.dataset.loaded) {
+      panel.innerHTML = `<div style="padding:8px 0;color:var(--text-muted);font-size:0.8rem;"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments…</div>`;
+      const items = await fetchComments(platform, postId);
+      panel.dataset.loaded = "1";
+      renderCommentsPanel(panel, platform, postId, items);
+    }
+    return;
+  }
+
+  const importBtn = e.target.closest("[data-import-comments]");
+  if (importBtn) {
+    const panel = importBtn.closest(".post-comments");
+    if (panel) await importComments(panel, importBtn.dataset.commentsPlatform, importBtn.dataset.commentsPostId);
   }
 });
 
