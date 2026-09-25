@@ -4042,11 +4042,15 @@ async function handleRecentPosts(
 
     const deliveryReason = (bp: any): string => {
       if (!bp) return "";
-      const key = String(bp.socialAccountTypes?.[0] || "").toUpperCase();
-      const verbose = bp.errorsVerbose?.[key];
-      return (
-        verbose?.userFacingMessage || verbose?.errorMessage || bp.errors?.[key] || bp.error || ""
-      );
+      // Bundle's detail payload omits socialAccountTypes, so read the first
+      // error entry rather than keying off the platform.
+      const verbose = Object.values(bp.errorsVerbose || {})[0] as any;
+      if (verbose?.userFacingMessage || verbose?.errorMessage) {
+        return verbose.userFacingMessage || verbose.errorMessage;
+      }
+      const firstError = Object.values(bp.errors || {})[0];
+      if (typeof firstError === "string" && firstError) return firstError;
+      return bp.error || "";
     };
 
     return json(posts.map((p: any) => {
