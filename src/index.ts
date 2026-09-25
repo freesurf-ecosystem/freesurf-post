@@ -858,6 +858,9 @@ async function handleBundlePosts(
         platforms,
         text: p.title || p.data?.text || "",
         url: extractBundlePostUrl(p, bsPlatform),
+        error: p.error || null,
+        errors: p.errors || null,
+        errorsVerbose: p.errorsVerbose || null,
       };
     });
     return json({ posts }, 200, headers);
@@ -873,7 +876,7 @@ async function handleBundlePosts(
 async function handleGetPost(
   request: Request, env: Env, id: string, origin: string, headers: Record<string, string>
 ): Promise<Response> {
-  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
 
