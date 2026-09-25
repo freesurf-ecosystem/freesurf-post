@@ -2498,7 +2498,7 @@ function renderRecentPosts() {
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
-          ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}">Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}
+          ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}"><span class="comments-chevron" style="display:inline-block;transition:transform .15s ease;margin-right:4px;">\u25B8</span>Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}
           ${r.platform === "x" && r.postId ? `<button class="btn btn-xs btn-ghost" data-delete-post="${escapeHtml(r.postId)}" style="color:var(--error);" title="Delete from X (permanent, $0.01)">Delete</button>` : ""}
         </div>
         ${canComments ? `<div class="post-comments hidden" data-comments-for="${escapeHtml(r.postId)}" style="border-left:2px solid var(--border);padding-left:10px;margin:2px 0 8px 0;"></div>` : ""}`;
@@ -2643,6 +2643,8 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
     if (!panel) return;
     const wasHidden = panel.classList.contains("hidden");
     panel.classList.toggle("hidden");
+    const chevron = showBtn.querySelector(".comments-chevron");
+    if (chevron) chevron.style.transform = wasHidden ? "rotate(90deg)" : "";
     if (wasHidden && !panel.dataset.loaded) {
       panel.innerHTML = `<div style="padding:8px 0;color:var(--text-muted);font-size:0.8rem;"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments…</div>`;
       const items = await fetchComments(platform, postId);
