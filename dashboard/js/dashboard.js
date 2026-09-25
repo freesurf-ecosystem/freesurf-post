@@ -2688,7 +2688,10 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
         postRowId: btn.dataset.forceRow,
       }),
     });
-    if (!res.ok) throw new Error("Refresh failed");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.message || data?.error || "Refresh failed");
+    }
     await fetchRecentPosts();
   } catch (err) {
     btn.disabled = false;
