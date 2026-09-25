@@ -2493,9 +2493,17 @@ function renderRecentPosts() {
           : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
       const commentCount = Number(m.comments) || 0;
       const canComments = r.postId && (r.platform === "x" || r.platform === "bluesky");
+      const delivery = r.status === "ERROR"
+        ? `<span style="font-size:0.8rem;color:var(--error);">failed${r.error ? `: ${escapeHtml(r.error)}` : ""}</span>`
+        : r.status === "POSTED"
+          ? `<span style="font-size:0.8rem;color:var(--success);">posted</span>`
+          : r.status
+            ? `<span style="font-size:0.8rem;color:var(--text-muted);">${escapeHtml(String(r.status).toLowerCase())}</span>`
+            : "";
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
+          ${delivery}
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
           ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}"><span class="comments-chevron" style="display:inline-block;transition:transform .15s ease;margin-right:4px;">\u25B8</span>Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}

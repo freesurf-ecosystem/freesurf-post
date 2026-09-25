@@ -3997,14 +3997,54 @@ async function handleRecentPosts(
     );
     if (!res.ok) return json([], 200, headers);
     const posts = (await res.json()) as any[];
-    return json(posts.map((p: any) => ({
-      id: p.id,
-      text: p.text,
-      platforms: p.platforms || [],
-      postedAt: p.posted_at || p.created_at,
-      results: Array.isArray(p.results) ? p.results : [],
-      metrics: p.metrics || {},
-    })), 200, headers);
+
+    // Reconcile delivery status from Bundle. A post can be *accepted* (so we
+    // recorded success) yet fail later — e.g. TikTok flags the upload as
+    // "spam_risk". Attach each result's current status + a human reason so
+    // History/Analytics show whether the post actually landed.
+    const bundleById = new Map<string, any>();
+    if (env.SOCIAL_API_PROVIDER_KEY) {
+      try {
+        const teamId = await resolveBundleTeamId(user.sub, undefined, env);
+        if (teamId) {
+          const br = await fetch(`https://api.bundle.social/api/v1/post?teamId=${teamId}&limit=50`, {
+            headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+          });
+          if (br.ok) {
+            const bd = (await br.json()) as any;
+            const list = bd.items || bd.posts || bd.data || bd;
+            for (const bp of Array.isArray(list) ? list : []) {
+              if (bp?.id) bundleById.set(bp.id, bp);
+            }
+          }
+        }
+      } catch { /* best-effort — never block the list */ }
+    }
+
+    const deliveryReason = (bp: any): string => {
+      if (!bp) return "";
+      const key = String(bp.socialAccountTypes?.[0] || "").toUpperCase();
+      const verbose = bp.errorsVerbose?.[key];
+      return (
+        verbose?.userFacingMessage || verbose?.errorMessage || bp.errors?.[key] || bp.error || ""
+      );
+    };
+
+    return json(posts.map((p: any) => {
+      const results = (Array.isArray(p.results) ? p.results : []).map((r: any) => {
+        const bp = r?.postId ? bundleById.get(r.postId) : null;
+        if (!bp) return r;
+        return { ...r, status: bp.status, error: deliveryReason(bp) || r.error || "" };
+      });
+      return {
+        id: p.id,
+        text: p.text,
+        platforms: p.platforms || [],
+        postedAt: p.posted_at || p.created_at,
+        results,
+        metrics: p.metrics || {},
+      };
+    }), 200, headers);
   } catch {
     return json([], 200, headers);
   }
