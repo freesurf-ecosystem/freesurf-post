@@ -2503,10 +2503,10 @@ function renderRecentPosts() {
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
+          ${r.postId ? `<button class="btn btn-xs btn-secondary" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}">Refresh</button>` : ""}
           ${delivery}
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
-          ${r.postId ? `<button class="btn btn-xs btn-ghost" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}">Refresh</button>` : ""}
           ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}"><span class="comments-chevron" style="display:inline-block;transition:transform .15s ease;margin-right:4px;">\u25B8</span>Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}
           ${r.platform === "x" && r.postId ? `<button class="btn btn-xs btn-ghost" data-delete-post="${escapeHtml(r.postId)}" style="color:var(--error);" title="Delete from X (permanent, $0.01)">Delete</button>` : ""}
         </div>
