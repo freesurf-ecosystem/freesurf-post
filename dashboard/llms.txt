@@ -110,6 +110,11 @@ Not exposed in the UI because it's irreversible.
 `postId` is the per-platform id recorded when the post was created — the value
 in `results[].postId` (from `POST /api/post` or `GET /api/posts/recent`).
 
+**X only.** Deletion isn't supported for other platforms through the API —
+**TikTok in particular has no delete endpoint** (neither on TikTok nor via
+Bundle), so TikTok videos must be removed in the TikTok app. Unsupported
+platforms return `501 Delete not yet proxied`.
+
 ## Metrics
 
 `GET /api/metrics/:platform/:postId` — engagement metrics for one published post.

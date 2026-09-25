@@ -507,6 +507,7 @@ curl -X POST https://post.freesurf.tools/api/post \
   -H "Content-Type: application/json" \
   -d '{"platform":"x","postId":"<post-id>"}'</code></pre>
             <p class="api-text"><code>postId</code> is the recorded <code>postId</code> from <code>GET /api/posts/recent</code> for that platform's result. There's no undo.</p>
+            <p class="api-text"><strong>Currently X only.</strong> Deleting isn't supported for other platforms through the API — <strong>TikTok in particular has no delete endpoint</strong> (neither on TikTok nor via Bundle), so TikTok videos must be removed in the TikTok app. Unsupported platforms return <code>501 Delete not yet proxied</code>.</p>
           </details>
 
           <details class="api-section">
