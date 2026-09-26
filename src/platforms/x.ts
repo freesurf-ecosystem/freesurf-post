@@ -165,6 +165,44 @@ export async function getXMetrics(
   }
 }
 
+/**
+ * Same read as getXMetrics, but throws on failure (instead of returning zeros)
+ * and returns our normalized metrics shape. Used for posts that were published
+ * through our own adapter, which Bundle can't read back.
+ */
+export async function fetchXMetrics(
+  tweetId: string,
+  bearerToken: string
+): Promise<{ impressions: number; views: number; likes: number; comments: number; shares: number }> {
+  const res = await fetch(
+    `https://api.x.com/2/tweets/${tweetId}?tweet.fields=public_metrics`,
+    { headers: { Authorization: `Bearer ${bearerToken}` } }
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`X metrics ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+  }
+  const data = (await res.json()) as {
+    data?: {
+      public_metrics?: {
+        like_count?: number;
+        retweet_count?: number;
+        reply_count?: number;
+        quote_count?: number;
+        impression_count?: number;
+      };
+    };
+  };
+  const m = data.data?.public_metrics;
+  return {
+    impressions: m?.impression_count ?? 0,
+    views: m?.impression_count ?? 0,
+    likes: m?.like_count ?? 0,
+    comments: m?.reply_count ?? 0,
+    shares: (m?.retweet_count ?? 0) + (m?.quote_count ?? 0),
+  };
+}
+
 // ── OAuth 1.0a HMAC-SHA1 signing (Web Crypto API) ──────────────────────────
 
 async function generateOAuth1Header(

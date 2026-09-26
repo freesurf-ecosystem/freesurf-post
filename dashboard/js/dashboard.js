@@ -2288,12 +2288,24 @@ async function refreshAnalytics() {
   const pulling = Math.max(recentPostsShown, 6);
   btn.textContent = `Pulling ${pulling} posts…`;
   try {
-    await apiFetch(`/api/analytics/refresh?limit=${pulling}`, {
+    const res = await apiFetch(`/api/analytics/refresh?limit=${pulling}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: "{}",
     });
-  } catch { /* stale is fine */ }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showFeedback(data?.error || data?.detail || `Refresh failed (${res.status}).`, "error");
+    } else {
+      const n = Number(data?.refreshed) || 0;
+      showFeedback(
+        n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet — the platform may still be reporting zeros.",
+        n ? "success" : "warning"
+      );
+    }
+  } catch (e) {
+    showFeedback("Refresh failed — " + (e?.message || "network error"), "error");
+  }
   btn.textContent = original;
   btn.disabled = false;
   fetchRecentPosts();
@@ -2503,7 +2515,7 @@ function renderRecentPosts() {
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
-          ${r.postId ? `<button class="btn btn-xs btn-secondary" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}. The platform allows up to 6 refreshes per post per day.">Refresh</button>` : ""}
+          ${r.postId ? `<button class="btn btn-xs btn-secondary" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" data-force-via="${escapeHtml(r.via || "bundle")}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}. The platform allows up to 6 refreshes per post per day.">Refresh</button>` : ""}
           ${delivery}
           ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
@@ -2686,6 +2698,7 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
         platform: btn.dataset.forcePlatform,
         postId: btn.dataset.forcePost,
         postRowId: btn.dataset.forceRow,
+        via: btn.dataset.forceVia || undefined,
       }),
     });
     if (!res.ok) {

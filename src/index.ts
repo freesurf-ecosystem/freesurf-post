@@ -5,7 +5,7 @@ import { postToLinkedIn, getLinkedInMetrics } from "./platforms/linkedin";
 import { postToFacebook, getFacebookMetrics } from "./platforms/facebook";
 import { postToInstagram, getInstagramMetrics } from "./platforms/instagram";
 import { postToTikTok, getTikTokMetrics } from "./platforms/tiktok";
-import { postToX, deleteFromX, getXMetrics } from "./platforms/x";
+import { postToX, deleteFromX, getXMetrics, fetchXMetrics } from "./platforms/x";
 import { postToThreads, getThreadsMetrics } from "./platforms/threads";
 import { fetchUserTokens, findToken, listConnectedProfiles, type PlatformToken } from "./tokens";
 import { encryptAccountRow } from "./crypto";
@@ -1342,6 +1342,64 @@ async function handleBundleAnalytics(
   }
 }
 
+/** Normalize a Bundle direct/forced analytics payload into our metric shape. */
+function normBundleMetrics(d: any): Record<string, number> {
+  const num = (n: unknown): number => {
+    const v = Number(n);
+    return Number.isFinite(v) ? v : 0;
+  };
+  return {
+    impressions: num(d?.impressions ?? d?.impression_count),
+    views: num(d?.views ?? d?.view_count ?? d?.impressions),
+    likes: num(d?.likes ?? d?.likeCount ?? d?.like_count),
+    comments: num(d?.comments ?? d?.commentCount ?? d?.comment_count),
+    shares: num(d?.shares ?? d?.shareCount ?? d?.share_count ?? d?.reposts ?? d?.retweet_count ?? d?.retweets),
+  };
+}
+
+/**
+ * Read metrics straight from the platform for a post we published directly.
+ * Returns null when no direct reader is configured or the read fails (callers
+ * then fall back to surfacing an error). Only X is wired up today.
+ */
+async function normDirectMetrics(env: Env, platform: Platform, postId: string): Promise<Record<string, number> | null> {
+  if (platform === "x") {
+    if (!env.X_BEARER_TOKEN) return null;
+    try {
+      return await fetchXMetrics(postId, env.X_BEARER_TOKEN);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Merge fresh metrics for one platform into a post row (best-effort). */
+async function persistMetricsToRow(
+  env: Env,
+  userId: string,
+  postRowId: string,
+  platform: Platform,
+  metrics: Record<string, number>
+): Promise<void> {
+  if (!env.SUPABASE_SECRET_KEY) return;
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
+  try {
+    const cur = await fetch(
+      `${supabaseUrl}/rest/v1/post_posts?id=eq.${postRowId}&user_id=eq.${userId}&select=metrics`,
+      { headers: authHeaders }
+    );
+    const rows = cur.ok ? ((await cur.json()) as any[]) : [];
+    const merged = { ...(rows[0]?.metrics || {}), [platform]: metrics };
+    await fetch(`${supabaseUrl}/rest/v1/post_posts?id=eq.${postRowId}&user_id=eq.${userId}`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ metrics: merged }),
+    });
+  } catch { /* best-effort */ }
+}
+
 /**
  * POST /api/analytics/refresh — Pull post analytics from Bundle for the user's
  * posted posts and cache them into post_posts.metrics so the aggregate
@@ -1356,11 +1414,6 @@ async function handleAnalyticsRefresh(
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
-
-  const num = (n: unknown): number => {
-    const v = Number(n);
-    return Number.isFinite(v) ? v : 0;
-  };
 
   // Bundle meters X reads: TWITTER_POST_READ $0.005 per per-post analytics fetch
   // (confirmed via /billing/billable-usage/quote → "X post read", 5000 micros).
@@ -1401,31 +1454,42 @@ async function handleAnalyticsRefresh(
         if (!bs) continue;
         if (out()) break;
         try {
-          // Force a live fetch (Bundle POST /analytics/post/force) instead of the
-          // passive GET, which only returns the publish-time snapshot (zeros).
-          const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-            body: JSON.stringify({ postId: r.postId, platformType: bs }),
-          });
-          budget--;
-          if (!res.ok) {
-            const t = await res.text();
-            console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
-            continue;
+          let normalized: Record<string, number> | null = null;
+          let metered = false;
+          if (r.via === "direct") {
+            // We published this ourselves, so Bundle can't read it back.
+            normalized = await normDirectMetrics(env, r.platform, r.postId);
+          } else if (env.SOCIAL_API_PROVIDER_KEY) {
+            // Force a live fetch (Bundle POST /analytics/post/force) instead of the
+            // passive GET, which only returns the publish-time snapshot (zeros).
+            const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+              body: JSON.stringify({ postId: r.postId, platformType: bs }),
+            });
+            budget--;
+            if (res.ok) {
+              normalized = normBundleMetrics(await res.json());
+              metered = true;
+            } else {
+              // Posts published through our direct adapter aren't known to Bundle
+              // and come back 401/403/404 — retry against the platform directly.
+              if (res.status === 401 || res.status === 403 || res.status === 404) {
+                normalized = await normDirectMetrics(env, r.platform, r.postId);
+              }
+              if (!normalized) {
+                const t = await res.text();
+                console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
+              }
+            }
           }
-          const d = (await res.json()) as any;
-          metrics[r.platform] = {
-            impressions: num(d.impressions ?? d.impression_count),
-            views: num(d.views ?? d.view_count ?? d.impressions),
-            likes: num(d.likes ?? d.likeCount ?? d.like_count),
-            comments: num(d.comments ?? d.commentCount ?? d.comment_count),
-            shares: num(d.shares ?? d.shareCount ?? d.share_count ?? d.reposts ?? d.retweet_count ?? d.retweets),
-          };
+          if (!normalized) continue;
+          metrics[r.platform] = normalized;
           changed = true;
           // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
           // Tabulate them in the X-fee ledger so refreshes show up on the fees page.
-          if (r.platform === "x") {
+          // Direct reads bypass Bundle and cost nothing.
+          if (metered && r.platform === "x") {
             if (out()) break;
             try {
               await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
@@ -1479,31 +1543,70 @@ async function handleForceAnalytics(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
   const apiKey = env.SOCIAL_API_PROVIDER_KEY;
-  if (!apiKey) return errorResponse("Not configured", 501, origin);
 
-  let body: { platform?: string; postId?: string; importedPostId?: string; postRowId?: string };
+  let body: { platform?: string; postId?: string; importedPostId?: string; postRowId?: string; via?: "direct" | "bundle" };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
   if (!body?.platform) return errorResponse("platform required", 400, origin);
-  const bs = bundlePlatform(body.platform);
-  if (!bs) return errorResponse("Unknown platform", 400, origin);
+  const platform = body.platform as Platform;
+  const bs = bundlePlatform(platform);
   if (body.postId && body.importedPostId) return errorResponse("Provide postId OR importedPostId, not both", 400, origin);
   if (!body.postId && !body.importedPostId) return errorResponse("postId or importedPostId required", 400, origin);
 
-  const targetId = body.postId || body.importedPostId;
+  const targetId = (body.postId || body.importedPostId) as string;
+  const imported = Boolean(body.importedPostId);
+  // Imported (pre-app) posts only exist in Bundle; directly-published posts only
+  // exist on the platform. Everything else is read through Bundle.
+  const preferDirect = !imported && body.via === "direct";
+
   try {
-    const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      // importedPostId goes alone (no platformType); platform posts take postId + platformType.
-      body: JSON.stringify(body.importedPostId ? { importedPostId: targetId } : { postId: targetId, platformType: bs }),
-    });
-    const data = (await res.json()) as any;
-    if (!res.ok) {
-      console.error(`Bundle force analytics failed (${bs}):`, res.status, JSON.stringify(data));
-      return json(data, res.status, headers);
+    let metrics: Record<string, number> | null = null;
+    let metered = false;
+
+    if (preferDirect) {
+      metrics = await normDirectMetrics(env, platform, targetId);
+      if (!metrics) {
+        return errorResponse(
+          platform === "x" && !env.X_BEARER_TOKEN
+            ? "Direct X analytics need X_BEARER_TOKEN configured"
+            : "Couldn't read metrics directly from the platform",
+          502, origin
+        );
+      }
+    } else {
+      if (!apiKey) return errorResponse("Not configured", 501, origin);
+      if (!bs) return errorResponse("Unknown platform", 400, origin);
+      const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        // importedPostId goes alone (no platformType); platform posts take postId + platformType.
+        body: JSON.stringify(imported ? { importedPostId: targetId } : { postId: targetId, platformType: bs }),
+      });
+      if (res.ok) {
+        metrics = normBundleMetrics(await res.json());
+        metered = true;
+      } else {
+        const data = (await res.json().catch(() => ({}))) as any;
+        // Posts we published directly aren't known to Bundle and come back
+        // 401/403/404. Don't leak that as an auth failure (the dashboard signs
+        // the user out on 401) — retry against the platform directly.
+        if (!imported && (res.status === 401 || res.status === 403 || res.status === 404)) {
+          metrics = await normDirectMetrics(env, platform, targetId);
+        }
+        if (!metrics) {
+          console.error(`Bundle force analytics failed (${bs}):`, res.status, JSON.stringify(data));
+          // Never surface an upstream 401/403 as 401 — reserve that for real auth failures.
+          const status = res.status === 401 || res.status === 403 ? 502 : res.status;
+          return json(
+            { ...data, upstreamStatus: res.status, error: data?.message || data?.error || `Analytics provider error ${res.status}` },
+            status,
+            headers
+          );
+        }
+      }
     }
-    // X per-post analytics force-fetch is a metered read (TWITTER_POST_READ).
-    if (body.platform === "x" && env.SUPABASE_SECRET_KEY) {
+
+    // X per-post reads are metered only when Bundle served them (direct reads are free).
+    if (metered && platform === "x" && env.SUPABASE_SECRET_KEY) {
       const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
       const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
       try {
@@ -1520,34 +1623,10 @@ async function handleForceAnalytics(
 
     // Persist the forced metrics onto the app post row (when the caller passes
     // its id) so History/Analytics reflect the refresh without a full re-pull.
-    if (body.postRowId && body.platform && env.SUPABASE_SECRET_KEY) {
-      const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
-      const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
-      const num = (n: unknown): number => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
-      try {
-        const cur = await fetch(
-          `${supabaseUrl}/rest/v1/post_posts?id=eq.${body.postRowId}&user_id=eq.${user.sub}&select=metrics`,
-          { headers: authHeaders }
-        );
-        const rows = cur.ok ? ((await cur.json()) as any[]) : [];
-        const metrics: Record<string, any> = rows[0]?.metrics || {};
-        if (!body.importedPostId) {
-          metrics[body.platform] = {
-            impressions: num(data.impressions ?? data.impression_count),
-            views: num(data.views ?? data.view_count ?? data.impressions),
-            likes: num(data.likes ?? data.likeCount ?? data.like_count),
-            comments: num(data.comments ?? data.commentCount ?? data.comment_count),
-            shares: num(data.shares ?? data.shareCount ?? data.share_count ?? data.reposts ?? data.retweet_count ?? data.retweets),
-          };
-          await fetch(`${supabaseUrl}/rest/v1/post_posts?id=eq.${body.postRowId}&user_id=eq.${user.sub}`, {
-            method: "PATCH",
-            headers: { ...authHeaders, "Content-Type": "application/json" },
-            body: JSON.stringify({ metrics }),
-          });
-        }
-      } catch { /* best-effort */ }
+    if (body.postRowId && metrics && !imported) {
+      await persistMetricsToRow(env, user.sub, body.postRowId, platform, metrics);
     }
-    return json(data, 200, headers);
+    return json({ platform, ...metrics }, 200, headers);
   } catch (e) {
     console.error("Force analytics exception:", e instanceof Error ? e.message : String(e));
     return errorResponse("Force analytics failed", 502, origin);
@@ -2007,7 +2086,7 @@ async function handlePost(
         !bundleConfigured || (platform === "bluesky" ? false : hasDirectCreds(platform, env, userTokens));
 
       if (preferDirect) {
-        return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
+        return { ...(await postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens)), via: "direct" as const };
       }
 
       if (!bundleTeamId) {
@@ -2019,15 +2098,15 @@ async function handlePost(
       }
 
       const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles, body.platformOptions);
-      if (providerResult.success) return providerResult;
+      if (providerResult.success) return { ...providerResult, via: "bundle" as const };
 
       // Only fall back to a direct adapter when one is actually configured;
       // otherwise surface the real Bundle error instead of a misleading
       // "X not connected". (Bluesky skips this fallback when Bundle is set up.)
       if (platform !== "bluesky" && hasDirectCreds(platform, env, userTokens)) {
-        return postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens);
+        return { ...(await postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens)), via: "direct" as const };
       }
-      return providerResult;
+      return { ...providerResult, via: "bundle" as const };
     })
   );
 
@@ -4171,15 +4250,15 @@ async function handleCron(env: Env): Promise<Response> {
               const providerResult = await postViaProvider(
                 platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, storedTargets, titles, platformOptions
               );
-              if (providerResult.success) return providerResult;
+              if (providerResult.success) return { ...providerResult, via: "bundle" as const };
               // Only fall back to a direct adapter when env-var creds exist;
               // otherwise surface the real Bundle error.
               if (hasDirectCreds(platform, env, [])) {
-                return postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls);
+                return { ...(await postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls)), via: "direct" as const };
               }
-              return providerResult;
+              return { ...providerResult, via: "bundle" as const };
             }
-            return postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls);
+            return { ...(await postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls)), via: "direct" as const };
           })
         );
 

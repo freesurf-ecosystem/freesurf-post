@@ -33,6 +33,10 @@ export interface PlatformPostResult {
   postId?: string;
   postUrl?: string;
   error?: string;
+  /** Which path published this post — "direct" (our own platform adapter) or
+   *  "bundle" (proxied). Determines how analytics are read: Bundle can't read
+   *  a post it didn't publish, so direct posts are read from the platform. */
+  via?: "direct" | "bundle";
 }
 
 /** Combined post response */
