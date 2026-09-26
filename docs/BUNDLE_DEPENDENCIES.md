@@ -25,6 +25,20 @@ All calls authenticate with `x-api-key: $SOCIAL_API_PROVIDER_KEY` against
 `efa77093-6a09-4865-ba9e-2ff5a2887cea`.
 
 
+## Why this is genuinely hard (Bundle's own take)
+
+Bundle's engineering posts — [The Developer's Survival Guide to Social Media APIs](https://bundle.social/blog/social-media-api-mistakes)
+and [the Zernio migration piece](https://bundle.social/blog/zernio-alternative-why-developers-and-saas-platforms-are-migrating-from-pricey-systems) —
+are partly marketing, but the pitfalls they describe are real and worth tracking as we migrate. Expect each of these when we own a platform instead of proxying Bundle:
+
+- **Token lifecycle.** Expiry varies wildly (Facebook ~60 days, some platforms ~1 hour) and tokens get revoked without warning (password change, app revocation, platform migrations). We need proactive refresh jobs, a `lastRefreshedAt` health signal, and graceful `401`/`403` handling that flags the account for **reconnect** rather than silently failing a post. (X OAuth 1.0a tokens are long-lived; OAuth 2.0 platforms need refresh.)
+- **Don't spam the APIs.** Naive polling (looping every account's comments/analytics on a timer) walks into per-user and per-app rate limits and gets throttled or blocked. The scalable pattern is **webhooks** for platform events (post published/failed, new comments) plus bounded, scheduled analytics syncs — not live pulls on every page load.
+- **Analytics are messy and delayed.** Platforms disagree on definitions ("reach" vs "unique impressions"), return `0` for hours up to ~48h after publishing, and retain only a limited history (Bundle keeps ~40 days). Owning it means caching, our own normalized metrics, storing history ourselves, and showing "last updated" in the UI.
+- **Every platform has its own rules.** Aspect ratios, media formats (TikTok images = JPG/JPEG only), text limits, `REVIEW` states (TikTok), subreddit flair, LinkedIn personal vs company. Without a per-platform validation layer we eat avoidable rejections.
+- **App review & quotas** (Meta, TikTok, YouTube) are on **us** once we go direct — the one-time friction Bundle absorbed by owning approved apps.
+- **Multi-tenancy/teams.** Mapping users → brands → connected accounts, with isolated tokens, analytics, and webhooks per tenant, is its own data-model problem — the "unlimited teams, no per-seat pricing" story aggregators sell. Our `post_bundle_teams` mapping becomes a first-class accounts/teams model once we hold the tokens.
+
+
 ## Migrating map
 
 | Platform | Sandbox/Staging Access | Production Posting Access | Key Review Hurdle |
