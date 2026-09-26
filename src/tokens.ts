@@ -45,7 +45,18 @@ export async function fetchUserTokens(
   }
 
   const rows = (await res.json()) as PlatformToken[];
-  return Promise.all(rows.map((row) => decryptAccountRow(row, encryptionKey)));
+  // Decrypt row-by-row: one unreadable row (e.g. encrypted before the key was
+  // configured) must not blank the entire connected-accounts list.
+  return Promise.all(
+    rows.map(async (row) => {
+      try {
+        return await decryptAccountRow(row, encryptionKey);
+      } catch (e) {
+        console.error(`Failed to decrypt token row ${row.id} (${row.platform}):`, e instanceof Error ? e.message : String(e));
+        return row;
+      }
+    })
+  );
 }
 
 /**

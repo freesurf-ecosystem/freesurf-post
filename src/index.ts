@@ -475,7 +475,7 @@ async function handleProfiles(
   }
 
   try {
-    const tokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY);
+    const tokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY, env.TOKEN_ENCRYPTION_KEY);
     return json({ profiles: listConnectedProfiles(tokens), mode: "multi-user" }, 200, headers);
   } catch {
     return json({ profiles: [], mode: "error" }, 200, headers);
