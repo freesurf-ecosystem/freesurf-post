@@ -17,13 +17,17 @@ export interface PlatformToken {
 
 const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
 
+import { decryptAccountRow } from "./crypto";
+
 /**
  * Fetch all platform tokens for a given user from Supabase.
  * Uses the service_role key (set as Worker secret SUPABASE_SECRET_KEY).
+ * Secrets are decrypted with TOKEN_ENCRYPTION_KEY before being returned.
  */
 export async function fetchUserTokens(
   userId: string,
-  serviceRoleKey: string
+  serviceRoleKey: string,
+  encryptionKey?: string
 ): Promise<PlatformToken[]> {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/post_accounts?user_id=eq.${userId}&select=*`,
@@ -40,7 +44,8 @@ export async function fetchUserTokens(
     return [];
   }
 
-  return (await res.json()) as PlatformToken[];
+  const rows = (await res.json()) as PlatformToken[];
+  return Promise.all(rows.map((row) => decryptAccountRow(row, encryptionKey)));
 }
 
 /**

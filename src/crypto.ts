@@ -222,3 +222,79 @@ export async function decryptToken(
   
   return decrypted;
 }
+
+// ============================================================================
+// At-rest secret encryption for post_accounts
+// ----------------------------------------------------------------------------
+// Stored values are tagged with a prefix so we can tell encrypted values apart
+// from legacy plaintext rows and migrate them transparently.
+// ============================================================================
+
+export const ENC_PREFIX = "enc.v1:";
+
+/** Metadata keys that hold secrets and must be encrypted at rest. */
+export const SENSITIVE_METADATA_KEYS = [
+  "consumer_secret",
+  "consumer_key_secret",
+  "access_secret",
+  "access_token_secret",
+  "app_password",
+  "password",
+  "secret",
+  "refresh_token",
+];
+
+/** Encrypt a single secret. No-op when already encrypted or no key is set. */
+export async function encryptSecret(plain: string, masterSecret?: string): Promise<string> {
+  if (!plain || !masterSecret || plain.startsWith(ENC_PREFIX)) return plain;
+  const key = await getEncryptionKey(masterSecret);
+  return ENC_PREFIX + (await encryptData(plain, key));
+}
+
+/** Decrypt a single secret. Legacy plaintext values pass through unchanged. */
+export async function decryptSecret(stored: string, masterSecret?: string): Promise<string> {
+  if (!stored || !stored.startsWith(ENC_PREFIX)) return stored;
+  if (!masterSecret) {
+    throw new Error("Encrypted secret present but TOKEN_ENCRYPTION_KEY is not configured");
+  }
+  const key = await getEncryptionKey(masterSecret);
+  return decryptData(stored.slice(ENC_PREFIX.length), key);
+}
+
+/** Encrypt the token columns + known secret metadata fields of an account row. */
+export async function encryptAccountRow<T extends Record<string, any>>(
+  record: T,
+  masterSecret?: string
+): Promise<T> {
+  const out: any = { ...record };
+  for (const field of ["access_token", "refresh_token"]) {
+    if (typeof out[field] === "string") out[field] = await encryptSecret(out[field], masterSecret);
+  }
+  if (out.metadata && typeof out.metadata === "object") {
+    const metadata: any = { ...out.metadata };
+    for (const key of SENSITIVE_METADATA_KEYS) {
+      if (typeof metadata[key] === "string") metadata[key] = await encryptSecret(metadata[key], masterSecret);
+    }
+    out.metadata = metadata;
+  }
+  return out as T;
+}
+
+/** Reverse of encryptAccountRow — used when reading rows for internal use. */
+export async function decryptAccountRow<T extends Record<string, any>>(
+  record: T,
+  masterSecret?: string
+): Promise<T> {
+  const out: any = { ...record };
+  for (const field of ["access_token", "refresh_token"]) {
+    if (typeof out[field] === "string") out[field] = await decryptSecret(out[field], masterSecret);
+  }
+  if (out.metadata && typeof out.metadata === "object") {
+    const metadata: any = { ...out.metadata };
+    for (const key of SENSITIVE_METADATA_KEYS) {
+      if (typeof metadata[key] === "string") metadata[key] = await decryptSecret(metadata[key], masterSecret);
+    }
+    out.metadata = metadata;
+  }
+  return out as T;
+}

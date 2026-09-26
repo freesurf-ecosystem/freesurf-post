@@ -8,6 +8,7 @@ import { postToTikTok, getTikTokMetrics } from "./platforms/tiktok";
 import { postToX, deleteFromX, getXMetrics } from "./platforms/x";
 import { postToThreads, getThreadsMetrics } from "./platforms/threads";
 import { fetchUserTokens, findToken, listConnectedProfiles, type PlatformToken } from "./tokens";
+import { encryptAccountRow } from "./crypto";
 import { FREESURF } from "./freesurf.config";
 
 export interface Env {
@@ -52,6 +53,7 @@ export interface Env {
   THREADS_ACCESS_TOKEN?: string;  THREADS_USER_ID?: string;
   X_CONSUMER_KEY?: string;  X_CONSUMER_KEY_SECRET?: string;
   X_ACCESS_TOKEN?: string;  X_ACCESS_TOKEN_SECRET?: string;  X_BEARER_TOKEN?: string;
+  TOKEN_ENCRYPTION_KEY?: string;
 
   RATE_LIMITS?: KVNamespace;
   ASSETS?: Fetcher;                 // Workers Assets binding (static dashboard)
@@ -507,6 +509,18 @@ async function handleSaveToken(
       return errorResponse("platform and accessToken are required", 400, origin);
     }
 
+    const record = await encryptAccountRow(
+      {
+        user_id: user.sub,
+        platform: body.platform,
+        profile_label: body.label || "Default",
+        platform_handle: body.handle || "",
+        access_token: body.accessToken,
+        metadata: body.metadata || {},
+      },
+      env.TOKEN_ENCRYPTION_KEY
+    );
+
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/post_accounts`,
       {
@@ -517,14 +531,7 @@ async function handleSaveToken(
           "Content-Type": "application/json",
           Prefer: "return=representation",
         },
-        body: JSON.stringify({
-          user_id: user.sub,
-          platform: body.platform,
-          profile_label: body.label || "Default",
-          platform_handle: body.handle || "",
-          access_token: body.accessToken,
-          metadata: body.metadata || {},
-        }),
+        body: JSON.stringify(record),
       }
     );
 
@@ -1931,7 +1938,7 @@ async function handlePost(
   // Fetch per-user platform tokens first (needed for direct adapter fallback)
   let userTokens: PlatformToken[] = [];
   if (env.SUPABASE_SECRET_KEY) {
-    userTokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY);
+    userTokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY, env.TOKEN_ENCRYPTION_KEY);
   }
 
   if (env.RATE_LIMITS) {
