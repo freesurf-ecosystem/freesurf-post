@@ -164,7 +164,7 @@ export default function AccountsScreen() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Teams</Text>
         <TouchableOpacity style={[styles.addBtn, { borderColor: colors.brand }]} onPress={() => { setName(""); setEditor({ mode: "create" }); }}>
           <Plus size={16} color={colors.brand} />
-          <Text style={[styles.addBtnText, { color: colors.brand }]}>New</Text>
+          <Text style={[styles.addBtnText, { color: colors.brand }]}>New team</Text>
         </TouchableOpacity>
       </View>
 
