@@ -475,7 +475,10 @@ function renderPlatformChips() {
     const acc = composeAccounts.find((a) => a.platform === p.key);
     const handle = acc?.handle;
     const inProgress = IN_PROGRESS_PLATFORMS.has(p.key);
-    return `<label class="platform-chip${handle ? " connected" : ""}${inProgress ? " disabled" : ""}" data-platform="${p.key}" title="${inProgress ? "In progress" : ""}">
+    const connected = Boolean(acc);
+    const disabled = inProgress || !connected;
+    const title = inProgress ? "In progress" : (!connected ? "Connect this account first" : "");
+    return `<label class="platform-chip${handle ? " connected" : ""}${disabled ? " disabled" : ""}" data-platform="${p.key}" title="${title}">
       ${handle ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " · soon" : ""}${handle ? ` @${handle}` : ""}
       <input type="checkbox" />
     </label>`;
@@ -2504,7 +2507,7 @@ function renderRecentPosts() {
           ? `<span style="font-size:0.8rem;color:var(--text-muted);">no engagement yet</span>`
           : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
       const commentCount = Number(m.comments) || 0;
-      const canComments = r.postId && (r.platform === "x" || r.platform === "bluesky");
+      const canComments = r.postId;
       const delivery = r.status === "ERROR"
         ? `<span style="font-size:0.8rem;color:var(--error);">failed${r.error ? `: ${escapeHtml(r.error)}` : ""}</span>`
         : r.status === "POSTED"
@@ -2756,11 +2759,17 @@ async function init() {
     }
   } else if (params.get("success")) {
     history.replaceState(null, "", location.pathname);
-    await fetchTeams();
-    await fetchProfiles();
-    renderAccounts();
-    renderPlatformChips();
-    showView("accounts");
+    // Only show the accounts view if there's an active session; a signed-out
+    // visitor returning from OAuth should land on the home page instead.
+    if (session) {
+      await fetchTeams();
+      await fetchProfiles();
+      renderAccounts();
+      renderPlatformChips();
+      showView("accounts");
+    } else {
+      showView("welcome");
+    }
   } else if (params.get("error")) {
     console.error("Connect callback error:", params.get("error"));
     history.replaceState(null, "", location.pathname);
@@ -2790,6 +2799,8 @@ $$(".sidebar-nav-item").forEach((btn) => {
 });
 
 function switchView(viewName) {
+  // Never open a protected view (compose/accounts) without a session.
+  if (!session && PROTECTED_VIEWS.has(viewName)) { showView("welcome"); return; }
   currentView = viewName;
   
   $$(".view").forEach((v) => v.classList.add("hidden"));

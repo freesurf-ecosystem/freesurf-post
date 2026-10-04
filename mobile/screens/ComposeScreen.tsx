@@ -10,7 +10,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import { ImagePlus, X } from "lucide-react-native";
+import { ImagePlus, X, Users } from "lucide-react-native";
 import type { RootStackParamList } from "../App";
 import { useTheme } from "../lib/theme";
 import { FloatingMenuButton } from "../components/Menu";
@@ -34,6 +34,8 @@ const PLATFORMS = [
   { key: "reddit", name: "Reddit", soon: true },
   { key: "google_business", name: "Google Business", soon: true },
 ];
+
+const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
 
 const TARGETS: Record<string, { label: string; placeholder: string }> = {
   discord: { label: "Discord channel ID", placeholder: "e.g. 123456789012345678" },
@@ -144,6 +146,7 @@ export default function ComposeScreen() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamId, setTeamId] = useState<string>("");
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
@@ -198,6 +201,15 @@ export default function ComposeScreen() {
     if (teamId) loadAccounts();
   }, [teamId]);
 
+  useEffect(() => {
+    if (!accountsLoaded) return;
+    const connected = new Set(accounts.map((a) => a.platform));
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((p) => connected.has(p)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [accounts, accountsLoaded]);
+
   async function loadTeams() {
     try {
       const t = await listTeams();
@@ -212,11 +224,23 @@ export default function ComposeScreen() {
   async function loadAccounts() {
     try { setAccounts(await listAccounts(teamId || undefined)); }
     catch { setAccounts([]); }
+    finally { setAccountsLoaded(true); }
   }
 
-  function connectedHandle(key: string): string {
+  function accountLabel(key: string): string {
     const acc = accounts.find((a) => a.platform === key);
-    return acc?.handle || acc?.label || "";
+    if (!acc) return "";
+    // For page-based platforms (Facebook/LinkedIn/YouTube) show the human page
+    // name chosen in Accounts instead of the raw account id/handle.
+    if (CHANNEL_PLATFORMS.has(key)) {
+      const ch = (acc.channels || []).find((c: any) => c.id === acc.selectedChannelId);
+      if (ch?.name) return ch.name;
+    }
+    return acc.handle ? `@${acc.handle}` : (acc.label || "");
+  }
+
+  function isConnected(key: string): boolean {
+    return accounts.some((a) => a.platform === key);
   }
 
   function toggle(p: string) {
@@ -364,16 +388,29 @@ export default function ComposeScreen() {
           )}
         </View>
 
+        {teamId && accountsLoaded && accounts.length === 0 && (
+          <TouchableOpacity style={[styles.connectBanner, { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
+            onPress={() => nav.navigate("Accounts")}>
+            <Users size={16} color={colors.brand} />
+            <Text style={[styles.connectBannerText, { color: colors.brand }]}>No accounts connected yet. Tap to connect your socials.</Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={[styles.platformsHint, { color: colors.textMuted }]}>Go to the Accounts tab to connect your social profiles.</Text>
+
         <View style={styles.chips}>
           {PLATFORMS.map((p) => {
             const on = selected.has(p.key);
-            const handle = connectedHandle(p.key);
+            const label = accountLabel(p.key);
+            const soon = !!p.soon;
+            const disconnected = accountsLoaded && !isConnected(p.key);
+            const disabled = soon || disconnected;
             return (
-              <TouchableOpacity key={p.key} style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.surface }, on && { borderColor: colors.brand, backgroundColor: colors.brandSoft }, p.soon && styles.chipSoon]}
-                onPress={() => { if (!p.soon) toggle(p.key); }} disabled={p.soon}>
-                {handle ? <View style={[styles.connectedDot, { backgroundColor: colors.success }]} /> : null}
-                <Text style={[styles.chipText, { color: colors.textSecondary }, on && { color: colors.brand }, p.soon && { color: colors.textMuted }]}>
-                  {p.name}{p.soon ? " · soon" : ""}{handle ? ` @${handle}` : ""}
+              <TouchableOpacity key={p.key} style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.surface }, on && !disabled && { borderColor: colors.brand, backgroundColor: colors.brandSoft }, disabled && styles.chipDisabled]}
+                onPress={() => { if (!disabled) toggle(p.key); }} disabled={disabled}>
+                {label ? <View style={[styles.connectedDot, { backgroundColor: colors.success }]} /> : null}
+                <Text style={[styles.chipText, { color: colors.textSecondary }, on && !disabled && { color: colors.brand }, disabled && { color: colors.textMuted }]}>
+                  {p.name}{soon ? " · soon" : ""}{label ? ` · ${label}` : ""}
                 </Text>
               </TouchableOpacity>
             );
@@ -472,9 +509,12 @@ const styles = StyleSheet.create({
   teamChipText: { fontSize: 13, fontWeight: "500" },
   activeBadge: { fontSize: 10, fontWeight: "600", textTransform: "uppercase" },
   textarea: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16, minHeight: 150, marginBottom: 16 },
+  connectBanner: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16 },
+  connectBannerText: { flex: 1, fontSize: 13, fontWeight: "600" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
+  platformsHint: { fontSize: 12, marginBottom: 8 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
-  chipSoon: { opacity: 0.55 },
+  chipDisabled: { opacity: 0.45 },
   chipText: { fontSize: 13, fontWeight: "500" },
   connectedDot: { width: 7, height: 7, borderRadius: 4 },
   postingTo: { fontSize: 13, marginTop: -8, marginBottom: 16 },

@@ -42,15 +42,19 @@ export const listAccounts = (teamId?: string) =>
   api(`/api/bundle-accounts${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`).then((d) =>
     (Array.isArray(d) ? d : d?.profiles || []) as Account[]
   );
+// The app asks to be returned to its deep link. Bundle rejects non-http(s)
+// redirect schemes, so the server wraps this scheme in an https callback on
+// the Worker and 302s back to the app once OAuth finishes.
+export const CONNECT_RETURN_URL = "freesurf-post://connected";
 export const connectUrl = (platform: string, teamId?: string) => {
-  const q = new URLSearchParams();
+  const q = new URLSearchParams({ redirectUrl: CONNECT_RETURN_URL });
   if (teamId) q.set("teamId", teamId);
-  q.set("redirectUrl", "freesurf-post://connected");
-  const qs = q.toString();
-  return api(`/api/connect/${platform}${qs ? `?${qs}` : ""}`).then((d) => d?.url as string);
+  return api(`/api/connect/${platform}?${q.toString()}`).then((d) => d?.url as string);
 };
+// Server route is POST /api/disconnect/:platform (the web dashboard uses POST);
+// a DELETE here matches no route and 404s with "Not found".
 export const disconnectAccount = (platform: string, teamId?: string) =>
-  api(`/api/disconnect/${platform}${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`, { method: "DELETE" });
+  api(`/api/disconnect/${platform}${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`, { method: "POST" });
 export const setChannel = (platform: string, channelId: string | undefined, teamId?: string) =>
   api(`/api/channel/${platform}`, { method: "POST", body: JSON.stringify({ action: channelId ? "set" : "unset", channelId: channelId || undefined, teamId }) });
 
@@ -61,6 +65,47 @@ export const listDrafts = () => api("/api/drafts").then((d) => (d?.drafts || [])
 export const saveDraft = (text: string, platforms: string[]) =>
   api("/api/drafts", { method: "POST", body: JSON.stringify({ text, platforms }) });
 export const deleteDraft = (id: string) => api(`/api/drafts/${id}`, { method: "DELETE" });
+
+export type PostMetrics = { impressions?: number; likes?: number; comments?: number; shares?: number };
+export type PostResult = {
+  platform: string;
+  success: boolean;
+  error?: string;
+  postUrl?: string;
+  postId?: string;
+  via?: string;
+  status?: string;
+};
+export type RecentPost = {
+  id: string;
+  text: string;
+  platforms: string[];
+  postedAt: string;
+  results: PostResult[];
+  metrics: Record<string, PostMetrics>;
+};
+export const listRecentPosts = (limit = 30) =>
+  api(`/api/posts/recent?limit=${limit}`).then((d) => (Array.isArray(d) ? d : []) as RecentPost[]);
+
+export function forceAnalytics(body: { platform: string; postId?: string; importedPostId?: string; postRowId?: string; via?: string }) {
+  return api("/api/analytics/force", { method: "POST", body: JSON.stringify(body) });
+}
+
+export type CommentItem = {
+  text?: string;
+  authorName?: string;
+  authorProfileUrl?: string;
+  authorAvatarUrl?: string;
+  publishedAt?: string;
+};
+export const listComments = (platform: string, postId: string) =>
+  api(`/api/comments?platform=${encodeURIComponent(platform)}&postId=${encodeURIComponent(postId)}`)
+    .then((d) => (Array.isArray(d?.items) ? d.items : []) as CommentItem[]);
+export const importComments = (platform: string, postId: string) =>
+  api("/api/comments/import", { method: "POST", body: JSON.stringify({ platform, postId }) });
+
+export const deletePost = (platform: string, postId: string) =>
+  api("/api/posts/delete", { method: "POST", body: JSON.stringify({ platform, postId }) });
 
 export function publishPost(opts: { platforms: string[]; text: string; teamId?: string; mediaUrls?: string[]; platformTargets?: PlatformTargets }) {
   return api("/api/post", { method: "POST", body: JSON.stringify(opts) });

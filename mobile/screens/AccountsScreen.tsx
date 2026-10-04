@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
   Alert, ActivityIndicator, Modal, Linking,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Plus, Pencil, Trash2, Star } from "lucide-react-native";
@@ -10,7 +11,7 @@ import { useTheme } from "../lib/theme";
 import { FloatingMenuButton } from "../components/Menu";
 import {
   listTeams, createTeam, activateTeam, renameTeam, deleteTeam,
-  listAccounts, connectUrl, disconnectAccount, setChannel, type Team, type Account,
+  listAccounts, connectUrl, CONNECT_RETURN_URL, disconnectAccount, setChannel, type Team, type Account,
 } from "../lib/api";
 
 const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
@@ -122,12 +123,25 @@ export default function AccountsScreen() {
   }
 
   async function connect(key: string) {
+    let url: string | undefined;
     try {
-      const url = await connectUrl(key, selectedTeamId || undefined);
-      if (url) { await Linking.openURL(url); }
-      else Alert.alert("Connect", "Couldn't open the connection portal. Try again.");
+      url = await connectUrl(key, selectedTeamId || undefined);
+    } catch (e: any) {
+      Alert.alert("Connect", e?.message || "Couldn't start the connection. Please try again.");
+      return;
+    }
+    if (!url) {
+      Alert.alert("Connect", "The connection portal didn't return a link. Please try again.");
+      return;
+    }
+    try {
+      // Server bridges OAuth back to the app's deep link, so the browser closes
+      // itself and the user never sees the web dashboard.
+      await WebBrowser.openAuthSessionAsync(url, CONNECT_RETURN_URL);
+      await loadAccounts(selectedTeamId);
     } catch {
-      Alert.alert("Connect", "Couldn't open the connection portal. Try again.");
+      try { await Linking.openURL(url); }
+      catch { Alert.alert("Connect", "Couldn't open the connection portal. Try again."); }
     }
   }
 

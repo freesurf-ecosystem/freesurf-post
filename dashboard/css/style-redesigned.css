@@ -927,6 +927,12 @@ a:hover { text-decoration: underline; }
 
 .platform-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
 
+.connect-hint {
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
 .channel-reminder {
   margin-top: 10px;
   font-size: 0.8125rem;

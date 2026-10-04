@@ -12,12 +12,14 @@ import ComposeScreen from "./screens/ComposeScreen";
 import ScheduleScreen from "./screens/ScheduleScreen";
 import DraftsScreen from "./screens/DraftsScreen";
 import AccountsScreen from "./screens/AccountsScreen";
+import AnalyticsScreen from "./screens/AnalyticsScreen";
 
 export type RootStackParamList = {
   Compose: { draftText?: string; draftPlatforms?: string[] } | undefined;
   Schedule: undefined;
   Drafts: undefined;
   Accounts: undefined;
+  Analytics: undefined;
   Auth: undefined;
 };
 
@@ -68,6 +70,7 @@ function ThemedNavigator() {
               <Stack.Screen name="Schedule" component={ScheduleScreen} />
               <Stack.Screen name="Drafts" component={DraftsScreen} />
               <Stack.Screen name="Accounts" component={AccountsScreen} />
+              <Stack.Screen name="Analytics" component={AnalyticsScreen} />
             </>
           ) : (
             <Stack.Screen name="Auth" component={AuthScreen} />

@@ -5,7 +5,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Menu, Send, CalendarClock, FileText, Users, LogOut, Globe, Shield, Mail, Code2 } from "lucide-react-native";
+import { Menu, Send, CalendarClock, FileText, Users, LogOut, Globe, Shield, Mail, Code2, Activity } from "lucide-react-native";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
 import type { RootStackParamList } from "../App";
@@ -63,6 +63,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
     { key: "Compose", label: "Compose", Icon: Send },
     { key: "Schedule", label: "Schedule", Icon: CalendarClock },
     { key: "Drafts", label: "Drafts", Icon: FileText },
+    { key: "Analytics", label: "Analytics", Icon: Activity },
     { key: "Accounts", label: "Accounts", Icon: Users },
   ] as const;
 

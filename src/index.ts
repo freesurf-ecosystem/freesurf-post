@@ -211,6 +211,12 @@ async function handleApi(
     return handleDeleteToken(request, env, tokenDeleteMatch[1], origin, h);
   }
 
+  // --- GET /api/connect/callback — OAuth return bridge back to the mobile app ---
+  // Must be matched before /api/connect/:platform (which also matches "callback").
+  if (url.pathname === "/api/connect/callback" && request.method === "GET") {
+    return handleConnectCallback(url);
+  }
+
   // --- GET /api/connect/:platform — get Bundle connection URL ---
   const connectMatch = url.pathname.match(/^\/api\/connect\/([a-z]+)$/);
   if (connectMatch && request.method === "GET") {
@@ -735,11 +741,18 @@ async function handleConnect(
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
   // Allow clients (e.g. the mobile app) to send us back after OAuth via their
-  // own deep-link scheme; otherwise return to the web dashboard as before.
+  // own deep-link scheme. Bundle validates redirectUrl and rejects non-http(s)
+  // schemes, so a custom scheme is wrapped in an https callback on this Worker
+  // that 302s back to the deep link once Bundle finishes the OAuth handoff.
   const requestedRedirect = url?.searchParams.get("redirectUrl") || "";
-  const redirectUrl = /^(https?:\/\/|freesurf-post:\/\/)/.test(requestedRedirect)
-    ? requestedRedirect
-    : `${FREESURF.URLS.post}/`;
+  let redirectUrl: string;
+  if (/^freesurf-post:\/\//.test(requestedRedirect)) {
+    redirectUrl = `${FREESURF.URLS.post}/api/connect/callback?to=${encodeURIComponent(requestedRedirect)}`;
+  } else if (/^https?:\/\//.test(requestedRedirect)) {
+    redirectUrl = requestedRedirect;
+  } else {
+    redirectUrl = `${FREESURF.URLS.post}/`;
+  }
 
   try {
     const res = await fetch("https://api.bundle.social/api/v1/social-account/connect", {
@@ -763,6 +776,21 @@ async function handleConnect(
     console.error(`Bundle connect exception (${platform}):`, e instanceof Error ? e.message : String(e));
     return errorResponse("Connect unavailable", 502, origin);
   }
+}
+
+/**
+ * GET /api/connect/callback — bounce the OAuth browser back into the mobile
+ * app's deep link. Stateless: the app's target rides in `to`. Restricted to the
+ * app scheme (freesurf-post://connected) or our own web origin, so this can't
+ * be used as an open redirect.
+ */
+function handleConnectCallback(url: URL): Response {
+  const to = url.searchParams.get("to") || "";
+  const allowed =
+    /^freesurf-post:\/\/connected/.test(to) ||
+    /^https?:\/\/post\.freesurf\.tools(\/|$)/.test(to);
+  const target = allowed ? to : `${FREESURF.URLS.post}/`;
+  return new Response(null, { status: 302, headers: { Location: target } });
 }
 
 /**

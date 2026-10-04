@@ -7,9 +7,6 @@
     "icon": "./assets/icon-windmill.png",
     "userInterfaceStyle": "light",
     "scheme": "freesurf-post",
-    "splash": {
-      "backgroundColor": "#fafbfc"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -42,7 +39,16 @@
       }
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-windmill.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#fafbfc"
+        }
+      ]
     ]
   }
 }
