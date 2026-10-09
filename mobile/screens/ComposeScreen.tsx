@@ -10,7 +10,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import { ImagePlus, X, Users } from "lucide-react-native";
+import { ImagePlus, X, Users, Check } from "lucide-react-native";
 import type { RootStackParamList } from "../App";
 import { useTheme } from "../lib/theme";
 import { FloatingMenuButton } from "../components/Menu";
@@ -36,6 +36,9 @@ const PLATFORMS = [
 ];
 
 const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
+
+// Platforms that support an AI-generated disclosure label (matches the web app).
+const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "pinterest"]);
 
 const TARGETS: Record<string, { label: string; placeholder: string }> = {
   discord: { label: "Discord channel ID", placeholder: "e.g. 123456789012345678" },
@@ -157,6 +160,7 @@ export default function ComposeScreen() {
   const [targetValue, setTargetValue] = useState("");
   const [selectedTz, setSelectedTz] = useState("UTC");
   const [tzOpen, setTzOpen] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
 
   function prefillSchedule(tz: string) {
     const now = nowInTz(tz);
@@ -255,6 +259,15 @@ export default function ComposeScreen() {
     return targetPlatform && targetValue.trim() ? { [targetPlatform]: targetValue.trim() } : {};
   }
 
+  function platformOptions(): Record<string, Record<string, unknown>> | undefined {
+    if (!aiGenerated) return undefined;
+    const opts: Record<string, Record<string, unknown>> = {};
+    for (const p of selected) {
+      if (AI_DISCLOSURE_PLATFORMS.has(p)) opts[p] = { isAiGenerated: true };
+    }
+    return Object.keys(opts).length ? opts : undefined;
+  }
+
   async function pickMedia() {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -298,7 +311,7 @@ export default function ComposeScreen() {
       }
 
       const willSchedule = !!(scheduleDate.trim() && scheduleTime.trim());
-      const body = { platforms: Array.from(selected), text: text.trim(), teamId: teamId || undefined, mediaUrls: mediaUrls.length ? mediaUrls : undefined, platformTargets: targets() };
+      const body = { platforms: Array.from(selected), text: text.trim(), teamId: teamId || undefined, mediaUrls: mediaUrls.length ? mediaUrls : undefined, platformTargets: targets(), platformOptions: platformOptions() };
 
       if (willSchedule) {
         const scheduledAt = buildScheduledAt();
@@ -325,6 +338,7 @@ export default function ComposeScreen() {
     setSelected(new Set(["bluesky"]));
     setTargetValue("");
     setMedia([]);
+    setAiGenerated(false);
     prefillSchedule(selectedTz);
   }
 
@@ -423,6 +437,15 @@ export default function ComposeScreen() {
             : "No platforms selected"}
         </Text>
 
+        {Array.from(selected).some((p) => AI_DISCLOSURE_PLATFORMS.has(p)) && (
+          <TouchableOpacity style={styles.disclosureRow} onPress={() => setAiGenerated((v) => !v)}>
+            <View style={[styles.disclosureCheck, { borderColor: colors.border }, aiGenerated && { backgroundColor: colors.brand, borderColor: colors.brand }]}>
+              {aiGenerated && <Check size={14} color="#fff" />}
+            </View>
+            <Text style={[styles.disclosureText, { color: colors.textSecondary }]}>Mark content as AI-generated</Text>
+          </TouchableOpacity>
+        )}
+
         {needTarget && (
           <View style={styles.targetRow}>
             <Text style={[styles.label, { color: colors.textMuted }]}>{TARGETS[needTarget].label}</Text>
@@ -518,6 +541,9 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, fontWeight: "500" },
   connectedDot: { width: 7, height: 7, borderRadius: 4 },
   postingTo: { fontSize: 13, marginTop: -8, marginBottom: 16 },
+  disclosureRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
+  disclosureCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  disclosureText: { fontSize: 14, fontWeight: "500" },
   linkWarning: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16 },
   linkWarningText: { fontSize: 13, fontWeight: "500" },
   targetRow: { marginBottom: 16 },

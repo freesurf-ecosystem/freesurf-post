@@ -107,10 +107,11 @@ export const importComments = (platform: string, postId: string) =>
 export const deletePost = (platform: string, postId: string) =>
   api("/api/posts/delete", { method: "POST", body: JSON.stringify({ platform, postId }) });
 
-export function publishPost(opts: { platforms: string[]; text: string; teamId?: string; mediaUrls?: string[]; platformTargets?: PlatformTargets }) {
+export type PlatformOptions = Record<string, Record<string, unknown>>;
+export function publishPost(opts: { platforms: string[]; text: string; teamId?: string; mediaUrls?: string[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
   return api("/api/post", { method: "POST", body: JSON.stringify(opts) });
 }
-export function schedulePost(opts: { platforms: string[]; text: string; scheduledAt: string; teamId?: string; mediaUrls?: string[]; platformTargets?: PlatformTargets }) {
+export function schedulePost(opts: { platforms: string[]; text: string; scheduledAt: string; teamId?: string; mediaUrls?: string[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
   return api("/api/schedule", { method: "POST", body: JSON.stringify(opts) });
 }
 

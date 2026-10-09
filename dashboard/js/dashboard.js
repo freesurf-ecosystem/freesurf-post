@@ -540,7 +540,7 @@ function updatePlatformPreviews() {
 }
 
 // Platforms where we surface compliance toggles (AI disclosure, branded content).
-const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "facebook"]);
+const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "pinterest"]);
 
 function updateDisclosures(platforms) {
   const panel = $("#disclosures-panel");
@@ -2415,7 +2415,7 @@ async function fetchRecentPosts() {
   } catch { /* ignore */ }
 
   const appItems = (app || []).map((p) => ({
-    kind: "app", date: p.postedAt || p.created_at, text: p.text || "",
+    id: p.id, kind: "app", date: p.postedAt || p.created_at, text: p.text || "",
     results: p.results || [], metrics: p.metrics || {},
   }));
 

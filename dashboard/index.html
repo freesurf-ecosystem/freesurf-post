@@ -344,12 +344,12 @@
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title" id="calendar-month">July 2026</h2>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-sm btn-secondary" id="cal-prev" title="Previous month">←</button>
+                <h2 class="card-title" id="calendar-month" style="margin:0;">July 2026</h2>
+                <button class="btn btn-sm btn-secondary" id="cal-next" title="Next month">→</button>
+              </div>
               <p class="card-subtitle" id="calendar-subtitle">Upcoming posts — cancel one before it goes out.</p>
-            </div>
-            <div style="display:flex;gap:8px;">
-              <button class="btn btn-sm btn-secondary" id="cal-prev">←</button>
-              <button class="btn btn-sm btn-secondary" id="cal-next">→</button>
             </div>
           </div>
           <div class="calendar" id="calendar-grid"></div>
