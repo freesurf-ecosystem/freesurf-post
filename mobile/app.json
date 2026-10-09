@@ -4,7 +4,7 @@
     "slug": "freesurf-post-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon-windmill.png",
+    "icon": "./assets/splash-windmill-white.png",
     "userInterfaceStyle": "light",
     "scheme": "freesurf-post",
     "assetBundlePatterns": [
@@ -43,10 +43,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-windmill.png",
+          "image": "./assets/splash-windmill-white.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#fafbfc"
+          "backgroundColor": "#ffffff"
         }
       ]
     ]
