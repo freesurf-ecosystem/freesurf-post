@@ -2359,3 +2359,7 @@ input:-webkit-autofill:focus {
 .store-badge-text { display: flex; flex-direction: column; line-height: 1.15; }
 .store-badge-top { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 .store-badge-bottom { font-size: 14px; font-weight: 600; }
+
+/* -- Onboarding (post-sign-in) -- */
+.onboarding-intro { font-size: 0.875rem; color: var(--text-muted); line-height: 1.55; margin: 4px 0 18px; }
+#btn-onboarding-terms { margin-top: 14px; }
