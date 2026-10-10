@@ -107,7 +107,7 @@ export default function OnboardingScreen({
         </>
       ) : (
         <>
-          <Text style={[styles.intro, { color: colors.textMuted }]}>
+          <Text style={[styles.intro, { color: colors.text }]}>
             Since our tool is free for posting (at cost for the X API), we rely on sign-ups to our FeedFree newsletter (a free newsletter) which curates blog-length social posts covering AI, SEO, social media marketing, open-source projects — from X and LinkedIn (with more channels being added). Instead of scrolling social media for insight all day, you can get links to worthwhile posts in your inbox on a regular basis. Feel free to give it a try — unsubscribe at any time, it is highly appreciated.
           </Text>
           <TouchableOpacity onPress={() => setDigest(!digest)} style={styles.checkRow}>
@@ -122,7 +122,7 @@ export default function OnboardingScreen({
               FreeSurf product updates — occasional news about our other free tools. Unsubscribe any time.
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand }]} onPress={finish} disabled={loading}>
+          <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand, marginTop: 12 }]} onPress={finish} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Finish</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={remindLater} disabled={loading}>
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   inner: { paddingHorizontal: 28, flexGrow: 1, justifyContent: "center" },
   title: { fontSize: 28, fontWeight: "700", textAlign: "center", marginBottom: 6 },
   subtitle: { fontSize: 15, textAlign: "center", marginBottom: 28 },
-  intro: { fontSize: 13, lineHeight: 20, marginBottom: 18 },
+  intro: { fontSize: 15, lineHeight: 22, marginBottom: 18 },
   checkRow: { flexDirection: "row", gap: 10, alignItems: "flex-start", marginBottom: 16 },
   btn: { borderRadius: 10, padding: 15, alignItems: "center", marginBottom: 16 },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
