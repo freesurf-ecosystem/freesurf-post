@@ -2359,3 +2359,5 @@ input:-webkit-autofill:focus {
 .store-badge-text { display: flex; flex-direction: column; line-height: 1.15; }
 .store-badge-top { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 .store-badge-bottom { font-size: 14px; font-weight: 600; }
+.store-badge-soon { opacity: .5; cursor: default; }
+.store-badge-soon:hover { transform: none; opacity: .5; }
