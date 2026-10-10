@@ -400,6 +400,7 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
   transition: all var(--transition);
   text-align: left;
+  text-decoration: none;
 }
 
 .sidebar-nav-item:hover {

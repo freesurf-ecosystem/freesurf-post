@@ -544,6 +544,7 @@ $$(".nav-link").forEach((link) => {
 // ── Sidebar navigation ──
 $$(".sidebar-nav-item").forEach((link) => {
   link.addEventListener("click", () => {
+    if (!link.dataset.view) return; // external links (e.g. Google Play) handle their own navigation
     if (!session && (link.dataset.view === "compose" || link.dataset.view === "accounts")) {
       showView("welcome");
       return;
@@ -2882,6 +2883,7 @@ async function init() {
 $$(".sidebar-nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
     const view = btn.dataset.view;
+    if (!view) return; // external links (e.g. Google Play) handle their own navigation
     switchView(view);
   });
 });
