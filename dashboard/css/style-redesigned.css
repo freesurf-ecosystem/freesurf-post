@@ -2350,3 +2350,12 @@ input:-webkit-autofill:focus {
 /* -- Compose disclosures -- */
 .compose-disclosures { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .compose-disclosures .auth-checkbox { font-size: 0.875rem; }
+
+/* -- App download badges (hero + reusable) -- */
+.app-download { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 20px; }
+.store-badge { display: inline-flex; align-items: center; gap: 10px; background: #000; color: #fff; border: 1px solid #000; border-radius: 10px; padding: 8px 16px; text-decoration: none; transition: transform .12s ease, opacity .12s ease; }
+.store-badge:hover { transform: translateY(-1px); opacity: .88; }
+.store-badge svg { width: 22px; height: 22px; flex: none; }
+.store-badge-text { display: flex; flex-direction: column; line-height: 1.15; }
+.store-badge-top { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+.store-badge-bottom { font-size: 14px; font-weight: 600; }

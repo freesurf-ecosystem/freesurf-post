@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, Linking,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView,
 } from "react-native";
 import { Eye, EyeOff } from "lucide-react-native";
 import * as WebBrowser from "expo-web-browser";
@@ -11,11 +11,6 @@ import { useTheme } from "../lib/theme";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const TERMS_URL = "https://freesurf.tools/terms";
-const PRIVACY_URL = "https://freesurf.tools/privacy";
-const AI_URL = "https://freesurf.tools/ai-processing";
-const DIGEST_URL = "https://feedfree.tech";
-
 export default function AuthScreen() {
   const { colors } = useTheme();
   const [email, setEmail] = useState("");
@@ -23,28 +18,11 @@ export default function AuthScreen() {
   const [confirm, setConfirm] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
-  const [agree, setAgree] = useState(false);
-  const [digest, setDigest] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const link = (url: string, label: string) => (
-    <Text style={{ color: colors.brand, textDecorationLine: "underline" }} onPress={() => Linking.openURL(url)}>{label}</Text>
-  );
-
-  // FeedFree Digest opt-in → invokes the same edge function the web login uses.
-  async function subscribeDigest(address: string) {
-    try {
-      const { error } = await supabase.functions.invoke("feedfree-create-signup", { body: { email: address, topics: [] } });
-      return error ? " Note: we couldn't subscribe you to the FeedFree Digest — join at feedfree.tech." : "";
-    } catch {
-      return " Note: we couldn't subscribe you to the FeedFree Digest — join at feedfree.tech.";
-    }
-  }
-
   async function handleSubmit() {
     if (!email.trim() || !password) return;
-    if (mode === "signup" && !agree) { Alert.alert("Consent required", "Please agree to the Terms and Privacy Policy."); return; }
     if (mode === "signup" && password !== confirm) { Alert.alert("Error", "Passwords don't match."); return; }
     if (mode === "signup" && password.length < 6) { Alert.alert("Error", "Password must be at least 6 characters."); return; }
     setLoading(true);
@@ -55,10 +33,7 @@ export default function AuthScreen() {
       } else {
         const { error } = await supabase.auth.signUp({ email: email.trim(), password });
         if (error) Alert.alert("Error", error.message);
-        else {
-          const note = digest ? await subscribeDigest(email.trim()) : "";
-          Alert.alert("Check your email", "Confirm your email to finish creating your account." + note);
-        }
+        else Alert.alert("Check your email", "Confirm your email to finish creating your account.");
       }
     } finally {
       setLoading(false);
@@ -66,7 +41,6 @@ export default function AuthScreen() {
   }
 
   async function oauth(provider: "google" | "apple") {
-    if (mode === "signup" && !agree) { Alert.alert("Consent required", "Please agree to the Terms and Privacy Policy."); return; }
     setLoading(true);
     try {
       const redirectTo = AuthSession.makeRedirectUri();
@@ -108,13 +82,6 @@ export default function AuthScreen() {
         } catch (ex: any) {
           console.log("[Auth] setSession/exchange threw", ex?.message || ex);
           Alert.alert("Error", ex?.message || "Sign-in failed.");
-        }
-        if (digest) {
-          try {
-            const { data: sessData } = await supabase.auth.getSession();
-            const addr = sessData.session?.user?.email;
-            if (addr) await subscribeDigest(addr);
-          } catch { /* non-critical */ }
         }
       } else if (result.type === "dismiss") {
         Alert.alert("Canceled", "Sign-in was canceled.");
@@ -167,23 +134,6 @@ export default function AuthScreen() {
               {showConfirm ? <EyeOff size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
             </TouchableOpacity>
           </View>
-        )}
-
-        {mode === "signup" && (
-          <>
-            <TouchableOpacity onPress={() => setAgree(!agree)} style={styles.checkRow}>
-              <Text style={{ color: colors.brand, fontWeight: "700", fontSize: 18 }}>{agree ? "☑" : "☐"}</Text>
-              <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
-                I agree to the {link(TERMS_URL, "Terms")}, {link(PRIVACY_URL, "Privacy Policy")}, and {link(AI_URL, "AI Processing")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setDigest(!digest)} style={styles.checkRow}>
-              <Text style={{ color: colors.textMuted, fontWeight: "700", fontSize: 18 }}>{digest ? "☑" : "☐"}</Text>
-              <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
-                Subscribe to the {link(DIGEST_URL, "FeedFree Digest")} — Curated blog-length social posts covering AI, SEO, social media marketing and more - from X and LinkedIn
-              </Text>
-            </TouchableOpacity>
-          </>
         )}
 
         <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand }]} onPress={handleSubmit} disabled={loading}>

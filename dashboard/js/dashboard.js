@@ -43,6 +43,11 @@ let composeAccounts = [];   // accounts for the team selected in the compose dro
 let postHistory = [];
 let scheduledPosts = [];
 let currentView = "compose";
+// Onboarding (post-sign-in): terms/privacy acceptance + the two marketing
+// opt-ins. Anyone missing any of the three is asked again on their next login.
+const TERMS_VERSION = "2026.09.17";
+let onboarding = { terms: false, digest: false, updates: false };
+let onboardingDismissed = false; // "Remind me later" — lets them in for this session
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 let calSelected = null;
@@ -118,6 +123,7 @@ async function refreshAuth() {
     const { data } = await supabase.auth.getSession();
     session = data.session;
   } catch { session = null; }
+  await loadOnboardingState();
   await fetchProfiles();
   await fetchTeams();
   renderAuthUI();
@@ -164,13 +170,14 @@ function renderAuthUI() {
   $("#btn-sign-in").classList.toggle("hidden", signedIn);
   $("#btn-sign-out").classList.toggle("hidden", !signedIn);
 
-  // Hide sidebar on landing page, show after sign-in
+  // Hide sidebar/menu on the landing page AND during (blocking) onboarding
+  const inOnboarding = signedIn && needsOnboarding();
   const sidebar = $("#sidebar");
-  if (sidebar) sidebar.classList.toggle("hidden", !signedIn);
+  if (sidebar) sidebar.classList.toggle("hidden", !signedIn || inOnboarding);
 
   // Hide the hamburger menu on the landing page (it only makes sense when signed in)
   const menuBtn = $("#mobile-menu-btn");
-  if (menuBtn) menuBtn.classList.toggle("hidden", !signedIn);
+  if (menuBtn) menuBtn.classList.toggle("hidden", !signedIn || inOnboarding);
 
   // Show/hide nav items based on auth
   const topbarNav = $("#topbar-nav");
@@ -182,10 +189,12 @@ function renderAuthUI() {
     });
   }
 
-  // Switch between welcome and compose
+  // Switch between welcome, onboarding and the signed-in app
   if (!signedIn) {
     showView("welcome");
-  } else if (currentView === "welcome" || currentView === "auth") {
+  } else if (needsOnboarding()) {
+    showView("onboarding");
+  } else if (currentView === "welcome" || currentView === "auth" || currentView === "onboarding") {
     showView("compose");
   } else {
     showView(currentView);
@@ -197,6 +206,8 @@ $("#btn-sign-out").addEventListener("click", async () => {
   await supabase.auth.signOut();
   await clearSharedSession();
   session = null;
+  onboarding = { terms: false, digest: false, updates: false };
+  onboardingDismissed = false;
   connectedProfiles = [];
   renderAuthUI();
   renderPlatformChips();
@@ -211,9 +222,6 @@ function showAuth() {
   $("#auth-email").value = "";
   $("#auth-password").value = "";
   $("#auth-confirm").value = "";
-  $("#auth-terms").checked = false;
-  $("#auth-newsletter").checked = false;
-  $("#auth-ecosystem").checked = false;
   const errEl = $("#auth-error");
   errEl.className = "feedback";
   errEl.textContent = "";
@@ -233,7 +241,6 @@ function setAuthMode(mode) {
   $("#auth-subtitle").textContent =
     mode === "signin" ? "Sign in to start cross-posting." : "Create a free account to get started.";
   $("#auth-confirm-group").classList.toggle("hidden", mode === "signin");
-  $("#auth-extra-group").classList.toggle("hidden", mode === "signin");
   $("#btn-auth-submit").textContent = mode === "signin" ? "Sign in" : "Create account";
   $("#btn-auth-toggle").textContent =
     mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in";
@@ -292,11 +299,6 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       errEl.textContent = "Passwords don't match.";
       return;
     }
-    if (!$("#auth-terms").checked) {
-      errEl.className = "feedback error visible";
-      errEl.textContent = "Please agree to the Terms and Privacy Policy.";
-      return;
-    }
   }
 
   const btn = $("#btn-auth-submit");
@@ -313,68 +315,16 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       const { data: signUpData, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
 
-      // Record the shared ecosystem terms agreement in public.consents.
-      //
-      // Post requires login, so this always runs against a real auth user.
-      // `signUpData.user.id` is the auth UID and is present whether or not email
-      // confirmation is enabled (confirmation withholds the session, not the
-      // user record). The RLS policy on consents checks auth.uid() = user_id, so
-      // we must use the real UID - an invented id could never satisfy it.
-      //
-      // NOTE: the previous version omitted user_id entirely (NOT NULL, so every
-      // insert was rejected) and used a trailing .catch(), which never fires
-      // because Supabase resolves with { error } rather than rejecting.
-      if ($("#auth-terms").checked) {
-        const userId = signUpData?.user?.id;
-        if (!userId) {
-          console.error("[post] no auth user id after signUp - skipping terms consent");
-        } else {
-          const { error: consentError } = await supabase.from("consents").insert({
-            user_id: userId,
-            type: "terms",
-            version: "2026.09.17",
-            context: "post_signup",
-          });
-          if (consentError) {
-            console.error("[post] terms consent insert failed:", consentError.message);
-          }
-        }
-      }
-
-      // Record the FreeSurf product-updates opt-in (single opt-in, no
-      // confirmation email). A duplicate is a no-op: the unique constraint on
-      // (email, list) means they are already subscribed.
-      if ($("#auth-ecosystem").checked) {
-        const { error: subError } = await supabase.from("update_subscriptions").insert({
-          email: email.trim().toLowerCase(),
-          list: "ecosystem_updates",
-          source: "post_signup",
-        });
-        if (subError && subError.code !== "23505") {
-          console.error("[post] ecosystem subscription insert failed:", subError.message);
-        }
-      }
-
-      let digestNote = "";
-      if ($("#auth-newsletter").checked) {
-        try {
-          const { data: digestData, error: digestError } = await supabase.functions.invoke("feedfree-create-signup", {
-            body: { email, topics: [] },
-          });
-          if (digestError || digestData?.ok === false) {
-            digestNote = " Note: we couldn't subscribe you to the FeedFree Digest — you can join at feedfree.tech.";
-          }
-        } catch {
-          digestNote = " Note: we couldn't subscribe you to the FeedFree Digest — you can join at feedfree.tech.";
-        }
-      }
-
+      // Terms consent and the marketing opt-ins (FeedFree Digest, FreeSurf
+      // product updates) are NOT collected here anymore. They are asked in the
+      // post-sign-in onboarding flow, so they are also shown to social-login
+      // users. See renderOnboarding() / loadOnboardingState() below.
       if (signUpData?.session) {
         // Email confirmation is disabled — sign the user straight in.
         await refreshAuth();
       } else {
         // Email confirmation still enabled — show the verify state as a fallback.
-        $("#auth-verify-text").textContent = "Check your email to verify your address and get started." + digestNote;
+        $("#auth-verify-text").textContent = "Check your email to verify your address and get started.";
         showAuthVerify();
       }
       return;
@@ -386,6 +336,138 @@ $("#btn-auth-submit").addEventListener("click", async () => {
     btn.disabled = false;
     btn.textContent = authMode === "signin" ? "Sign in" : "Create account";
   }
+});
+
+// ── Onboarding (post-sign-in: Terms & Privacy + the two marketing opt-ins) ──
+
+function onboardingComplete() {
+  return onboarding.terms && onboarding.digest && onboarding.updates;
+}
+
+function needsOnboarding() {
+  if (!session?.user) return false;
+  if (!onboarding.terms) return true;        // Terms are blocking
+  if (onboardingDismissed) return false;     // opt-ins deferred for this session
+  return !(onboarding.digest && onboarding.updates);
+}
+
+async function loadOnboardingState() {
+  onboarding = { terms: false, digest: false, updates: false };
+  onboardingDismissed = false;
+  if (!session?.user) return;
+  try {
+    const supabase = await initSupabase();
+    const { data, error } = await supabase
+      .from("consents")
+      .select("type")
+      .eq("user_id", session.user.id);
+    if (error) { console.error("[post] onboarding state load failed:", error.message); return; }
+    for (const row of data || []) {
+      if (row.type === "terms") onboarding.terms = true;
+      else if (row.type === "onboarding_digest") onboarding.digest = true;
+      else if (row.type === "onboarding_updates") onboarding.updates = true;
+    }
+  } catch (e) {
+    console.error("[post] onboarding state load threw:", e?.message || e);
+  }
+}
+
+function renderOnboarding() {
+  const termsDone = onboarding.terms;
+  const errEl = $("#onboarding-error");
+  if (errEl) { errEl.className = "feedback"; errEl.textContent = ""; }
+  $("#onboarding-title").textContent = termsDone ? "Almost there" : "Welcome to FreeSurf";
+  $("#onboarding-subtitle").textContent = termsDone ? "Step 2 of 2" : "Step 1 of 2";
+  $("#onboarding-step-1").classList.toggle("hidden", termsDone);
+  $("#onboarding-step-2").classList.toggle("hidden", !termsDone);
+  const termsBox = $("#onboarding-terms");
+  if (termsBox) termsBox.checked = false;
+  const btn = $("#btn-onboarding-terms");
+  if (btn) { btn.disabled = true; btn.textContent = "Accept & continue"; }
+}
+
+async function recordConsent(type, version) {
+  const supabase = await initSupabase();
+  const { error } = await supabase.from("consents").insert({
+    user_id: session.user.id,
+    type,
+    version,
+  });
+  if (error) throw error;
+}
+
+async function acceptTerms() {
+  const btn = $("#btn-onboarding-terms");
+  const errEl = $("#onboarding-error");
+  btn.disabled = true;
+  btn.textContent = "Please wait…";
+  try {
+    await recordConsent("terms", TERMS_VERSION);
+    onboarding.terms = true;
+    renderOnboarding();
+  } catch (e) {
+    errEl.className = "feedback error visible";
+    errEl.textContent = e?.message || "Could not save your agreement. Please try again.";
+  } finally {
+    btn.textContent = "Accept & continue";
+    btn.disabled = !$("#onboarding-terms").checked;
+  }
+}
+
+async function finishOnboarding() {
+  const btn = $("#btn-onboarding-finish");
+  const errEl = $("#onboarding-error");
+  const wantsDigest = $("#onboarding-digest").checked;
+  const wantsUpdates = $("#onboarding-updates").checked;
+  const email = (session.user.email || "").trim().toLowerCase();
+  btn.disabled = true;
+  btn.textContent = "Please wait…";
+  try {
+    // Record the decision for BOTH opt-ins (accept or decline) so we don't ask again.
+    await recordConsent("onboarding_digest", wantsDigest ? "accepted" : "declined");
+    await recordConsent("onboarding_updates", wantsUpdates ? "accepted" : "declined");
+
+    if (wantsUpdates && email) {
+      const supabase = await initSupabase();
+      const { error } = await supabase.from("update_subscriptions").insert({
+        email, list: "ecosystem_updates", source: "post_onboarding",
+      });
+      if (error && error.code !== "23505") {
+        console.error("[post] ecosystem subscription insert failed:", error.message);
+      }
+    }
+    if (wantsDigest && email) {
+      try {
+        const supabase = await initSupabase();
+        const { data, error } = await supabase.functions.invoke("feedfree-create-signup", {
+          body: { email, topics: [] },
+        });
+        if (error || data?.ok === false) console.warn("[post] FeedFree Digest signup failed");
+      } catch (e) {
+        console.warn("[post] FeedFree Digest signup threw:", e?.message || e);
+      }
+    }
+
+    onboarding.digest = true;
+    onboarding.updates = true;
+    showView("compose");
+  } catch (e) {
+    errEl.className = "feedback error visible";
+    errEl.textContent = e?.message || "Could not save your preferences. Please try again.";
+    btn.disabled = false;
+    btn.textContent = "Finish";
+  }
+}
+
+$("#onboarding-terms")?.addEventListener("change", (e) => {
+  const btn = $("#btn-onboarding-terms");
+  if (btn) btn.disabled = !e.target.checked;
+});
+$("#btn-onboarding-terms")?.addEventListener("click", acceptTerms);
+$("#btn-onboarding-finish")?.addEventListener("click", finishOnboarding);
+$("#btn-onboarding-later")?.addEventListener("click", () => {
+  onboardingDismissed = true;
+  showView("compose");
 });
 
 // ── Mobile Menu & Sidebar ──
@@ -425,10 +507,16 @@ $$(".sidebar-nav-item").forEach((link) => {
 // ── Navigation ──
 
 function showView(name) {
+  // Onboarding is blocking until Terms are accepted, and keeps re-appearing on
+  // login until the two opt-ins are answered or deferred. Redirect any normal
+  // view here while it is still required.
+  if (session && needsOnboarding() && name !== "onboarding") name = "onboarding";
   currentView = name;
   $$(".view").forEach((v) => v.classList.add("hidden"));
   const target = $(`#view-${name}`);
   if (target) target.classList.remove("hidden");
+
+  if (name === "onboarding") renderOnboarding();
 
   // Update top nav
   $$(".nav-link").forEach((l) => l.classList.toggle("nav-link-active", l.dataset.view === name));
