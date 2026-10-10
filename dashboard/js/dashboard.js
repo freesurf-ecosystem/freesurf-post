@@ -450,7 +450,7 @@ async function finishOnboarding() {
 
     onboarding.digest = true;
     onboarding.updates = true;
-    showView("compose");
+    renderAuthUI();
   } catch (e) {
     errEl.className = "feedback error visible";
     errEl.textContent = e?.message || "Could not save your preferences. Please try again.";
@@ -467,7 +467,7 @@ $("#btn-onboarding-terms")?.addEventListener("click", acceptTerms);
 $("#btn-onboarding-finish")?.addEventListener("click", finishOnboarding);
 $("#btn-onboarding-later")?.addEventListener("click", () => {
   onboardingDismissed = true;
-  showView("compose");
+  renderAuthUI();
 });
 
 // ── Mobile Menu & Sidebar ──
