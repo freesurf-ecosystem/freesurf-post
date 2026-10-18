@@ -558,17 +558,32 @@ $$(".sidebar-nav-item").forEach((link) => {
 // Platforms that are on the roadmap but not ready — shown as "In progress".
 const IN_PROGRESS_PLATFORMS = new Set(["reddit", "google_business"]);
 
+// For page-based platforms (Facebook/LinkedIn/YouTube), show the human page
+// name chosen in Accounts instead of the raw account id/handle.
+function composeAccountLabel(platform, acc) {
+  if (!acc) return "";
+  if (CHANNEL_PLATFORMS.has(platform)) {
+    const channels = acc.channels || [];
+    const channel = channels.find(
+      (c) => c.id === acc.selectedChannelId || c.externalId === acc.selectedChannelId
+    );
+    if (channel?.name) return channel.name;
+    if (channels.length && !acc.selectedChannelId) return "Select page";
+  }
+  return acc.handle ? `@${acc.handle}` : (acc.label || "");
+}
+
 function renderPlatformChips() {
   const container = $("#platform-toggles");
   container.innerHTML = PLATFORMS.map((p) => {
     const acc = composeAccounts.find((a) => a.platform === p.key);
-    const handle = acc?.handle;
+    const label = composeAccountLabel(p.key, acc);
     const inProgress = IN_PROGRESS_PLATFORMS.has(p.key);
     const connected = Boolean(acc);
     const disabled = inProgress || !connected;
     const title = inProgress ? "In progress" : (!connected ? "Connect this account first" : "");
-    return `<label class="platform-chip${handle ? " connected" : ""}${disabled ? " disabled" : ""}" data-platform="${p.key}" title="${title}">
-      ${handle ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " · soon" : ""}${handle ? ` @${handle}` : ""}
+    return `<label class="platform-chip${connected ? " connected" : ""}${disabled ? " disabled" : ""}" data-platform="${p.key}" title="${title}">
+      ${connected ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " · soon" : ""}${label ? ` ${label}` : ""}
       <input type="checkbox" />
     </label>`;
   }).join("");

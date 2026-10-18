@@ -237,7 +237,9 @@ export default function ComposeScreen() {
     // For page-based platforms (Facebook/LinkedIn/YouTube) show the human page
     // name chosen in Accounts instead of the raw account id/handle.
     if (CHANNEL_PLATFORMS.has(key)) {
-      const ch = (acc.channels || []).find((c: any) => c.id === acc.selectedChannelId);
+      const ch = (acc.channels || []).find(
+        (c: any) => c.id === acc.selectedChannelId || c.externalId === acc.selectedChannelId
+      );
       if (ch?.name) return ch.name;
     }
     return acc.handle ? `@${acc.handle}` : (acc.label || "");

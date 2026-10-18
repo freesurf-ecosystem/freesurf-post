@@ -835,6 +835,7 @@ async function handleBundleAccounts(
       connected: true,
       channels: (Array.isArray(a.channels) ? a.channels : []).map((c: any) => ({
         id: c.id || "",
+        externalId: c.externalId || c.id || "",
         name: c.name || c.username || c.id || "",
       })),
       selectedChannelId: a.externalId || "",

@@ -672,6 +672,7 @@ a:hover { text-decoration: underline; }
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  margin-top: 28px;
 }
 
 .hero-platform-label {
