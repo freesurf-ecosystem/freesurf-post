@@ -16,7 +16,7 @@ const PLATFORMS = [
   { key: "facebook",  name: "Facebook",   oauth: true },
   { key: "instagram", name: "Instagram",  oauth: true, requiresMedia: "media" },
   { key: "threads",   name: "Threads",    oauth: true },
-  { key: "tiktok",    name: "TikTok",     oauth: true, requiresMedia: "video" },
+  { key: "tiktok",    name: "TikTok",     oauth: true, requiresMedia: "media" },
   { key: "youtube",   name: "YouTube",    oauth: true, requiresMedia: "video" },
   { key: "reddit",    name: "Reddit",     oauth: true },
   { key: "pinterest", name: "Pinterest",  oauth: true },
@@ -705,14 +705,14 @@ textarea.addEventListener("input", () => {
   charCount.className = "char-count";
   if (len > CHAR_HARD_LIMIT) charCount.classList.add("danger");
   else if (len > CHAR_SOFT_LIMIT) charCount.classList.add("warning");
-  btnPost.disabled = len === 0 || len > CHAR_HARD_LIMIT;
+  updatePostButtonState();
   updatePlatformPreviews();
   updateLinkWarning(textarea.value);
 });
 
 btnPost.addEventListener("click", async () => {
   const text = textarea.value.trim();
-  if (!text) return;
+  if (!text && uploadedMedia.length === 0) return;
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
@@ -759,10 +759,11 @@ btnPost.addEventListener("click", async () => {
       uploadIds.push(upData.uploadId);
     }
 
+    const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined }));
     const res = await apiFetch(`/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
+      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
     });
     const data = await res.json();
 
@@ -803,7 +804,7 @@ btnPost.addEventListener("click", async () => {
 
 $("#btn-schedule-compose")?.addEventListener("click", async () => {
   const text = textarea.value.trim();
-  if (!text) { showFeedback("Write something first.", "error"); return; }
+  if (!text && uploadedMedia.length === 0) { showFeedback("Write something or attach media first.", "error"); return; }
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
@@ -850,10 +851,11 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
       uploadIds.push(upData.uploadId);
     }
 
+    const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined }));
     const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, mediaUrls: uploadIds.length ? uploadIds : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
+      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
     });
     if (res.ok) {
       showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
@@ -1707,6 +1709,56 @@ if (mediaDropzone && mediaInput) {
   });
 }
 
+const TEXT_REQUIRED_PLATFORMS = {
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  reddit: "Reddit",
+  google_business: "Google Business",
+};
+
+function computeMediaWarnings(platforms) {
+  const warnings = [];
+  const count = uploadedMedia.length;
+  const videos = uploadedMedia.filter((m) => m.type === "video").length;
+  const images = count - videos;
+  const has = (key) => platforms.includes(key);
+
+  if (count) {
+    const imageOnlyName = has("x") && has("bluesky") ? "X and Bluesky" : has("x") ? "X" : has("bluesky") ? "Bluesky" : "";
+    if (imageOnlyName && count > 4) warnings.push(`${imageOnlyName} support up to 4 images (or one video) — ${count} attached.`);
+    else if (imageOnlyName && videos > 1) warnings.push(`${imageOnlyName} support one video (or up to 4 images) — ${videos} videos attached.`);
+
+    if (has("instagram") && count > 10) warnings.push("Instagram supports up to 10 carousel items.");
+    if (has("tiktok")) {
+      if (count > 10) warnings.push("TikTok supports up to 10 photos.");
+      if (videos > 1) warnings.push("TikTok supports one video or up to 10 photos.");
+      if (images > 0 && videos > 0) warnings.push("TikTok photo posts can't mix images and video.");
+      if (videos === 0) {
+        const bad = uploadedMedia.find((m) => m.type === "image" && m.file?.type && !/^image\/(jpe?g|webp)$/i.test(m.file.type));
+        if (bad) warnings.push("TikTok photo posts require JPG, JPEG, or WebP — convert PNG/HEIC images first.");
+      }
+    }
+    if (has("facebook")) {
+      if (count > 10) warnings.push("Facebook supports up to 10 images in a multi-photo post.");
+      if (videos > 1) warnings.push("Facebook supports one video or up to 10 images.");
+      if (images > 0 && videos > 0) warnings.push("Facebook can't mix images and video in one post.");
+    }
+    if (has("threads")) {
+      if (count > 10) warnings.push("Threads supports up to 10 images (or one video).");
+      if (videos > 1) warnings.push("Threads supports one video or up to 10 images.");
+      if (images > 0 && videos > 0) warnings.push("Threads can't mix images and video in one post.");
+    }
+    if (has("pinterest") && count > 1) warnings.push("Pinterest supports one image or video per pin.");
+    if (has("youtube") && count > 1) warnings.push("YouTube supports one video per upload.");
+  }
+
+  if (!textarea?.value.trim()) {
+    const textRequired = platforms.map((p) => TEXT_REQUIRED_PLATFORMS[p]).filter(Boolean);
+    if (textRequired.length) warnings.push(`${textRequired.join(", ")} require text — add a caption.`);
+  }
+  return warnings;
+}
+
 function updateComposeWarnings() {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const textLen = textarea ? textarea.value.length : 0;
@@ -1716,6 +1768,12 @@ function updateComposeWarnings() {
   if (ig) {
     const tallVideo = uploadedMedia.some((m) => m.type === "video" && m.width && m.height && (m.width / m.height) < 4 / 5);
     ig.classList.toggle("hidden", !(platforms.includes("instagram") && tallVideo));
+  }
+  const mediaWarning = $("#media-warning");
+  if (mediaWarning) {
+    const warnings = computeMediaWarnings(platforms);
+    mediaWarning.textContent = warnings.join(" ");
+    mediaWarning.classList.toggle("hidden", warnings.length === 0);
   }
 }
 
@@ -1743,12 +1801,27 @@ function handleMediaUpload(files) {
   });
   renderMediaPreview();
   updateComposeWarnings();
+  updatePostButtonState();
+}
+
+function moveMedia(index, dir) {
+  const target = index + dir;
+  if (target < 0 || target >= uploadedMedia.length) return;
+  [uploadedMedia[index], uploadedMedia[target]] = [uploadedMedia[target], uploadedMedia[index]];
+  renderMediaPreview();
+}
+
+function updatePostButtonState() {
+  if (!btnPost) return;
+  const len = textarea?.value.length || 0;
+  btnPost.disabled = (len === 0 && uploadedMedia.length === 0) || len > CHAR_HARD_LIMIT;
 }
 
 function renderMediaPreview() {
   if (uploadedMedia.length === 0) {
     mediaPreview.style.display = "none";
     mediaDropzone.style.display = "flex";
+    updatePostButtonState();
     return;
   }
   
@@ -1760,7 +1833,12 @@ function renderMediaPreview() {
       ${media.type === "image" 
         ? `<img src="${media.url}" alt="Uploaded media" />`
         : `<video src="${media.url}" muted preload="metadata"></video>`}
-      <button class="media-preview-remove" data-index="${index}">×</button>
+      ${uploadedMedia.length > 1 ? `
+        <div class="media-preview-moves">
+          <button class="media-preview-move" data-move-index="${index}" data-move-dir="-1" title="Move left" ${index === 0 ? "disabled" : ""}>‹</button>
+          <button class="media-preview-move" data-move-index="${index}" data-move-dir="1" title="Move right" ${index === uploadedMedia.length - 1 ? "disabled" : ""}>›</button>
+        </div>` : ""}
+      <button class="media-preview-remove" data-index="${index}" title="Remove">×</button>
     </div>
   `).join("");
   
@@ -1770,6 +1848,13 @@ function renderMediaPreview() {
       uploadedMedia.splice(index, 1);
       renderMediaPreview();
       updateComposeWarnings();
+    });
+  });
+
+  mediaPreview.querySelectorAll(".media-preview-move").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const el = e.currentTarget;
+      moveMedia(parseInt(el.dataset.moveIndex), parseInt(el.dataset.moveDir));
     });
   });
 }

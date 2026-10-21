@@ -1,5 +1,5 @@
 import { validateSupabaseJWT } from "./auth";
-import type { PostRequest, PostResponse, PlatformPostResult, Platform } from "./types";
+import type { PostRequest, PostResponse, PlatformPostResult, Platform, MediaRef } from "./types";
 import { postToBluesky, getBlueskyMetrics } from "./platforms/bluesky";
 import { postToLinkedIn, getLinkedInMetrics } from "./platforms/linkedin";
 import { postToFacebook, getFacebookMetrics } from "./platforms/facebook";
@@ -104,6 +104,95 @@ function generateApiKey(): string {
 function detectHasLink(text: string): boolean {
   if (!text) return false;
   return /(https?:\/\/\S+|www\.\S+|\w+\.\w+)/i.test(text);
+}
+
+/**
+ * Normalize the client's media payload. New clients send `media` (upload id +
+ * kind/mime); older clients only send `mediaUrls` (upload ids).
+ */
+function normalizeMediaRefs(mediaUrls?: string[], media?: MediaRef[]): MediaRef[] {
+  if (Array.isArray(media) && media.length) {
+    return media
+      .map((m) => {
+        const ref: MediaRef = { uploadId: String(m?.uploadId || "").trim() };
+        if (m?.kind === "image" || m?.kind === "video") ref.kind = m.kind;
+        if (m?.mime) ref.mime = m.mime;
+        if (m?.altText) ref.altText = m.altText;
+        return ref;
+      })
+      .filter((m) => m.uploadId);
+  }
+  return (mediaUrls || []).map((uploadId) => ({ uploadId })).filter((m) => m.uploadId);
+}
+
+function mediaKind(m: MediaRef): "image" | "video" | "unknown" {
+  if (m.kind === "image" || m.kind === "video") return m.kind;
+  const mime = (m.mime || "").toLowerCase();
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("image/")) return "image";
+  return "unknown";
+}
+
+const TIKTOK_PHOTO_MIME_RE = /^image\/(jpe?g|webp)$/i;
+
+/** Platforms where the caption field is actually required content (not optional). */
+const TEXT_REQUIRED_PLATFORMS: Partial<Record<Platform, string>> = {
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  reddit: "Reddit",
+  google_business: "Google Business",
+};
+
+/**
+ * Per-platform media validation. Returns a user-facing error, or null when the
+ * media set is acceptable. Caps mirror Bundle's documented limits.
+ */
+function validateMediaForPlatform(platform: Platform, media: MediaRef[]): string | null {
+  if (!media.length) return null;
+  const kinds = media.map(mediaKind);
+  const images = kinds.filter((k) => k === "image").length;
+  const videos = kinds.filter((k) => k === "video").length;
+
+  switch (platform) {
+    case "instagram":
+      // Instagram feed carousels accept 1-10 images/videos (mixed is allowed).
+      if (media.length > 10) return "Instagram supports up to 10 carousel items.";
+      return null;
+    case "tiktok":
+      if (media.length > 10) return "TikTok supports up to 10 photos.";
+      if (videos > 1) return "TikTok supports one video or up to 10 photos.";
+      if (images > 0 && videos > 0) return "TikTok photo posts can't mix images and video.";
+      if (videos === 0) {
+        const bad = media.find((m) => m.mime && !TIKTOK_PHOTO_MIME_RE.test(m.mime));
+        if (bad) return "TikTok photo posts require JPG, JPEG, or WebP images.";
+      }
+      return null;
+    case "facebook":
+      if (media.length > 10) return "Facebook supports up to 10 images in a multi-photo post.";
+      if (videos > 1) return "Facebook supports one video or up to 10 images.";
+      if (images > 0 && videos > 0) return "Facebook can't mix images and video in one post.";
+      return null;
+    case "x":
+    case "bluesky": {
+      const name = platform === "x" ? "X" : "Bluesky";
+      if (media.length > 4) return `${name} supports up to 4 images (or one video).`;
+      if (videos > 1) return `${name} supports one video or up to 4 images.`;
+      return null;
+    }
+    case "threads":
+      if (media.length > 10) return "Threads supports up to 10 images (or one video).";
+      if (videos > 1) return "Threads supports one video or up to 10 images.";
+      if (images > 0 && videos > 0) return "Threads can't mix images and video in one post.";
+      return null;
+    case "pinterest":
+      if (media.length > 1) return "Pinterest supports one image or video per pin.";
+      return null;
+    case "youtube":
+      if (media.length > 1) return "YouTube supports one video per upload.";
+      return null;
+    default:
+      return null;
+  }
 }
 
 /**
@@ -2034,8 +2123,13 @@ async function handlePost(
   if (!body.platforms?.length) {
     return errorResponse("At least one platform is required", 400, origin);
   }
-  if (!body.text?.trim()) {
-    return errorResponse("Text content is required", 400, origin);
+
+  const text = body.text?.trim() || "";
+  const media = normalizeMediaRefs(body.mediaUrls, body.media);
+  const mediaIds = media.map((m) => m.uploadId);
+
+  if (!text && !media.length) {
+    return errorResponse("Text or media content is required", 400, origin);
   }
   if (!body.teamId && !body.team) {
     return errorResponse("teamId or team is required — add a team in the Accounts tab", 400, origin);
@@ -2090,11 +2184,17 @@ async function handlePost(
 
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {
+      const mediaError = validateMediaForPlatform(platform, media);
+      if (mediaError) return { platform, success: false, error: mediaError };
+      if (!text && TEXT_REQUIRED_PLATFORMS[platform]) {
+        return { platform, success: false, error: `${TEXT_REQUIRED_PLATFORMS[platform]} requires text content.` };
+      }
+
       // Pre-flight: X posts cost real money. Check the user's own credit balance
       // against Bundle's quoted fee BEFORE sending, so we never push them negative
       // (other platforms are unaffected).
       if (platform === "x" && bundleConfigured && bundleTeamId) {
-        const q = await quoteXFee(bundleTeamId, body.text, env);
+        const q = await quoteXFee(bundleTeamId, text, env);
         if (q && q.micros > 0) {
           const bal = await getUserBalanceMicros(user.sub, env);
           if (bal < q.micros) {
@@ -2111,11 +2211,15 @@ async function handlePost(
       // configured. A stale direct app-password token must not hijack posting
       // and fail with a confusing 401. The direct adapter only applies when
       // Bundle isn't set up at all.
+      // Direct adapters currently publish one media item (except X, which will
+      // get multi-image support with the X migration). Carousels/multi-photo go
+      // through Bundle so every slide is included.
+      const directSupportsMedia = media.length <= 1;
       const preferDirect =
-        !bundleConfigured || (platform === "bluesky" ? false : hasDirectCreds(platform, env, userTokens));
+        !bundleConfigured || (platform === "bluesky" ? false : hasDirectCreds(platform, env, userTokens) && directSupportsMedia);
 
       if (preferDirect) {
-        return { ...(await postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens)), via: "direct" as const };
+        return { ...(await postToPlatform(platform, text, env, mediaIds, body.replyTo, userTokens)), via: "direct" as const };
       }
 
       if (!bundleTeamId) {
@@ -2126,14 +2230,14 @@ async function handlePost(
         };
       }
 
-      const providerResult = await postViaProvider(platform, body.text, env, body.mediaUrls, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles, body.platformOptions);
+      const providerResult = await postViaProvider(platform, text, env, media, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles, body.platformOptions);
       if (providerResult.success) return { ...providerResult, via: "bundle" as const };
 
       // Only fall back to a direct adapter when one is actually configured;
       // otherwise surface the real Bundle error instead of a misleading
       // "X not connected". (Bluesky skips this fallback when Bundle is set up.)
-      if (platform !== "bluesky" && hasDirectCreds(platform, env, userTokens)) {
-        return { ...(await postToPlatform(platform, body.text, env, body.mediaUrls, body.replyTo, userTokens)), via: "direct" as const };
+      if (platform !== "bluesky" && directSupportsMedia && hasDirectCreds(platform, env, userTokens)) {
+        return { ...(await postToPlatform(platform, text, env, mediaIds, body.replyTo, userTokens)), via: "direct" as const };
       }
       return { ...providerResult, via: "bundle" as const };
     })
@@ -2160,13 +2264,13 @@ async function handlePost(
   }
 
   const postId = crypto.randomUUID();
-  await persistPostHistory(env, user.sub, postId, body.text, body.mediaUrls, results);
+  await persistPostHistory(env, user.sub, postId, text, mediaIds, results);
 
   // Record X metered fee (best-effort) for successful X posts. Bundle's quote is
   // authoritative; our has_link heuristic remains in the ledger for auditing.
   if (results.some((r) => r.platform === "x" && r.success)) {
-    const q = bundleTeamId ? await quoteXFee(bundleTeamId, body.text, env) : null;
-    await recordXFee(user.sub, postId, detectHasLink(body.text), env, q?.micros, q ? (q.withUrl ? "WITH_URL" : "CREATE") : undefined);
+    const q = bundleTeamId ? await quoteXFee(bundleTeamId, text, env) : null;
+    await recordXFee(user.sub, postId, detectHasLink(text), env, q?.micros, q ? (q.withUrl ? "WITH_URL" : "CREATE") : undefined);
   }
 
   const response: PostResponse = {
@@ -2307,7 +2411,7 @@ async function postViaProvider(
   platform: Platform,
   text: string,
   env: Env,
-  mediaUrls: string[] | undefined,
+  media: MediaRef[],
   teamId: string,
   instagramImageFit?: "fit" | "crop",
   platformTargets?: Record<string, string>,
@@ -2328,19 +2432,48 @@ async function postViaProvider(
   };
   const bsPlatform = platformMap[platform] || platform.toUpperCase();
 
-  // Instagram feed image posts: auto-fit (pad) or auto-crop so images outside
-  // Instagram's 4:5–1.91:1 range still publish. Defaults to "fit" (no pixel loss).
+  const uploadIds = media.map((m) => m.uploadId);
+  const kinds = media.map(mediaKind);
+
   let platformData: Record<string, any> = {
     text,
-    ...(mediaUrls?.length ? { uploadIds: mediaUrls } : {}),
+    ...(uploadIds.length ? { uploadIds } : {}),
   };
-  if (platform === "instagram" && mediaUrls?.length) {
-    const fit = instagramImageFit ?? "fit";
-    platformData = {
-      ...platformData,
-      autoFitImage: fit === "fit",
-      autoCropImage: fit === "crop",
-    };
+
+  if (platform === "instagram" && media.length) {
+    // Instagram feed posts support a single item or 1-10 carousel items.
+    // `carouselItems` mirrors `uploadIds`; Bundle requires every item to exist
+    // in uploadIds and only allows it for real carousels (2+ items).
+    platformData.type = "POST";
+    if (media.length > 1) {
+      platformData.carouselItems = media.map((m) => ({
+        uploadId: m.uploadId,
+        ...(m.altText ? { altText: m.altText } : {}),
+      }));
+    } else if (media[0]?.altText) {
+      platformData.altText = media[0].altText;
+    }
+    // Auto-fit/crop only applies to images (no pixel loss by default).
+    if (!kinds.includes("video")) {
+      const fit = instagramImageFit ?? "fit";
+      platformData.autoFitImage = fit === "fit";
+      platformData.autoCropImage = fit === "crop";
+    }
+  }
+
+  if (platform === "tiktok" && media.length) {
+    // TikTok Photo Mode is a separate post type and requires an explicit
+    // privacy value. One video stays VIDEO; 2+ images (or an explicitly typed
+    // image) become an IMAGE carousel.
+    const isPhoto = !kinds.includes("video") && (media.length > 1 || kinds[0] === "image");
+    platformData.type = isPhoto ? "IMAGE" : "VIDEO";
+    platformData.privacy = "PUBLIC_TO_EVERYONE";
+    if (isPhoto) platformData.photoCoverIndex = 0;
+  }
+
+  if (platform === "facebook" && media.length) {
+    // Multi-photo Page posts use the same uploadIds array; the type is POST.
+    platformData.type = "POST";
   }
 
   // Platforms that require a target on every post (channel/board/subreddit).
@@ -2372,7 +2505,7 @@ async function postViaProvider(
       },
       body: JSON.stringify({
         teamId,
-        title: text.slice(0, 80),
+        title: text.slice(0, 80) || "Post",
         status: "SCHEDULED",
         postDate: now,
         socialAccountTypes: [bsPlatform],
@@ -2439,13 +2572,25 @@ async function handleSchedule(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[]; teamId?: string; team?: string; platformTargets?: Record<string, string> };
+  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[]; media?: MediaRef[]; teamId?: string; team?: string; platformTargets?: Record<string, string> };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
 
   if (!body.platforms?.length) return errorResponse("At least one platform required", 400, origin);
-  if (!body.text?.trim()) return errorResponse("Text required", 400, origin);
   if (!body.scheduledAt) return errorResponse("scheduledAt (ISO timestamp) required", 400, origin);
   if (!body.teamId && !body.team) return errorResponse("teamId or team is required — add a team in the Accounts tab", 400, origin);
+
+  const text = body.text?.trim() || "";
+  const media = normalizeMediaRefs(body.mediaUrls, body.media);
+  const mediaIds = media.map((m) => m.uploadId);
+
+  if (!text && !media.length) return errorResponse("Text or media content is required", 400, origin);
+  for (const platform of body.platforms) {
+    const mediaError = validateMediaForPlatform(platform, media);
+    if (mediaError) return errorResponse(mediaError, 400, origin);
+    if (!text && TEXT_REQUIRED_PLATFORMS[platform]) {
+      return errorResponse(`${TEXT_REQUIRED_PLATFORMS[platform]} requires text content.`, 400, origin);
+    }
+  }
 
   const scheduledAt = new Date(body.scheduledAt);
   if (isNaN(scheduledAt.getTime())) return errorResponse("Invalid scheduledAt date", 400, origin);
@@ -2463,7 +2608,7 @@ async function handleSchedule(
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text: body.text, platforms: body.platforms, media_urls: body.mediaUrls || [], has_link: detectHasLink(body.text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}), ...((body as any).platformOptions ? { __platformOptions: (body as any).platformOptions } : {}) } }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text, platforms: body.platforms, media_urls: mediaIds, has_link: detectHasLink(text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}), ...((body as any).platformOptions ? { __platformOptions: (body as any).platformOptions } : {}), ...(media.length ? { __media: media } : {}) } }),
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -3670,16 +3815,13 @@ async function handleAddToQueue(
   if (!user) return errorResponse("Unauthorized", 401, origin);
   if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
 
-  let body: { text: string; platforms: Platform[]; scheduleTime?: string; mediaUrls?: string[] };
+  let body: { text: string; platforms: Platform[]; scheduleTime?: string; mediaUrls?: string[]; media?: MediaRef[] };
   try {
     body = (await request.json()) as any;
   } catch {
     return errorResponse("Invalid JSON body", 400, origin);
   }
 
-  if (!body.text?.trim()) {
-    return errorResponse("Text content is required", 400, origin);
-  }
   if (!body.platforms || !Array.isArray(body.platforms) || body.platforms.length === 0) {
     return errorResponse("At least one platform is required", 400, origin);
   }
@@ -3687,6 +3829,18 @@ async function handleAddToQueue(
   const scheduleTime = body.scheduleTime ? new Date(body.scheduleTime) : null;
   if (scheduleTime && isNaN(scheduleTime.getTime())) {
     return errorResponse("Invalid schedule time", 400, origin);
+  }
+
+  const text = body.text?.trim() || "";
+  const media = normalizeMediaRefs(body.mediaUrls, body.media);
+  const mediaIds = media.map((m) => m.uploadId);
+  if (!text && !media.length) return errorResponse("Text or media content is required", 400, origin);
+  for (const platform of body.platforms) {
+    const mediaError = validateMediaForPlatform(platform, media);
+    if (mediaError) return errorResponse(mediaError, 400, origin);
+    if (!text && TEXT_REQUIRED_PLATFORMS[platform]) {
+      return errorResponse(`${TEXT_REQUIRED_PLATFORMS[platform]} requires text content.`, 400, origin);
+    }
   }
 
   try {
@@ -3702,9 +3856,10 @@ async function handleAddToQueue(
       body: JSON.stringify({
         user_id: user.sub,
         status: "queued",
-        text: body.text,
+        text,
         platforms: body.platforms,
-        media_urls: body.mediaUrls || [],
+        media_urls: mediaIds,
+        platform_targets: media.length ? { __media: media } : {},
         scheduled_at: scheduleTime ? scheduleTime.toISOString() : null,
       }),
     });
@@ -4272,22 +4427,31 @@ async function handleCron(env: Env): Promise<Response> {
                 }
               }
             }
+            const storedTargets = (queuedPost.platform_targets || {}) as Record<string, any>;
+            const media = normalizeMediaRefs(
+              queuedPost.media_urls,
+              storedTargets.__media as MediaRef[] | undefined
+            );
+            const mediaIds = media.map((m: MediaRef) => m.uploadId);
+            const mediaError = validateMediaForPlatform(platform, media);
+            if (mediaError) return { platform, success: false, error: mediaError };
+
             if (bundleTeamId) {
-              const storedTargets = (queuedPost.platform_targets || {}) as Record<string, any>;
               const titles = (storedTargets.__titles as Record<string, string> | undefined) || undefined;
               const platformOptions = (storedTargets.__platformOptions as Record<string, Record<string, unknown>> | undefined) || undefined;
               const providerResult = await postViaProvider(
-                platform, queuedPost.text, env, queuedPost.media_urls, bundleTeamId, undefined, storedTargets, titles, platformOptions
+                platform, queuedPost.text, env, media, bundleTeamId, undefined, storedTargets, titles, platformOptions
               );
               if (providerResult.success) return { ...providerResult, via: "bundle" as const };
-              // Only fall back to a direct adapter when env-var creds exist;
+              // Only fall back to a direct adapter when media is single (the
+              // direct adapters don't publish carousels yet) and creds exist;
               // otherwise surface the real Bundle error.
-              if (hasDirectCreds(platform, env, [])) {
-                return { ...(await postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls)), via: "direct" as const };
+              if (media.length <= 1 && hasDirectCreds(platform, env, [])) {
+                return { ...(await postToPlatform(platform, queuedPost.text, env, mediaIds)), via: "direct" as const };
               }
               return { ...providerResult, via: "bundle" as const };
             }
-            return { ...(await postToPlatform(platform, queuedPost.text, env, queuedPost.media_urls)), via: "direct" as const };
+            return { ...(await postToPlatform(platform, queuedPost.text, env, mediaIds)), via: "direct" as const };
           })
         );
 

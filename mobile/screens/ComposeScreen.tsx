@@ -10,7 +10,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import { ImagePlus, X, Users, Check } from "lucide-react-native";
+import { ImagePlus, X, Users, Check, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { RootStackParamList } from "../App";
 import { useTheme } from "../lib/theme";
 import { FloatingMenuButton } from "../components/Menu";
@@ -48,7 +48,7 @@ const TARGETS: Record<string, { label: string; placeholder: string }> = {
 };
 
 const CHAR_LIMIT = 5000;
-const MAX_MEDIA = 4;
+const MAX_MEDIA = 10;
 
 const TIMEZONES = [
   "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
@@ -136,7 +136,7 @@ function hasLink(text: string): boolean {
   return /(https?:\/\/\S+|www\.\S+|\w+\.\w+)/i.test(text);
 }
 
-type MediaItem = { uri: string; name: string; mime: string; uploadId?: string };
+type MediaItem = { uri: string; name: string; mime: string; kind: "image" | "video"; uploadId?: string };
 
 export default function ComposeScreen() {
   const { colors } = useTheme();
@@ -278,16 +278,27 @@ export default function ComposeScreen() {
       quality: 0.9,
     });
     if (res.canceled) return;
-    const items = res.assets.map((a) => ({
+    const items: MediaItem[] = res.assets.map((a) => ({
       uri: a.uri,
       name: a.fileName || `image-${Date.now()}.jpg`,
       mime: a.mimeType || "image/jpeg",
+      kind: (a.type === "video" ? "video" : "image") as MediaItem["kind"],
     }));
     setMedia((prev) => [...prev, ...items].slice(0, MAX_MEDIA));
   }
 
   function removeMedia(idx: number) {
     setMedia((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function moveMedia(idx: number, dir: -1 | 1) {
+    setMedia((prev) => {
+      const next = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
   }
 
   function buildScheduledAt(): string | null {
@@ -301,19 +312,21 @@ export default function ComposeScreen() {
   }
 
   async function post() {
-    if (!text.trim()) return;
+    if (!text.trim() && media.length === 0) return;
     if (selected.size === 0) { Alert.alert("Error", "Select at least one platform."); return; }
     setLoading(true);
     try {
-      // Upload any attached media first (scoped to the selected team).
-      const mediaUrls: string[] = [];
+      // Upload any attached media first (scoped to the selected team), then send
+      // the ordered upload refs so the server can build carousels.
+      const refs: { uploadId: string; kind: "image" | "video"; mime: string }[] = [];
       for (const m of media) {
-        if (m.uploadId) { mediaUrls.push(m.uploadId); continue; }
-        mediaUrls.push(await uploadMedia(m.uri, m.name, m.mime, teamId || undefined));
+        const uploadId = m.uploadId || await uploadMedia(m.uri, m.name, m.mime, teamId || undefined);
+        refs.push({ uploadId, kind: m.kind, mime: m.mime });
       }
+      const mediaUrls = refs.map((r) => r.uploadId);
 
       const willSchedule = !!(scheduleDate.trim() && scheduleTime.trim());
-      const body = { platforms: Array.from(selected), text: text.trim(), teamId: teamId || undefined, mediaUrls: mediaUrls.length ? mediaUrls : undefined, platformTargets: targets(), platformOptions: platformOptions() };
+      const body = { platforms: Array.from(selected), text: text.trim(), teamId: teamId || undefined, mediaUrls: mediaUrls.length ? mediaUrls : undefined, media: refs.length ? refs : undefined, platformTargets: targets(), platformOptions: platformOptions() };
 
       if (willSchedule) {
         const scheduledAt = buildScheduledAt();
@@ -355,6 +368,47 @@ export default function ComposeScreen() {
   }
 
   const len = text.length;
+  const canPost = len > 0 || media.length > 0;
+  const mediaWarnings = (() => {
+    const warnings: string[] = [];
+    const count = media.length;
+    const videos = media.filter((m) => m.kind === "video").length;
+    const images = count - videos;
+    const has = (key: string) => selected.has(key);
+    if (count) {
+      const names = has("x") && has("bluesky") ? "X and Bluesky" : has("x") ? "X" : has("bluesky") ? "Bluesky" : "";
+      if (names && count > 4) warnings.push(`${names} support up to 4 images (or one video) — ${count} attached.`);
+      else if (names && videos > 1) warnings.push(`${names} support one video (or up to 4 images) — ${videos} videos attached.`);
+      if (has("instagram") && count > 10) warnings.push("Instagram supports up to 10 carousel items.");
+      if (has("tiktok")) {
+        if (count > 10) warnings.push("TikTok supports up to 10 photos.");
+        if (videos > 1) warnings.push("TikTok supports one video or up to 10 photos.");
+        if (images > 0 && videos > 0) warnings.push("TikTok photo posts can't mix images and video.");
+        if (videos === 0 && media.some((m) => m.mime && !/^image\/(jpe?g|webp)$/i.test(m.mime))) {
+          warnings.push("TikTok photo posts require JPG, JPEG, or WebP — convert PNG/HEIC images first.");
+        }
+      }
+      if (has("facebook")) {
+        if (count > 10) warnings.push("Facebook supports up to 10 images in a multi-photo post.");
+        if (videos > 1) warnings.push("Facebook supports one video or up to 10 images.");
+        if (images > 0 && videos > 0) warnings.push("Facebook can't mix images and video in one post.");
+      }
+      if (has("threads")) {
+        if (count > 10) warnings.push("Threads supports up to 10 images (or one video).");
+        if (videos > 1) warnings.push("Threads supports one video or up to 10 images.");
+        if (images > 0 && videos > 0) warnings.push("Threads can't mix images and video in one post.");
+      }
+      if (has("pinterest") && count > 1) warnings.push("Pinterest supports one image or video per pin.");
+      if (has("youtube") && count > 1) warnings.push("YouTube supports one video per upload.");
+    }
+    if (!text.trim()) {
+      const required = ["linkedin", "youtube", "reddit", "google_business"]
+        .filter((p) => selected.has(p))
+        .map((p) => (p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1)));
+      if (required.length) warnings.push(`${required.join(", ")} require text — add a caption.`);
+    }
+    return warnings;
+  })();
   const needTarget = Array.from(selected).find((p) => TARGETS[p]);
   const scheduleTime = to24h(time12, ampm);
   const willSchedule = scheduleTouched && !!(scheduleDate.trim() && scheduleTime.trim());
@@ -394,6 +448,16 @@ export default function ComposeScreen() {
               <Pressable style={styles.mediaRemove} onPress={() => removeMedia(i)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                 <X size={14} color="#fff" />
               </Pressable>
+              {media.length > 1 && (
+                <View style={styles.mediaMoveRow}>
+                  <Pressable style={[styles.mediaMove, i === 0 && styles.mediaMoveDisabled]} onPress={() => moveMedia(i, -1)} disabled={i === 0}>
+                    <ChevronLeft size={14} color="#fff" />
+                  </Pressable>
+                  <Pressable style={[styles.mediaMove, i === media.length - 1 && styles.mediaMoveDisabled]} onPress={() => moveMedia(i, 1)} disabled={i === media.length - 1}>
+                    <ChevronRight size={14} color="#fff" />
+                  </Pressable>
+                </View>
+              )}
             </View>
           ))}
           {media.length < MAX_MEDIA && (
@@ -403,6 +467,14 @@ export default function ComposeScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {mediaWarnings.length > 0 && (
+          <View style={[styles.linkWarning, { borderColor: colors.warning, backgroundColor: "rgba(217,119,6,0.12)", flexDirection: "column", alignItems: "flex-start", gap: 4 }]}>
+            {mediaWarnings.map((warning, i) => (
+              <Text key={i} style={[styles.linkWarningText, { color: colors.warning }]}>{warning}</Text>
+            ))}
+          </View>
+        )}
 
         {teamId && accountsLoaded && accounts.length === 0 && (
           <TouchableOpacity style={[styles.connectBanner, { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
@@ -495,8 +567,8 @@ export default function ComposeScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand }, (len === 0 || loading) && { opacity: 0.5 }]}
-          onPress={post} disabled={len === 0 || loading}>
+        <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand }, (!canPost || loading) && { opacity: 0.5 }]}
+          onPress={post} disabled={!canPost || loading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{willSchedule ? "Schedule" : "Post"}</Text>}
         </TouchableOpacity>
         <Text style={[styles.charCount, { color: len > 300 ? colors.warning : colors.textMuted }]}>{len} / {CHAR_LIMIT}</Text>
@@ -574,6 +646,9 @@ const styles = StyleSheet.create({
   mediaThumbWrap: { position: "relative", borderWidth: 1, borderRadius: 10, overflow: "hidden" },
   mediaThumb: { width: 68, height: 68 },
   mediaRemove: { position: "absolute", top: 4, right: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 10, padding: 3 },
+  mediaMoveRow: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", justifyContent: "space-between", backgroundColor: "rgba(0,0,0,0.45)" },
+  mediaMove: { paddingVertical: 2, paddingHorizontal: 4 },
+  mediaMoveDisabled: { opacity: 0.3 },
   addMedia: { width: 68, height: 68, borderRadius: 10, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 2 },
   addMediaText: { fontSize: 11, fontWeight: "600" },
   btn: { borderRadius: 10, padding: 15, alignItems: "center", marginBottom: 12 },

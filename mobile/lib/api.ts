@@ -7,6 +7,7 @@ export type Account = { platform: string; handle?: string; label?: string; chann
 export type ScheduledPost = { id: string; text: string; platforms: string[]; scheduledAt: string; createdAt: string };
 export type Draft = { id: string; text: string; platforms: string[]; updated_at: string; created_at: string };
 export type PlatformTargets = Record<string, string>;
+export type MediaRef = { uploadId: string; kind?: "image" | "video"; mime?: string; altText?: string };
 
 async function authHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
@@ -108,10 +109,10 @@ export const deletePost = (platform: string, postId: string) =>
   api("/api/posts/delete", { method: "POST", body: JSON.stringify({ platform, postId }) });
 
 export type PlatformOptions = Record<string, Record<string, unknown>>;
-export function publishPost(opts: { platforms: string[]; text: string; teamId?: string; mediaUrls?: string[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
+export function publishPost(opts: { platforms: string[]; text: string; teamId?: string; mediaUrls?: string[]; media?: MediaRef[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
   return api("/api/post", { method: "POST", body: JSON.stringify(opts) });
 }
-export function schedulePost(opts: { platforms: string[]; text: string; scheduledAt: string; teamId?: string; mediaUrls?: string[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
+export function schedulePost(opts: { platforms: string[]; text: string; scheduledAt: string; teamId?: string; mediaUrls?: string[]; media?: MediaRef[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
   return api("/api/schedule", { method: "POST", body: JSON.stringify(opts) });
 }
 

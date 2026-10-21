@@ -1,6 +1,18 @@
 /** Supported social platforms */
 export type Platform = "bluesky" | "facebook" | "instagram" | "linkedin" | "threads" | "tiktok" | "x" | "youtube" | "reddit" | "pinterest" | "slack" | "discord" | "google_business";
 
+/** A media upload reference (Bundle upload id + enough info to pick photo/video mode). */
+export interface MediaRef {
+  /** Bundle upload id (the value returned by /api/media/upload). */
+  uploadId: string;
+  /** Whether this upload is an image or a video. Inferred from mime when omitted. */
+  kind?: "image" | "video";
+  /** Original MIME type, e.g. image/jpeg or video/mp4. */
+  mime?: string;
+  /** Optional alt text (Instagram carousel items, Facebook media items). */
+  altText?: string;
+}
+
 /** A post request from the client */
 export interface PostRequest {
   /** Platforms to post to */
@@ -9,6 +21,8 @@ export interface PostRequest {
   text: string;
   /** Optional media URLs (images, videos) */
   mediaUrls?: string[];
+  /** Optional media metadata, parallel to mediaUrls. Prefer this when available. */
+  media?: MediaRef[];
   /** For X: reply to tweet ID */
   replyTo?: string;
   /** Which team (post_bundle_teams.id) to post to — defaults to the active team */
