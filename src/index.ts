@@ -2442,22 +2442,24 @@ async function postViaProvider(
 
   if (platform === "instagram" && media.length) {
     // Instagram feed posts support a single item or 1-10 carousel items.
-    // `carouselItems` mirrors `uploadIds`; Bundle requires every item to exist
-    // in uploadIds and only allows it for real carousels (2+ items).
+    // Keep the multi-item payload minimal (`uploadIds` only) — Bundle builds the
+    // carousel from that list. `carouselItems` is optional per-slide metadata
+    // (alt text/tags) and is only sent when we actually have some.
     platformData.type = "POST";
-    if (media.length > 1) {
+    if (media.length === 1) {
+      if (media[0]?.altText) platformData.altText = media[0].altText;
+      // Auto-fit/crop applies to single-image feed posts. Applying it to
+      // carousel slides can make Bundle fail container creation.
+      if (!kinds.includes("video")) {
+        const fit = instagramImageFit ?? "fit";
+        platformData.autoFitImage = fit === "fit";
+        platformData.autoCropImage = fit === "crop";
+      }
+    } else if (media.some((m) => m.altText)) {
       platformData.carouselItems = media.map((m) => ({
         uploadId: m.uploadId,
         ...(m.altText ? { altText: m.altText } : {}),
       }));
-    } else if (media[0]?.altText) {
-      platformData.altText = media[0].altText;
-    }
-    // Auto-fit/crop only applies to images (no pixel loss by default).
-    if (!kinds.includes("video")) {
-      const fit = instagramImageFit ?? "fit";
-      platformData.autoFitImage = fit === "fit";
-      platformData.autoCropImage = fit === "crop";
     }
   }
 
@@ -2521,8 +2523,18 @@ async function postViaProvider(
       const issues = Array.isArray(data?.issues)
         ? data.issues.map((i: any) => i.message).filter(Boolean).join("; ")
         : "";
-      const reason = `${data.message || "Publishing error"}${issues ? ` — ${issues}` : ""}`;
-      return { platform, success: false, error: reason.slice(0, 300) };
+      const verbose = data?.errorsVerbose?.[bsPlatform] || data?.errorsVerbose;
+      const verboseMessage = typeof verbose === "string"
+        ? verbose
+        : verbose && typeof verbose === "object"
+          ? (verbose.errorMessage || verbose.userFacingMessage || "")
+          : "";
+      const errorList = Array.isArray(data?.errors)
+        ? data.errors.map((e: any) => (typeof e === "string" ? e : e?.message || "")).filter(Boolean).join("; ")
+        : "";
+      const details = [issues, verboseMessage, errorList].filter(Boolean).join("; ");
+      const reason = `${data.message || "Publishing error"}${details ? ` — ${details}` : ""}`;
+      return { platform, success: false, error: reason.slice(0, 500) };
     }
 
     console.log(`Bundle post success (${platform}):`, JSON.stringify({ id: data.id, externalData: data.externalData }));

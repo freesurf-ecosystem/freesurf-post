@@ -785,9 +785,27 @@ a:hover { text-decoration: underline; }
   position: relative;
 }
 
-.media-dropzone:hover {
+.media-dropzone:hover,
+.media-dropzone.drag-active {
   border-color: var(--brand);
   background: var(--brand-soft);
+}
+
+.media-preview + .media-dropzone {
+  margin-top: 8px;
+}
+
+.media-dropzone.compact {
+  padding: 16px;
+}
+
+.media-dropzone.compact .media-dropzone-icon {
+  display: none;
+}
+
+.media-dropzone.compact .media-dropzone-text {
+  font-size: 0.875rem;
+  margin-bottom: 2px;
 }
 
 .media-dropzone-icon {

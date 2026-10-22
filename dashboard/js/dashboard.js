@@ -1678,34 +1678,44 @@ let uploadedMedia = [];
 if (mediaDropzone && mediaInput) {
   mediaInput.addEventListener("change", (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      handleMediaUpload(files);
-    }
+    // Reset so selecting the same file again still fires `change`.
+    e.target.value = "";
+    if (files.length > 0) handleMediaUpload(files);
   });
 
-  mediaDropzone.addEventListener("dragover", (e) => {
+  // Accept drops anywhere in the media area (preview + dropzone), so users can
+  // add one file at a time without the drop target disappearing.
+  const dropTarget = $("#compose-media") || mediaDropzone;
+  let dragDepth = 0;
+  const setDragActive = (on) => mediaDropzone.classList.toggle("drag-active", on);
+
+  dropTarget.addEventListener("dragenter", (e) => {
     e.preventDefault();
-    mediaDropzone.style.borderColor = "var(--brand)";
-    mediaDropzone.style.background = "var(--brand-soft)";
+    e.stopPropagation();
+    dragDepth += 1;
+    setDragActive(true);
   });
-
-  mediaDropzone.addEventListener("dragleave", () => {
-    mediaDropzone.style.borderColor = "var(--border)";
-    mediaDropzone.style.background = "var(--bg)";
-  });
-
-  mediaDropzone.addEventListener("drop", (e) => {
+  dropTarget.addEventListener("dragover", (e) => {
     e.preventDefault();
-    mediaDropzone.style.borderColor = "var(--border)";
-    mediaDropzone.style.background = "var(--bg)";
-    
-    const files = Array.from(e.dataTransfer.files).filter((f) => 
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    setDragActive(true);
+  });
+  dropTarget.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) setDragActive(false);
+  });
+  dropTarget.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth = 0;
+    setDragActive(false);
+    const files = Array.from(e.dataTransfer?.files || []).filter((f) =>
       f.type.startsWith("image/") || f.type.startsWith("video/")
     );
-    
-    if (files.length > 0) {
-      handleMediaUpload(files);
-    }
+    if (files.length > 0) handleMediaUpload(files);
   });
 }
 
@@ -1818,16 +1828,17 @@ function updatePostButtonState() {
 }
 
 function renderMediaPreview() {
-  if (uploadedMedia.length === 0) {
-    mediaPreview.style.display = "none";
-    mediaDropzone.style.display = "flex";
-    updatePostButtonState();
-    return;
-  }
-  
-  mediaPreview.style.display = "flex";
-  mediaDropzone.style.display = "none";
-  
+  const hasMedia = uploadedMedia.length > 0;
+  mediaPreview.style.display = hasMedia ? "flex" : "none";
+  mediaDropzone.style.display = "flex";
+  mediaDropzone.classList.toggle("compact", hasMedia);
+  const dropText = mediaDropzone.querySelector(".media-dropzone-text");
+  const dropSubtext = mediaDropzone.querySelector(".media-dropzone-subtext");
+  if (dropText) dropText.textContent = hasMedia ? "Add more images or videos" : "Drop images or videos here";
+  if (dropSubtext) dropSubtext.textContent = hasMedia ? "drag and drop or click to browse" : "or click to browse";
+  updatePostButtonState();
+  if (!hasMedia) return;
+
   mediaPreview.innerHTML = uploadedMedia.map((media, index) => `
     <div class="media-preview-item">
       ${media.type === "image" 
