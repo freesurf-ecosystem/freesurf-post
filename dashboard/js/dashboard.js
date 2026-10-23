@@ -1,4 +1,4 @@
-// ── FreeSurf Post — Dashboard ──
+﻿// â”€â”€ FreeSurf Post â€” Dashboard â”€â”€
 import { getSharedSession, clearSharedSession, getSupabase } from "./freesurf-auth.js";
 import config from "./freesurf.config.js";
 
@@ -8,7 +8,7 @@ const CHAR_HARD_LIMIT = 5000;
 const SUPABASE_URL = config.AUTH.SUPABASE_URL;
 const SUPABASE_ANON_KEY = config.AUTH.SUPABASE_ANON_KEY;
 
-// ── Platform config ──
+// â”€â”€ Platform config â”€â”€
 const PLATFORMS = [
   { key: "bluesky",   name: "Bluesky",   oauth: false },
   { key: "x",         name: "X",          oauth: true },
@@ -36,7 +36,7 @@ const PLATFORM_TARGETS = {
   reddit: { label: "Subreddit", placeholder: "e.g. r/example" },
 };
 
-// ── State ──
+// â”€â”€ State â”€â”€
 let session = null;
 let connectedProfiles = []; // { platform, label, handle, id }[]
 let composeAccounts = [];   // accounts for the team selected in the compose dropdown
@@ -47,16 +47,16 @@ let currentView = "compose";
 // opt-ins. Anyone missing any of the three is asked again on their next login.
 const TERMS_VERSION = "2026.09.17";
 let onboarding = { terms: false, digest: false, updates: false };
-let onboardingDismissed = false; // "Remind me later" — lets them in for this session
+let onboardingDismissed = false; // "Remind me later" â€” lets them in for this session
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 let calSelected = null;
 
 const $ = (s) => document.querySelector(s);
 
-// ── API helper: prepends API_BASE, attaches the session token, and retries
+// â”€â”€ API helper: prepends API_BASE, attaches the session token, and retries
 // once with a freshly-refreshed session if the server says the token is stale.
-// If the session is truly dead, asks the user to sign in again. ──
+// If the session is truly dead, asks the user to sign in again. â”€â”€
 async function apiFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (session?.access_token && !headers.Authorization) headers.Authorization = `Bearer ${session.access_token}`;
@@ -89,8 +89,8 @@ function handleExpiredSession() {
   showFeedback("Your session expired. Please sign in again.", "warning");
 }
 
-// ── Custom confirmation modal (replaces window.confirm so browsers can't
-// auto-block prompts / show "don't prompt again"). ──
+// â”€â”€ Custom confirmation modal (replaces window.confirm so browsers can't
+// auto-block prompts / show "don't prompt again"). â”€â”€
 function confirmModal(message, title = "Are you sure?") {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -113,9 +113,226 @@ function confirmModal(message, title = "Are you sure?") {
     overlay.querySelector('[data-m="yes"]')?.focus();
   });
 }
+// â”€â”€ Generic choice modal (2â€“3 buttons) used for video preflight warnings. â”€â”€
+function choiceModal({ title, message, options }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header"><div class="modal-title">${esc(title)}</div></div>
+        <div class="modal-body"><p style="margin:0;color:var(--text);font-size:0.9375rem;white-space:pre-line;">${esc(message)}</p></div>
+        <div class="modal-footer">
+          ${options.map((o, i) => `<button class="btn ${o.variant === "primary" ? "btn-primary" : "btn-ghost"}" data-i="${i}">${esc(o.label)}</button>`).join("")}
+        </div>
+      </div>`;
+    const done = (val) => { overlay.remove(); resolve(val); };
+    overlay.querySelectorAll("button[data-i]").forEach((b) =>
+      b.addEventListener("click", () => done(options[Number(b.dataset.i)].value))
+    );
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) done(options[options.length - 1]?.value); });
+    document.body.appendChild(overlay);
+    overlay.querySelector("button[data-i]")?.focus();
+  });
+}
+
+// â”€â”€ Video preflight helpers â”€â”€
+// Cloudflare rejects request bodies over 100 MB on Free/Pro; use 95 MB as a
+// safety margin for multipart overhead.
+const VIDEO_MAX_UPLOAD_MB = 95;
+const VIDEO_LIMIT_MB = 100;
+const VIDEO_COMPRESS_CMD =
+  "ffmpeg -i input.mp4 -c:v libx264 -preset medium -crf 22 -maxrate 4M -bufsize 8M -c:a aac -b:a 128k -movflags +faststart output.mp4";
+const VIDEO_CROP_916_CMD =
+  "ffmpeg -i input.mp4 -vf \"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920\" -c:v libx264 -crf 22 -c:a aac -movflags +faststart output.mp4";
+const VIDEO_PAD_916_CMD =
+  "ffmpeg -i input.mp4 -filter_complex \"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=40:2[bg];[0:v]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2\" -c:v libx264 -crf 22 -c:a aac -movflags +faststart output.mp4";
+const VIDEO_TRIM_90_CMD =
+  "ffmpeg -i input.mp4 -t 90 -c:v libx264 -crf 22 -c:a aac -movflags +faststart output.mp4";
+
+function fmtMb(bytes) {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fmtDuration(sec) {
+  const s = Math.round(Number(sec) || 0);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function getVideoMetadata(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.muted = true;
+    const finish = (meta) => { URL.revokeObjectURL(url); resolve(meta); };
+    v.onloadedmetadata = () => finish({ width: v.videoWidth, height: v.videoHeight, duration: v.duration });
+    v.onerror = () => finish({});
+    v.src = url;
+  });
+}
+
+function videoHelpModal() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header"><div class="modal-title">Video requirements &amp; free fixes</div></div>
+        <div class="modal-body" style="max-height:65vh;overflow:auto;color:var(--text);font-size:0.9rem;line-height:1.55;">
+          <div style="border:1px solid var(--border);background:var(--bg-alt);border-radius:10px;padding:12px;margin-bottom:14px;">
+            <strong>Upload limit: ${VIDEO_LIMIT_MB} MB per file.</strong><br>
+            Cloudflare rejects files over ${VIDEO_LIMIT_MB} MB before they reach us. Aim for &le;90 MB to leave room for upload overhead. Images are rarely affected; long or high-bitrate videos are. Automatic compression is on the roadmap.
+          </div>
+
+          <p style="margin:0 0 4px;"><strong>Recommended order</strong></p>
+          <ol style="margin:0 0 14px 18px;padding:0;">
+            <li><strong>Compress</strong> to under ~90 MB (smaller uploads faster).</li>
+            <li><strong>Crop or pad</strong> to the target aspect ratio (9:16 for TikTok/Reels; 4:5&ndash;1.91:1 for Instagram feed).</li>
+            <li><strong>Trim</strong> if needed (Reels &le;90s, YouTube Shorts &le;60s, TikTok &le;10 min).</li>
+            <li><strong>Re-add the edited file</strong> and post/schedule.</li>
+          </ol>
+
+          <p style="margin:0 0 4px;"><strong>Platform requirements</strong></p>
+          <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:14px;">
+            <thead>
+              <tr style="text-align:left;color:var(--text-muted);">
+                <th style="padding:6px;border-bottom:1px solid var(--border);">Surface</th>
+                <th style="padding:6px;border-bottom:1px solid var(--border);">Aspect</th>
+                <th style="padding:6px;border-bottom:1px solid var(--border);">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Instagram feed</td><td style="padding:6px;border-bottom:1px solid var(--border);">4:5 &ndash; 1.91:1</td><td style="padding:6px;border-bottom:1px solid var(--border);">Image, video, or carousel (&le;10). Not a Reel.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Instagram Reels</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Single vertical video &le;90s (per Bundle docs).</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Instagram Stories</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">24h, image or video.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Facebook feed</td><td style="padding:6px;border-bottom:1px solid var(--border);">4:5 &ndash; 16:9</td><td style="padding:6px;border-bottom:1px solid var(--border);">One video or up to 10 images; don't mix.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Facebook Reels</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Vertical short-form; separate from Instagram Reels.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">TikTok</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Video &le;10 min; photo mode: 2&ndash;10 JPG/JPEG/WebP.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">YouTube</td><td style="padding:6px;border-bottom:1px solid var(--border);">16:9 / 9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Title required; Shorts are 9:16 and &le;60s.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">X</td><td style="padding:6px;border-bottom:1px solid var(--border);">1:1 &ndash; 16:9</td><td style="padding:6px;border-bottom:1px solid var(--border);">One video or up to 4 images.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">LinkedIn</td><td style="padding:6px;border-bottom:1px solid var(--border);">16:9 (recommended)</td><td style="padding:6px;border-bottom:1px solid var(--border);">Text required; video up to ~10 min.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Threads</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16 (recommended)</td><td style="padding:6px;border-bottom:1px solid var(--border);">One video or up to 10 images; don't mix.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Pinterest</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16 (recommended)</td><td style="padding:6px;border-bottom:1px solid var(--border);">One image/video per pin; board required.</td></tr>
+            </tbody>
+          </table>
+
+          <p style="margin:0 0 4px;"><strong>Free tools</strong></p>
+          <ul style="margin:0 0 14px 18px;padding:0;">
+            <li><a href="https://handbrake.fr/" target="_blank" rel="noopener">HandBrake</a> &mdash; desktop compressor/resizer (free).</li>
+            <li><a href="https://clipchamp.com/" target="_blank" rel="noopener">Clipchamp</a> &mdash; browser editor: trim, crop, resize, export 1080p (free).</li>
+            <li><a href="https://www.capcut.com/" target="_blank" rel="noopener">CapCut</a> &mdash; trim, crop/resize to 9:16, and export at a lower bitrate (free).</li>
+            <li><a href="https://www.canva.com/video-editor/" target="_blank" rel="noopener">Canva Video Editor</a> &mdash; resize presets for TikTok/Reels (free tier).</li>
+            <li><a href="https://cloudconvert.com/mp4-converter" target="_blank" rel="noopener">CloudConvert</a> &mdash; convert/compress online (free daily quota).</li>
+            <li><a href="https://www.freeconvert.com/video-compressor" target="_blank" rel="noopener">FreeConvert</a> &mdash; video compressor (free limit).</li>
+            <li><a href="https://8mb.video/" target="_blank" rel="noopener">8mb.video</a> &mdash; target a specific file size.</li>
+          </ul>
+
+          <p style="margin:0 0 4px;"><strong>Step-by-step: CapCut</strong></p>
+          <p style="margin:0 0 2px;color:var(--text-muted);">Desktop (best for crop + compress in one pass):</p>
+          <ol style="margin:0 0 10px 18px;padding:0;">
+            <li>New project &rarr; import your video.</li>
+            <li>If needed: <strong>Ratio &rarr; 9:16</strong>, then scale/position the clip (or use Auto reframe).</li>
+            <li>Trim to the platform limit (Reels &le;90s, Shorts &le;60s, TikTok &le;10 min).</li>
+            <li><strong>Export</strong>: Format MP4, Codec H.264, Resolution 1080p (or 720p for smaller), Frame rate 30, <strong>Bitrate &rarr; Custom/Lower</strong>.</li>
+            <li>Target &le;90 MB. Rough size: <strong>MB &asymp; Mbps &times; seconds &divide; 8</strong>. For a 127s clip: 5 Mbps &asymp; 79 MB, 3 Mbps &asymp; 48 MB.</li>
+          </ol>
+          <p style="margin:0 0 2px;color:var(--text-muted);">Mobile:</p>
+          <ol style="margin:0 0 10px 18px;padding:0;">
+            <li>Import &rarr; trim and set Ratio to 9:16.</li>
+            <li>Export at 1080p or 720p, 30 fps. Mobile has less bitrate control &mdash; use desktop or HandBrake for strict size targets.</li>
+          </ol>
+          <p style="margin:0 0 14px;color:var(--text-muted);">Basic CapCut exports are watermark-free; some templates/effects are Pro-only.</p>
+
+          <p style="margin:0 0 4px;"><strong>ffmpeg recipes (desktop)</strong></p>
+          <p style="margin:0 0 4px;color:var(--text-muted);">Compress under ~90 MB:</p>
+          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_COMPRESS_CMD)}</pre>
+          <p style="margin:10px 0 4px;color:var(--text-muted);">Center-crop to 9:16 (may cut heads):</p>
+          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_CROP_916_CMD)}</pre>
+          <p style="margin:10px 0 4px;color:var(--text-muted);">Pad to 9:16 with a blurred background (safer):</p>
+          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_PAD_916_CMD)}</pre>
+          <p style="margin:10px 0 4px;color:var(--text-muted);">Trim to the first 90 seconds:</p>
+          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_TRIM_90_CMD)}</pre>
+
+          <p style="margin:12px 0 4px;"><strong>Quality tips</strong></p>
+          <ul style="margin:0 0 8px 18px;padding:0;">
+            <li>Prefer MP4 (H.264 + AAC) &mdash; most compatible.</li>
+            <li>1080p is plenty; 4K just makes files larger.</li>
+            <li>CRF 22&ndash;24 balances quality/size; lower = better quality and bigger files.</li>
+            <li>Keep audio at 128 kbps.</li>
+            <li>If a platform starts cropping heads, use the blurred-background pad recipe instead of hard cropping.</li>
+          </ul>
+
+          <p style="margin-bottom:0;color:var(--text-muted);">Automatic compression/cropping is planned. For now, these manual steps are the reliable path.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" data-close>Got it</button>
+        </div>
+      </div>`;
+    const done = () => { overlay.remove(); resolve(); };
+    overlay.querySelector("[data-close]").addEventListener("click", done);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) done(); });
+    document.body.appendChild(overlay);
+    overlay.querySelector("[data-close]")?.focus();
+  });
+}
+
+async function showCompressionTips() {
+  await videoHelpModal();
+}
+
+function videoSpecIssues(platforms) {
+  const issues = [];
+  for (const m of uploadedMedia) {
+    if (m.type !== "video" || !m.width || !m.height) continue;
+    const ratio = m.width / m.height;
+    const label = m.file?.name || "Video";
+    if (platforms.includes("instagram")) {
+      if (ratio < 0.8) {
+        issues.push(
+          `Instagram feed: ${label} is ${m.width}Ã—${m.height} (${ratio.toFixed(2)}:1) â€” taller than Instagram feed's 4:5 maximum, so it will be rejected as a feed post. Edit it to 4:5 (1080Ã—1350) or 1:1, or post it as a Reel in the Instagram app (9:16, â‰¤90s) until Reels posting is supported here.`
+        );
+      } else if (ratio > 1.91) {
+        issues.push(`Instagram feed: ${label} is wider than 1.91:1. Edit it to between 4:5 and 1.91:1 (e.g. 1:1 or 16:9).`);
+      }
+    }
+    if (platforms.includes("tiktok")) {
+      if (ratio > 0.85) {
+        issues.push(`TikTok: ${label} is ${m.width}Ã—${m.height} (${ratio.toFixed(2)}:1). TikTok recommends 9:16 vertical (1080Ã—1920); it may crop or letterbox this video. Edit to 9:16 for best results.`);
+      }
+      if (Number(m.duration) > 600) {
+        issues.push(`TikTok: ${label} is ${fmtDuration(m.duration)} long â€” over TikTok's 10-minute limit. Trim it before posting.`);
+      }
+    }
+    if (platforms.includes("facebook") && (ratio < 0.8 || ratio > 1.78)) {
+      issues.push(`Facebook feed: ${label} is ${ratio.toFixed(2)}:1. Feed video works best between 4:5 and 16:9; other ratios may be cropped.`);
+    }
+  }
+  return issues;
+}
+
+async function confirmVideoSpecs(platforms) {
+  const issues = videoSpecIssues(platforms);
+  if (!issues.length) return true;
+  const choice = await choiceModal({
+    title: "Video may not fit the selected platforms",
+    message:
+      `${issues.join("\n\n")}\n\nAutomatic adjustment isn't available yet. Open the free tools for crop/pad/trim recipes, or continue without adjustment (the platform may crop or trim it).`,
+    options: [
+      { label: "Free tools & tips", value: "help" },
+      { label: "Cancel & edit", value: "edit", variant: "primary" },
+      { label: "Post without adjustment", value: "post" },
+    ],
+  });
+  if (choice === "help") { await videoHelpModal(); return false; }
+  return choice === "post";
+}
+
 const $$ = (s) => document.querySelectorAll(s);
 
-// ── Auth ──
+// â”€â”€ Auth â”€â”€
 
 // Reuse the single shared Supabase client from freesurf-auth.js. Creating a new
 // client per call spawns multiple GoTrueClient instances on the same storage key,
@@ -221,7 +438,7 @@ $("#btn-sign-out").addEventListener("click", async () => {
   renderPlatformChips();
 });
 
-// ── Local Auth (sign in / sign up) ──
+// â”€â”€ Local Auth (sign in / sign up) â”€â”€
 
 let authMode = "signin";
 
@@ -311,7 +528,7 @@ $("#btn-auth-submit").addEventListener("click", async () => {
 
   const btn = $("#btn-auth-submit");
   btn.disabled = true;
-  btn.textContent = "Please wait…";
+  btn.textContent = "Please waitâ€¦";
 
   try {
     const supabase = await initSupabase();
@@ -328,10 +545,10 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       // post-sign-in onboarding flow, so they are also shown to social-login
       // users. See renderOnboarding() / loadOnboardingState() below.
       if (signUpData?.session) {
-        // Email confirmation is disabled — sign the user straight in.
+        // Email confirmation is disabled â€” sign the user straight in.
         await refreshAuth();
       } else {
-        // Email confirmation still enabled — show the verify state as a fallback.
+        // Email confirmation still enabled â€” show the verify state as a fallback.
         $("#auth-verify-text").textContent = "Check your email to verify your address and get started.";
         showAuthVerify();
       }
@@ -346,7 +563,7 @@ $("#btn-auth-submit").addEventListener("click", async () => {
   }
 });
 
-// ── Onboarding (post-sign-in: Terms & Privacy + the two marketing opt-ins) ──
+// â”€â”€ Onboarding (post-sign-in: Terms & Privacy + the two marketing opt-ins) â”€â”€
 
 function onboardingComplete() {
   return onboarding.terms && onboarding.digest && onboarding.updates;
@@ -408,7 +625,7 @@ async function acceptTerms() {
   const btn = $("#btn-onboarding-terms");
   const errEl = $("#onboarding-error");
   btn.disabled = true;
-  btn.textContent = "Please wait…";
+  btn.textContent = "Please waitâ€¦";
   try {
     await recordConsent("terms", TERMS_VERSION);
     onboarding.terms = true;
@@ -429,7 +646,7 @@ async function finishOnboarding() {
   const wantsUpdates = $("#onboarding-updates").checked;
   const email = (session.user.email || "").trim().toLowerCase();
   btn.disabled = true;
-  btn.textContent = "Please wait…";
+  btn.textContent = "Please waitâ€¦";
   try {
     // Record the decision for BOTH opt-ins (accept or decline) so we don't ask again.
     await recordConsent("onboarding_digest", wantsDigest ? "accepted" : "declined");
@@ -478,7 +695,7 @@ $("#btn-onboarding-later")?.addEventListener("click", () => {
   renderAuthUI();
 });
 
-// ── Mobile Menu & Sidebar ──
+// â”€â”€ Mobile Menu & Sidebar â”€â”€
 
 const mobileMenuBtn = $("#mobile-menu-btn");
 const sidebar = $("#sidebar");
@@ -512,7 +729,7 @@ $$(".sidebar-nav-item").forEach((link) => {
   });
 });
 
-// ── Navigation ──
+// â”€â”€ Navigation â”€â”€
 
 function showView(name) {
   // Onboarding is blocking until Terms are accepted, and keeps re-appearing on
@@ -532,13 +749,13 @@ function showView(name) {
   // Update sidebar nav
   $$(".sidebar-nav-item").forEach((l) => l.classList.toggle("sidebar-nav-item-active", l.dataset.view === name));
 
-  // Reflect the view in the URL hash for deep linking (#accounts, #analytics, …)
+  // Reflect the view in the URL hash for deep linking (#accounts, #analytics, â€¦)
   try { history.replaceState(null, "", `#${name}`); } catch {}
 }
 
 const PROTECTED_VIEWS = new Set(["compose", "accounts"]);
 
-// ── Old topbar navigation (for reference) ──
+// â”€â”€ Old topbar navigation (for reference) â”€â”€
 $$(".nav-link").forEach((link) => {
   link.addEventListener("click", () => {
     if (!session && (link.dataset.view === "compose" || link.dataset.view === "accounts")) {
@@ -549,9 +766,9 @@ $$(".nav-link").forEach((link) => {
   });
 });
 
-// ── Platform Chips ──
+// â”€â”€ Platform Chips â”€â”€
 
-// Platforms that are on the roadmap but not ready — shown as "In progress".
+// Platforms that are on the roadmap but not ready â€” shown as "In progress".
 const IN_PROGRESS_PLATFORMS = new Set(["reddit", "google_business"]);
 
 // For page-based platforms (Facebook/LinkedIn/YouTube), show the human page
@@ -579,7 +796,7 @@ function renderPlatformChips() {
     const disabled = inProgress || !connected;
     const title = inProgress ? "In progress" : (!connected ? "Connect this account first" : "");
     return `<label class="platform-chip${connected ? " connected" : ""}${disabled ? " disabled" : ""}" data-platform="${p.key}" title="${title}">
-      ${connected ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " · soon" : ""}${label ? ` ${label}` : ""}
+      ${connected ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " Â· soon" : ""}${label ? ` ${label}` : ""}
       <input type="checkbox" />
     </label>`;
   }).join("");
@@ -698,7 +915,7 @@ function updateLinkWarning(text) {
   if (el) el.classList.toggle("hidden", !hasLink(text));
 }
 
-// ── Compose ──
+// â”€â”€ Compose â”€â”€
 
 const textarea = $("#post-text");
 const charCount = $("#char-count");
@@ -736,7 +953,7 @@ btnPost.addEventListener("click", async () => {
   }
 
   btnPost.disabled = true;
-  btnPost.textContent = "Posting…";
+  btnPost.textContent = "Postingâ€¦";
   clearFeedback();
 
   try {
@@ -784,7 +1001,7 @@ btnPost.addEventListener("click", async () => {
               : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
             }
           </span>
-          <span><strong>${r.platform}</strong>: ${r.success ? (r.postUrl ? `<a href="${r.postUrl}" target="_blank">View →</a>` : "Posted") : r.error}</span>
+          <span><strong>${r.platform}</strong>: ${r.success ? (r.postUrl ? `<a href="${r.postUrl}" target="_blank">View â†’</a>` : "Posted") : r.error}</span>
         </div>`;
       }
       const ok = results.filter((r) => r.success).length;
@@ -805,7 +1022,7 @@ btnPost.addEventListener("click", async () => {
     }
   } catch (err) {
     console.error("[post] failed", err);
-    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error — the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
+    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error â€” the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
     showFeedback(msg, "error");
   }
   btnPost.disabled = false;
@@ -836,9 +1053,9 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
   const setScheduling = (on, label) => {
     if (!scheduleBtn) return;
     scheduleBtn.disabled = on;
-    scheduleBtn.textContent = on ? label || "Scheduling…" : scheduleLabel;
+    scheduleBtn.textContent = on ? label || "Schedulingâ€¦" : scheduleLabel;
   };
-  setScheduling(true, uploadedMedia.length ? "Uploading…" : "Scheduling…");
+  setScheduling(true, uploadedMedia.length ? "Uploadingâ€¦" : "Schedulingâ€¦");
   try {
     // Upload any attached media to Bundle first (scoped to the selected team).
     const uploadIds = [];
@@ -883,7 +1100,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     }
   } catch (err) {
     console.error("[schedule] failed", err);
-    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error — the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
+    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error â€” the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
     showFeedback(msg, "error");
   } finally {
     setScheduling(false);
@@ -934,7 +1151,7 @@ function localDateStr(date, tz) {
 }
 initTzSelect();
 
-// ── History (kept in localStorage, surfaced in Analytics) ──
+// â”€â”€ History (kept in localStorage, surfaced in Analytics) â”€â”€
 
 function saveHistory() { try { localStorage.setItem("freesurf-post-history", JSON.stringify(postHistory.slice(0, 50))); } catch {} }
 function loadHistory() { try { postHistory = JSON.parse(localStorage.getItem("freesurf-post-history") || "[]"); } catch { postHistory = []; } }
@@ -946,7 +1163,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// ── Accounts & OAuth ──
+// â”€â”€ Accounts & OAuth â”€â”€
 
 function renderAccounts() {
   const platformMap = new Map();
@@ -966,7 +1183,7 @@ function renderAccounts() {
       ? (selectedChannel?.name || handle || "Connected")
       : (p.note || "Not connected");
 
-    // Platforms still on the roadmap — greyed out, no connect action yet.
+    // Platforms still on the roadmap â€” greyed out, no connect action yet.
     if (IN_PROGRESS_PLATFORMS.has(p.key)) {
       return `<div class="account-item" style="opacity:0.45;">
         <div class="account-item-info">
@@ -982,7 +1199,7 @@ function renderAccounts() {
               <option value="">No page selected</option>
               ${channels.map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === prof.selectedChannelId ? "selected" : ""}>${escapeHtml(c.name || c.id)}</option>`).join("")}
             </select>
-            <button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">↻</button>`
+            <button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">â†»</button>`
           : `<button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">Refresh pages</button>`)
       : "";
 
@@ -1076,7 +1293,7 @@ async function disconnectPlatform(key) {
   }
 }
 
-// ── Teams ──
+// â”€â”€ Teams â”€â”€
 
 let teams = [];
 let accountsTeamId = "";
@@ -1112,7 +1329,7 @@ function renderTeams() {
     <div class="account-item${selected ? " team-selected" : ""}">
       <div class="account-item-info account-item-selectable" data-team-select="${t.id}">
         <div class="account-item-name">${escapeHtml(t.label)}${t.is_active ? ' <span class="history-platform-badge">Default</span>' : ""}</div>
-        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"} · <span style="color:var(--text-muted);font-family:ui-monospace,monospace;font-size:0.75rem;">${t.id}</span>
+        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"} Â· <span style="color:var(--text-muted);font-family:ui-monospace,monospace;font-size:0.75rem;">${t.id}</span>
           <button class="copy-id-btn" data-copy-team-id="${t.id}" title="Copy team ID" style="margin-left:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         </div>
       </div>
@@ -1254,7 +1471,7 @@ async function deleteTeam(id) {
 $("#btn-create-team").addEventListener("click", createTeam);
 $("#post-team")?.addEventListener("change", updatePostTeamAccounts);
 
-// ── API Keys ──
+// â”€â”€ API Keys â”€â”€
 
 async function fetchKeys() {
   const container = $("#api-keys-list");
@@ -1272,8 +1489,8 @@ async function fetchKeys() {
     container.innerHTML = keys.map((k) => `
       <div class="account-item">
         <div class="account-item-info">
-          <div class="account-item-name">${escapeHtml(k.name)} <span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(k.hint || "")}</span></div>
-          <div class="account-item-status">${k.revoked_at ? "Revoked" : "Active"} · created ${fmtDate(k.created_at)}${k.last_used_at ? ` · used ${fmtDate(k.last_used_at)}` : ""}</div>
+          <div class="account-item-name">${escapeHtml(k.name)} <span style="color:var(--text-muted);font-weight:400;">Â· ${escapeHtml(k.hint || "")}</span></div>
+          <div class="account-item-status">${k.revoked_at ? "Revoked" : "Active"} Â· created ${fmtDate(k.created_at)}${k.last_used_at ? ` Â· used ${fmtDate(k.last_used_at)}` : ""}</div>
         </div>
         ${k.revoked_at ? "" : `<button class="btn btn-sm btn-ghost" data-revoke-key="${k.id}">Revoke</button>`}
       </div>
@@ -1284,7 +1501,7 @@ async function fetchKeys() {
   }
 }
 
-// ── X fees / credits ──
+// â”€â”€ X fees / credits â”€â”€
 
 function fmtMicros(micros) {
   return `$${(micros / 1_000_000).toFixed(2)}`;
@@ -1312,7 +1529,7 @@ function renderLedger() {
     return `
       <div class="account-item">
         <div class="account-item-info">
-          <div class="account-item-name">${kind} ${detail ? `<span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(detail)}</span>` : ""}</div>
+          <div class="account-item-name">${kind} ${detail ? `<span style="color:var(--text-muted);font-weight:400;">Â· ${escapeHtml(detail)}</span>` : ""}</div>
           <div class="account-item-status">${fmtDate(t.created_at)}</div>
         </div>
         <div class="account-item-status" style="font-weight:600;${t.amount_micros < 0 ? "color:var(--error);" : "color:var(--success);"}">${t.amount_micros < 0 ? "-" : "+"}${fmtMicros(Math.abs(t.amount_micros))}</div>
@@ -1354,7 +1571,7 @@ async function topUp() {
   if (statusEl) statusEl.textContent = "";
   const original = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Opening…';
+  btn.innerHTML = '<span class="spinner"></span>Openingâ€¦';
   try {
     const res = await apiFetch(`/api/credits/topup`, {
       method: "POST",
@@ -1405,7 +1622,7 @@ async function createKey() {
       const result = $("#api-key-result");
       result.innerHTML = `
         <div class="feedback success visible" style="word-break:break-all;margin:0;">
-          Copy your key now — it won't be shown again:<br>
+          Copy your key now â€” it won't be shown again:<br>
           <code>${escapeHtml(data.key)}</code>
         </div>
         <button class="btn btn-sm btn-secondary" id="btn-copy-key" style="margin-top:8px;">Copy</button>`;
@@ -1474,7 +1691,7 @@ async function fetchConnectUrl(platform) {
   }
 }
 
-// ── Calendar ──
+// â”€â”€ Calendar â”€â”€
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -1538,8 +1755,8 @@ function renderDayPosts() {
     html += dayPosts.map((p) => `
       <div class="scheduled-list-item">
         <div>
-          <div class="sli-text">${esc(p.text.slice(0, 100))}${p.text.length > 100 ? "…" : ""} <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button></div>
-          <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: selectedTz() })} ${selectedTz().replace(/_/g, " ")}</div>
+          <div class="sli-text">${esc(p.text.slice(0, 100))}${p.text.length > 100 ? "â€¦" : ""} <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button></div>
+          <div class="sli-meta">${p.platforms?.join(", ")} Â· ${new Date(p.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: selectedTz() })} ${selectedTz().replace(/_/g, " ")}</div>
         </div>
       </div>`).join("");
   } else {
@@ -1584,12 +1801,12 @@ async function renderUpcoming() {
   }
   container.innerHTML = scheduledPosts.map((p) => {
     const mediaBadge = p.mediaUrls?.length
-      ? `<span class="draft-platform-tag">📎 ${p.mediaUrls.length} media</span>`
+      ? `<span class="draft-platform-tag">ðŸ“Ž ${p.mediaUrls.length} media</span>`
       : "";
     return `
       <div class="account-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
-        <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleString()} ${mediaBadge}</div>
-        <div class="sli-text" style="font-size:0.9rem;">${esc(p.text.slice(0, 200))}${p.text.length > 200 ? "…" : ""}</div>
+        <div class="sli-meta">${p.platforms?.join(", ")} Â· ${new Date(p.scheduledAt).toLocaleString()} ${mediaBadge}</div>
+        <div class="sli-text" style="font-size:0.9rem;">${esc(p.text.slice(0, 200))}${p.text.length > 200 ? "â€¦" : ""}</div>
         <div class="upcoming-media" data-media-for="${p.id}" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
         <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button>
       </div>`;
@@ -1641,14 +1858,14 @@ async function fetchHistory() {
           const seen = new Set(rows.map((r) => r.platform));
           const pending = (p.platforms || []).filter((pl) => !seen.has(pl));
           const chips = rows.map((r) => r.success
-            ? `<span style="font-size:0.75rem;color:var(--success);white-space:nowrap;">${escapeHtml(r.platform)} ✓</span>`
-            : `<span style="font-size:0.75rem;color:var(--error);">${escapeHtml(r.platform)} ✗</span>`).join("")
-            + (pending.map((pl) => `<span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(pl)} …</span>`).join(""));
+            ? `<span style="font-size:0.75rem;color:var(--success);white-space:nowrap;">${escapeHtml(r.platform)} âœ“</span>`
+            : `<span style="font-size:0.75rem;color:var(--error);">${escapeHtml(r.platform)} âœ—</span>`).join("")
+            + (pending.map((pl) => `<span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(pl)} â€¦</span>`).join(""));
           const fails = rows.filter((r) => !r.success);
           return `
             <div class="account-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
               <div class="account-item-status" style="font-size:0.72rem;color:var(--text-muted);">${new Date(p.postedAt).toLocaleString()}</div>
-              <div class="account-item-name">${escapeHtml(p.text.length > 120 ? p.text.slice(0, 120) + "…" : p.text)}</div>
+              <div class="account-item-name">${escapeHtml(p.text.length > 120 ? p.text.slice(0, 120) + "â€¦" : p.text)}</div>
               <div style="display:flex;flex-wrap:wrap;gap:8px;">${chips}</div>
               ${fails.length ? `<div style="font-size:0.75rem;color:var(--text-muted);">${fails.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join("<br/>")}</div>` : ""}
             </div>`;
@@ -1699,13 +1916,16 @@ async function cancelScheduled(id) {
 $("#cal-prev").addEventListener("click", () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } calSelected = null; renderCalendar(); });
 $("#cal-next").addEventListener("click", () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } calSelected = null; renderCalendar(); });
 
-// ── Media Upload ──
+// â”€â”€ Media Upload â”€â”€
 
 const mediaDropzone = $("#media-dropzone");
 const mediaInput = $("#media-input");
 const mediaPreview = $("#media-preview");
 
 let uploadedMedia = [];
+let composeVideoError = "";
+
+$("#video-help-btn")?.addEventListener("click", () => videoHelpModal());
 
 if (mediaDropzone && mediaInput) {
   mediaInput.addEventListener("change", (e) => {
@@ -1767,8 +1987,8 @@ function computeMediaWarnings(platforms) {
 
   if (count) {
     const imageOnlyName = has("x") && has("bluesky") ? "X and Bluesky" : has("x") ? "X" : has("bluesky") ? "Bluesky" : "";
-    if (imageOnlyName && count > 4) warnings.push(`${imageOnlyName} support up to 4 images (or one video) — ${count} attached.`);
-    else if (imageOnlyName && videos > 1) warnings.push(`${imageOnlyName} support one video (or up to 4 images) — ${videos} videos attached.`);
+    if (imageOnlyName && count > 4) warnings.push(`${imageOnlyName} support up to 4 images (or one video) â€” ${count} attached.`);
+    else if (imageOnlyName && videos > 1) warnings.push(`${imageOnlyName} support one video (or up to 4 images) â€” ${videos} videos attached.`);
 
     if (has("instagram") && count > 10) warnings.push("Instagram supports up to 10 carousel items.");
     if (has("tiktok")) {
@@ -1777,7 +1997,7 @@ function computeMediaWarnings(platforms) {
       if (images > 0 && videos > 0) warnings.push("TikTok photo posts can't mix images and video.");
       if (videos === 0) {
         const bad = uploadedMedia.find((m) => m.type === "image" && m.file?.type && !/^image\/(jpe?g|webp)$/i.test(m.file.type));
-        if (bad) warnings.push("TikTok photo posts require JPG, JPEG, or WebP — convert PNG/HEIC images first.");
+        if (bad) warnings.push("TikTok photo posts require JPG, JPEG, or WebP â€” convert PNG/HEIC images first.");
       }
     }
     if (has("facebook")) {
@@ -1796,7 +2016,7 @@ function computeMediaWarnings(platforms) {
 
   if (!textarea?.value.trim()) {
     const textRequired = platforms.map((p) => TEXT_REQUIRED_PLATFORMS[p]).filter(Boolean);
-    if (textRequired.length) warnings.push(`${textRequired.join(", ")} require text — add a caption.`);
+    if (textRequired.length) warnings.push(`${textRequired.join(", ")} require text â€” add a caption.`);
   }
   return warnings;
 }
@@ -1806,10 +2026,13 @@ function updateComposeWarnings() {
   const textLen = textarea ? textarea.value.length : 0;
   const bsky = $("#bsky-warning");
   if (bsky) bsky.classList.toggle("hidden", !(platforms.includes("bluesky") && textLen > 300));
-  const ig = $("#ig-ratio-warning");
-  if (ig) {
-    const tallVideo = uploadedMedia.some((m) => m.type === "video" && m.width && m.height && (m.width / m.height) < 4 / 5);
-    ig.classList.toggle("hidden", !(platforms.includes("instagram") && tallVideo));
+  const videoWarning = $("#video-warning");
+  if (videoWarning) {
+    const issues = [];
+    if (composeVideoError) issues.push(composeVideoError);
+    issues.push(...videoSpecIssues(platforms));
+    videoWarning.textContent = issues.join(" ");
+    videoWarning.classList.toggle("hidden", issues.length === 0);
   }
   const mediaWarning = $("#media-warning");
   if (mediaWarning) {
@@ -1834,13 +2057,26 @@ function readVideoDims(item) {
   } catch {}
 }
 
-function handleMediaUpload(files) {
-  files.forEach((file) => {
+async function handleMediaUpload(files) {
+  const rejected = [];
+  for (const file of files) {
     const isImage = file.type.startsWith("image/");
+    if (!isImage && file.size > VIDEO_MAX_UPLOAD_MB * 1024 * 1024) {
+      rejected.push(`${file.name} (${fmtMb(file.size)})`);
+      continue;
+    }
     const item = { file, url: URL.createObjectURL(file), type: isImage ? "image" : "video" };
+    if (!isImage) {
+      const meta = await getVideoMetadata(file);
+      if (meta.width) item.width = meta.width;
+      if (meta.height) item.height = meta.height;
+      if (meta.duration) item.duration = meta.duration;
+    }
     uploadedMedia.push(item);
-    if (!isImage) readVideoDims(item);
-  });
+  }
+  composeVideoError = rejected.length
+    ? `${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the ${VIDEO_LIMIT_MB} MB upload limit. Compress or trim ${rejected.length === 1 ? "it" : "them"} with a free tool before adding. See "Video requirements & free tools" below.`
+    : "";
   renderMediaPreview();
   updateComposeWarnings();
   updatePostButtonState();
@@ -1867,7 +2103,7 @@ function renderMediaPreview() {
   const dropText = mediaDropzone.querySelector(".media-dropzone-text");
   const dropSubtext = mediaDropzone.querySelector(".media-dropzone-subtext");
   if (dropText) dropText.textContent = hasMedia ? "Add more images or videos" : "Drop images or videos here";
-  if (dropSubtext) dropSubtext.textContent = hasMedia ? "drag and drop or click to browse" : "or click to browse";
+  if (dropSubtext) dropSubtext.textContent = hasMedia ? "drag and drop or click to browse Â· max 100 MB per file" : "or click to browse Â· max 100 MB per file";
   updatePostButtonState();
   if (!hasMedia) return;
 
@@ -1876,12 +2112,15 @@ function renderMediaPreview() {
       ${media.type === "image" 
         ? `<img src="${media.url}" alt="Uploaded media" />`
         : `<video src="${media.url}" muted preload="metadata"></video>`}
+      ${media.type === "video" && media.width
+        ? `<span style="position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:6px;pointer-events:none;">${media.width}Ã—${media.height} Â· ${fmtDuration(media.duration)}${media.file?.size ? ` Â· ${fmtMb(media.file.size)}` : ""}</span>`
+        : ""}
       ${uploadedMedia.length > 1 ? `
         <div class="media-preview-moves">
-          <button class="media-preview-move" data-move-index="${index}" data-move-dir="-1" title="Move left" ${index === 0 ? "disabled" : ""}>‹</button>
-          <button class="media-preview-move" data-move-index="${index}" data-move-dir="1" title="Move right" ${index === uploadedMedia.length - 1 ? "disabled" : ""}>›</button>
+          <button class="media-preview-move" data-move-index="${index}" data-move-dir="-1" title="Move left" ${index === 0 ? "disabled" : ""}>â€¹</button>
+          <button class="media-preview-move" data-move-index="${index}" data-move-dir="1" title="Move right" ${index === uploadedMedia.length - 1 ? "disabled" : ""}>â€º</button>
         </div>` : ""}
-      <button class="media-preview-remove" data-index="${index}" title="Remove">×</button>
+      <button class="media-preview-remove" data-index="${index}" title="Remove">Ã—</button>
     </div>
   `).join("");
   
@@ -1902,7 +2141,7 @@ function renderMediaPreview() {
   });
 }
 
-// ── Drafts ──
+// â”€â”€ Drafts â”€â”€
 
 const btnSaveDraft = $("#btn-save-draft");
 
@@ -1922,7 +2161,7 @@ if (btnSaveDraft) {
     const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
     
     btnSaveDraft.disabled = true;
-    btnSaveDraft.textContent = "Saving…";
+    btnSaveDraft.textContent = "Savingâ€¦";
     
     try {
       const res = await apiFetch(`/api/drafts`, {
@@ -1959,7 +2198,7 @@ if (btnSaveDraft) {
   });
 }
 
-// ── Drafts Feature ──
+// â”€â”€ Drafts Feature â”€â”€
 
 async function fetchDrafts() {
   if (!session) return;
@@ -2052,7 +2291,7 @@ async function deleteDraft(draftId) {
   }
 }
 
-// ── Hashtag Groups Feature ──
+// â”€â”€ Hashtag Groups Feature â”€â”€
 
 async function fetchHashtagGroups() {
   if (!session) return;
@@ -2213,7 +2452,7 @@ async function deleteHashtagGroup(groupId) {
   }
 }
 
-// ── Saved Replies Feature ──
+// â”€â”€ Saved Replies Feature â”€â”€
 
 async function fetchSavedReplies() {
   if (!session) return;
@@ -2375,7 +2614,7 @@ async function deleteSavedReply(replyId) {
   }
 }
 
-// ── Queue Feature ──
+// â”€â”€ Queue Feature â”€â”€
 
 async function fetchQueue() {
   if (!session) return;
@@ -2469,7 +2708,7 @@ async function removeFromQueue(queueId) {
   }
 }
 
-// ── Analytics Feature ──
+// â”€â”€ Analytics Feature â”€â”€
 
 const IMPORT_PLATFORMS = [
   { key: "x", name: "X" }, { key: "bluesky", name: "Bluesky" }, { key: "threads", name: "Threads" },
@@ -2521,7 +2760,7 @@ async function refreshAnalytics() {
   btn.disabled = true;
   const original = btn.textContent;
   const pulling = Math.max(recentPostsShown, 6);
-  btn.textContent = `Pulling ${pulling} posts…`;
+  btn.textContent = `Pulling ${pulling} postsâ€¦`;
   try {
     const res = await apiFetch(`/api/analytics/refresh?limit=${pulling}`, {
       method: "POST",
@@ -2534,12 +2773,12 @@ async function refreshAnalytics() {
     } else {
       const n = Number(data?.refreshed) || 0;
       showFeedback(
-        n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet — the platform may still be reporting zeros.",
+        n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet â€” the platform may still be reporting zeros.",
         n ? "success" : "warning"
       );
     }
   } catch (e) {
-    showFeedback("Refresh failed — " + (e?.message || "network error"), "error");
+    showFeedback("Refresh failed â€” " + (e?.message || "network error"), "error");
   }
   btn.textContent = original;
   btn.disabled = false;
@@ -2568,8 +2807,8 @@ async function startHistoryImport() {
   const count = Math.min(Math.max(Math.floor(Number($("#import-count")?.value) || 20), 1), 200);
   btn.disabled = true;
   const original = btn.textContent;
-  btn.textContent = "Importing…";
-  if (status) status.textContent = "Starting import…";
+  btn.textContent = "Importingâ€¦";
+  if (status) status.textContent = "Starting importâ€¦";
   try {
     const res = await apiFetch(`/api/import`, {
       method: "POST",
@@ -2579,7 +2818,7 @@ async function startHistoryImport() {
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error || data?.message || "Import failed");
     const jobId = data?.import?.id || data?.id || "";
-    if (status) status.textContent = `Import started — processing up to ${count} ${platform} posts…`;
+    if (status) status.textContent = `Import started â€” processing up to ${count} ${platform} postsâ€¦`;
     await pollImport(jobId, platform, count, status);
   } catch (e) {
     if (status) status.textContent = `Import failed: ${e.message}`;
@@ -2601,7 +2840,7 @@ async function pollImport(jobId, platform, count, status) {
       const job = items.find((j) => j.id === jobId) || items[0];
       if (!job) continue;
       if (job.status === "COMPLETED" || job.status === "FINISHED") {
-        if (status) status.textContent = `Imported ${job.postsImported || "—"} posts — now interleaved into the timeline below by date.`;
+        if (status) status.textContent = `Imported ${job.postsImported || "â€”"} posts â€” now interleaved into the timeline below by date.`;
         fetchRecentPosts();
         return;
       }
@@ -2609,10 +2848,10 @@ async function pollImport(jobId, platform, count, status) {
         if (status) status.textContent = `Import failed: ${job.error || job.status}`;
         return;
       }
-      if (status) status.textContent = `Import ${String(job.status).toLowerCase()} — ${job.postsImported || 0} done…`;
+      if (status) status.textContent = `Import ${String(job.status).toLowerCase()} â€” ${job.postsImported || 0} doneâ€¦`;
     } catch { /* keep polling */ }
   }
-  if (status) status.textContent = "Still processing — check back shortly.";
+  if (status) status.textContent = "Still processing â€” check back shortly.";
 }
 
 async function fetchRecentPosts() {
@@ -2697,13 +2936,13 @@ function renderRecentPosts() {
   const statsFor = (m) => ["impressions", "likes", "comments", "shares"]
     .filter((k) => m[k] != null)
     .map((k) => `${k}: <strong>${fmtNum(m[k])}</strong>`)
-    .join(" · ");
+    .join(" Â· ");
 
   const visible = posts.slice(0, recentPostsShown);
   container.innerHTML = visible.map((p) => {
     const when = new Date(p.date).toLocaleString();
     const text = (p.text || "").replace(/\n/g, " ");
-    const name = escapeHtml(text.length > 160 ? text.slice(0, 160) + "…" : text);
+    const name = escapeHtml(text.length > 160 ? text.slice(0, 160) + "â€¦" : text);
 
     if (p.kind === "import") {
       const m = p.metrics || {};
@@ -2716,7 +2955,7 @@ function renderRecentPosts() {
           : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
       return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
-        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${when} · imported ${itemBadge(p, p.text)}</div>
+        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${when} Â· imported ${itemBadge(p, p.text)}</div>
         <div class="account-item-name">${name || "<i>untitled</i>"}</div>
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(p.platform)}</span>
@@ -2762,7 +3001,7 @@ function renderRecentPosts() {
         ${canComments ? `<div class="post-comments hidden" data-comments-for="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}" style="border-left:2px solid var(--border);padding-left:10px;margin:2px 0 8px 0;"></div>` : ""}`;
     }).join("");
     const failedText = failed.length
-      ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join(" · ")}</div>`
+      ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join(" Â· ")}</div>`
       : "";
     return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
@@ -2798,19 +3037,19 @@ $("#btn-load-more-posts")?.addEventListener("click", () => {
   renderRecentPosts();
 });
 
-// Delete a post from the platform itself (currently X). The wording is deliberate —
+// Delete a post from the platform itself (currently X). The wording is deliberate â€”
 // this removes it from the platform, not just from this analytics list.
 $("#recent-posts-list")?.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-delete-post]");
   if (!btn || !session?.access_token) return;
   const postId = btn.dataset.deletePost;
   const ok = window.confirm(
-    "Delete this post from X permanently?\n\nThis deletes the actual post from X — it is NOT just removing it from this list. There is no undo, and the delete is metered at $0.01 from your credit balance."
+    "Delete this post from X permanently?\n\nThis deletes the actual post from X â€” it is NOT just removing it from this list. There is no undo, and the delete is metered at $0.01 from your credit balance."
   );
   if (!ok) return;
   btn.disabled = true;
   const original = btn.textContent;
-  btn.textContent = "Deleting…";
+  btn.textContent = "Deletingâ€¦";
   try {
     const res = await apiFetch(`/api/posts/delete`, {
       method: "POST",
@@ -2827,7 +3066,7 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   }
 });
 
-// ── Comments (view + reply, in the Analytics tab) ──
+// â”€â”€ Comments (view + reply, in the Analytics tab) â”€â”€
 // Lists a post's replies via GET /api/comments, lazily loads them from the
 // platform via POST /api/comments/import (Bundle, metered), and posts replies
 // (to the post or to a specific comment) via POST /api/reply.
@@ -2880,14 +3119,14 @@ function commentsHtml(platform, postId) {
   const composer = `
     <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-light);">
       ${target ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">Replying to a comment <button type="button" class="btn btn-xs btn-ghost" data-cancel-reply="${escapeHtml(key)}">Cancel</button></div>` : ""}
-      <textarea class="form-input" data-reply-input="${escapeHtml(key)}" rows="2" placeholder="${target ? "Write a reply…" : `Reply to this ${escapeHtml(label)} post…`}" style="width:100%;resize:vertical;font-family:inherit;font-size:0.85rem;"></textarea>
+      <textarea class="form-input" data-reply-input="${escapeHtml(key)}" rows="2" placeholder="${target ? "Write a replyâ€¦" : `Reply to this ${escapeHtml(label)} postâ€¦`}" style="width:100%;resize:vertical;font-family:inherit;font-size:0.85rem;"></textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:6px;">
         <button class="btn btn-xs btn-primary" data-submit-reply="1" data-reply-platform="${escapeHtml(platform)}" data-reply-post-id="${escapeHtml(postId)}" data-reply-key="${escapeHtml(key)}">Reply</button>
       </div>
     </div>`;
 
   if (commentBusy.has(key)) {
-    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments from ${escapeHtml(label)}…</div>`;
+    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments from ${escapeHtml(label)}â€¦</div>`;
   }
 
   if (!state.items.length) {
@@ -2969,7 +3208,7 @@ async function importComments(panel, platform, postId) {
     renderCommentsPanel(panel, platform, postId);
     return;
   }
-  // The import is async — poll until comments appear (or give up).
+  // The import is async â€” poll until comments appear (or give up).
   for (let attempt = 0; attempt < 10; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 4000));
     const state = await fetchComments(platform, postId);
@@ -2986,7 +3225,7 @@ async function submitReply(panel, key, platform, postId, commentId) {
   const btn = panel.querySelector("[data-submit-reply]");
   if (!text) { showFeedback("Write something before replying.", "warning"); return; }
   const original = btn?.textContent || "Reply";
-  if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Sendingâ€¦"; }
   try {
     const res = await apiFetch(`/api/reply`, {
       method: "POST",
@@ -3004,7 +3243,7 @@ async function submitReply(panel, key, platform, postId, commentId) {
     showFeedback("Reply posted.", "success");
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = original; }
-    showFeedback(`Reply failed — ${err.message}`, "error");
+    showFeedback(`Reply failed â€” ${err.message}`, "error");
   }
 }
 
@@ -3073,14 +3312,14 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   }
 });
 
-// Per-post metrics refresh — pulls just one post (bounded X spend) instead of
+// Per-post metrics refresh â€” pulls just one post (bounded X spend) instead of
 // the whole list. Persists via /api/analytics/force (postRowId), then re-renders.
 $("#recent-posts-list")?.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-force-post]");
   if (!btn || !session?.access_token) return;
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "…";
+  btn.textContent = "â€¦";
   try {
     const res = await apiFetch(`/api/analytics/force`, {
       method: "POST",
@@ -3104,7 +3343,7 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   }
 });
 
-// ── Helper Functions ──
+// â”€â”€ Helper Functions â”€â”€
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -3112,7 +3351,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ── Init ──
+// â”€â”€ Init â”€â”€
 
 async function init() {
   const initialHash = location.hash.replace("#", "");
@@ -3131,7 +3370,7 @@ async function init() {
   // Handle Bundle OAuth connect callback (Bundle sends ?success=<platform>-callback or ?success=true)
   const params = new URLSearchParams(location.search);
   if (params.get("tab") === "fees") {
-    // Returned from a Stripe checkout (success or cancelled) → show the X fees tab.
+    // Returned from a Stripe checkout (success or cancelled) â†’ show the X fees tab.
     history.replaceState(null, "", location.pathname);
     if (session) {
       showView("fees");
@@ -3177,7 +3416,7 @@ async function init() {
   if ($("#view-analytics")) loadAnalyticsView();
 }
 
-// ── Navigation ──
+// â”€â”€ Navigation â”€â”€
 
 $$(".sidebar-nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -3215,7 +3454,7 @@ function switchView(viewName) {
   if (viewName === "schedule") fetchScheduled();
 }
 
-// ── Event Listeners ──
+// â”€â”€ Event Listeners â”€â”€
 
 $("#btn-create-hashtag-group")?.addEventListener("click", showCreateHashtagGroupModal);
 $("#btn-create-reply")?.addEventListener("click", showCreateReplyModal);
@@ -3223,3 +3462,4 @@ $("#btn-refill-queue")?.addEventListener("click", refillQueue);
 $("#btn-topup")?.addEventListener("click", topUp);
 
 init();
+
