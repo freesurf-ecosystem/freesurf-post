@@ -2031,11 +2031,17 @@ function updateComposeWarnings() {
   if (videoWarning) {
     const issues = [];
     if (composeVideoError) issues.push(composeVideoError);
-    issues.push(...videoSpecIssues(platforms));
+    const specs = videoSpecIssues(platforms);
+    issues.push(...specs);
     if (issues.length) {
-      videoWarning.innerHTML =
-        issues.map((msg) => `<div>${esc(msg)}</div>`).join("") +
-        `<div style="margin-top:4px;"><a href="#" data-video-help style="color:var(--brand);text-decoration:underline;">Free tools &amp; tips</a> — compression, crop/pad, trim, and platform specs.</div>`;
+      const helpHtml = ` <a href="#" data-video-help style="color:var(--brand);text-decoration:underline;">See here</a> for free tools &amp; tips for posting lower MB files and trimming.`;
+      let html = "";
+      if (composeVideoError) html += `<div>${esc(composeVideoError)}${helpHtml}</div>`;
+      specs.forEach((msg, i) => {
+        const suffix = !composeVideoError && i === specs.length - 1 ? helpHtml : "";
+        html += `<div>${esc(msg)}${suffix}</div>`;
+      });
+      videoWarning.innerHTML = html;
       videoWarning.querySelectorAll("[data-video-help]").forEach((a) =>
         a.addEventListener("click", (e) => { e.preventDefault(); videoHelpModal(); })
       );
