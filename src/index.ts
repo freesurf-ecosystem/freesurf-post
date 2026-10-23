@@ -2568,22 +2568,28 @@ async function postViaProvider(
 
   try {
     const now = new Date().toISOString();
+    const postPayload: Record<string, any> = {
+      teamId,
+      title: text.slice(0, 80) || "Post",
+      status: "SCHEDULED",
+      postDate: now,
+      socialAccountTypes: [bsPlatform],
+      data: {
+        [bsPlatform]: platformData,
+      },
+    };
+    // Bundle supports a "first comment" as a top-level field on the post itself
+    // (an object keyed by platform) — it posts right after the post publishes.
+    if (firstComment && FIRST_COMMENT_PLATFORMS.has(platform)) {
+      postPayload.firstComment = { [bsPlatform]: firstComment };
+    }
     const res = await fetch("https://api.bundle.social/api/v1/post", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-api-key": env.SOCIAL_API_PROVIDER_KEY,
       },
-      body: JSON.stringify({
-        teamId,
-        title: text.slice(0, 80) || "Post",
-        status: "SCHEDULED",
-        postDate: now,
-        socialAccountTypes: [bsPlatform],
-        data: {
-          [bsPlatform]: platformData,
-        },
-      }),
+      body: JSON.stringify(postPayload),
     });
 
     const data = (await res.json()) as any;
@@ -2627,11 +2633,6 @@ async function postViaProvider(
       } catch (e) {
         console.error(`Bundle post detail exception (${platform}):`, e instanceof Error ? e.message : String(e));
       }
-    }
-
-    // Best-effort: post the "first comment" immediately after publishing.
-    if (firstComment && FIRST_COMMENT_PLATFORMS.has(platform) && data.id) {
-      await postFirstComment(teamId, bsPlatform, data.id, firstComment, env);
     }
 
     return {
@@ -3153,54 +3154,12 @@ async function createBlueskySession(handle: string, password: string) {
 }
 
 /** Map our platform names to Bundle.social ALL CAPS format */
-/** Platforms Bundle's comment API can post a "first comment" to.
- *  Pinterest and Google Business have no comment surface via Bundle. */
+/** Platforms Bundle supports a "first comment" for (a top-level field on the
+ *  post payload). Pinterest and Google Business have no comment surface. */
 const FIRST_COMMENT_PLATFORMS: Set<Platform> = new Set([
   "bluesky", "x", "linkedin", "facebook", "instagram", "threads",
   "tiktok", "youtube", "reddit", "discord", "slack",
 ]);
-
-/**
- * Post a "first comment" on a just-published post via Bundle's comment API.
- * Best-effort: a failed first comment never fails the underlying post.
- */
-async function postFirstComment(
-  teamId: string,
-  bsPlatform: string,
-  internalPostId: string,
-  text: string,
-  env: Env
-): Promise<boolean> {
-  const comment = text.trim();
-  if (!comment || !env.SOCIAL_API_PROVIDER_KEY) return false;
-  try {
-    const now = new Date().toISOString();
-    const payload = {
-      teamId,
-      title: comment.slice(0, 80),
-      text: comment,
-      status: "SCHEDULED",
-      postDate: now,
-      socialAccountTypes: [bsPlatform],
-      data: { [bsPlatform]: { text: comment } },
-      internalPostId,
-    };
-    const res = await fetch("https://api.bundle.social/api/v1/comment/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as any;
-      console.error(`Bundle first comment failed (${bsPlatform}):`, res.status, JSON.stringify(data));
-      return false;
-    }
-    return true;
-  } catch (e) {
-    console.error(`Bundle first comment exception (${bsPlatform}):`, e instanceof Error ? e.message : String(e));
-    return false;
-  }
-}
 
 function bundlePlatform(key: string): string | null {
   const m: Record<string, string> = {
