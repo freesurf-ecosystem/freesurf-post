@@ -13,6 +13,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ImagePlus, X, Users, Check, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { RootStackParamList } from "../App";
 import { useTheme } from "../lib/theme";
+import { useAppLanguage } from "../lib/useAppLanguage";
 import { FloatingMenuButton } from "../components/Menu";
 import { listTeams, listAccounts, publishPost, schedulePost, saveDraft, uploadMedia, type Team, type PlatformTargets, type Account } from "../lib/api";
 
@@ -40,11 +41,11 @@ const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
 // Platforms that support an AI-generated disclosure label (matches the web app).
 const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "pinterest"]);
 
-const TARGETS: Record<string, { label: string; placeholder: string }> = {
-  discord: { label: "Discord channel ID", placeholder: "e.g. 123456789012345678" },
-  slack: { label: "Slack channel ID", placeholder: "e.g. C0123ABCDEF" },
-  pinterest: { label: "Pinterest board", placeholder: "e.g. My Board" },
-  reddit: { label: "Subreddit", placeholder: "e.g. r/example" },
+const TARGETS: Record<string, { labelKey: string; placeholder: string }> = {
+  discord: { labelKey: "discord_channel", placeholder: "e.g. 123456789012345678" },
+  slack: { labelKey: "slack_channel", placeholder: "e.g. C0123ABCDEF" },
+  pinterest: { labelKey: "pinterest_board", placeholder: "e.g. My Board" },
+  reddit: { labelKey: "subreddit", placeholder: "e.g. r/example" },
 };
 
 const CHAR_LIMIT = 5000;
@@ -140,6 +141,7 @@ type MediaItem = { uri: string; name: string; mime: string; kind: "image" | "vid
 
 export default function ComposeScreen() {
   const { colors } = useTheme();
+  const { T } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<Nav>();
   const route = useRoute<ComposeRoute>();
@@ -304,17 +306,17 @@ export default function ComposeScreen() {
 
   function buildScheduledAt(): string | null {
     const date = scheduleDate.trim(), time = to24h(time12, ampm).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { Alert.alert("Error", "Enter the schedule date as YYYY-MM-DD."); return null; }
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { Alert.alert("Error", "Enter a valid time."); return null; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { Alert.alert(T.error_title, T.enter_date); return null; }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { Alert.alert(T.error_title, T.enter_valid_time); return null; }
     const dt = wallClockToUTC(`${date}T${time}`, selectedTz);
-    if (Number.isNaN(dt.getTime())) { Alert.alert("Error", "That date/time isn't valid."); return null; }
-    if (dt.getTime() <= Date.now()) { Alert.alert("Error", "That time is in the past — pick a future date/time."); return null; }
+    if (Number.isNaN(dt.getTime())) { Alert.alert(T.error_title, T.invalid_datetime); return null; }
+    if (dt.getTime() <= Date.now()) { Alert.alert(T.error_title, T.past_time); return null; }
     return dt.toISOString();
   }
 
   async function post() {
     if (!text.trim() && media.length === 0) return;
-    if (selected.size === 0) { Alert.alert("Error", "Select at least one platform."); return; }
+    if (selected.size === 0) { Alert.alert(T.error_title, T.select_platform); return; }
     setLoading(true);
     try {
       // Upload any attached media first (scoped to the selected team), then send
@@ -333,17 +335,20 @@ export default function ComposeScreen() {
         const scheduledAt = buildScheduledAt();
         if (!scheduledAt) return;
         await schedulePost({ ...body, scheduledAt } as any);
-        Alert.alert("Scheduled!", `Post scheduled for ${new Date(scheduledAt).toLocaleString()}.`);
+        Alert.alert(T.scheduled_bang, `${T.post_scheduled_for} ${new Date(scheduledAt).toLocaleString()}.`);
       } else {
         const result = await publishPost(body as any);
         const results = result?.results || [];
         const ok = results.filter((r: any) => r.success).length;
         const failed = results.length - ok;
-        Alert.alert("Posted!", failed ? `Posted to ${ok} platform(s); ${failed} failed.` : `Posted to ${ok} platform(s).`);
+        const msg = failed
+          ? T.posted_partial.replace("{{ok}}", String(ok)).replace("{{failed}}", String(failed))
+          : T.posted_ok.replace("{{count}}", String(ok));
+        Alert.alert(T.posted, msg);
       }
       reset();
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Request failed.");
+      Alert.alert(T.error_title, e?.message || T.request_failed);
     } finally {
       setLoading(false);
     }
@@ -360,12 +365,12 @@ export default function ComposeScreen() {
   }
 
   async function saveCurrentDraft() {
-    if (!text.trim()) { Alert.alert("Draft", "Add some content to save as a draft."); return; }
+    if (!text.trim()) { Alert.alert(T.draft, T.add_content_draft); return; }
     try {
       await saveDraft(text.trim(), Array.from(selected));
-      Alert.alert("Saved", "Draft saved.");
+      Alert.alert(T.saved, T.draft_saved);
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Could not save draft.");
+      Alert.alert(T.error_title, e?.message || T.could_not_save_draft);
     }
   }
 
@@ -377,37 +382,42 @@ export default function ComposeScreen() {
     const videos = media.filter((m) => m.kind === "video").length;
     const images = count - videos;
     const has = (key: string) => selected.has(key);
+    const fill = (tpl: string, vars: Record<string, string | number>) =>
+      Object.entries(vars).reduce(
+        (s, [k, v]) => s.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), String(v)),
+        tpl
+      );
     if (count) {
-      const names = has("x") && has("bluesky") ? "X and Bluesky" : has("x") ? "X" : has("bluesky") ? "Bluesky" : "";
-      if (names && count > 4) warnings.push(`${names} support up to 4 images (or one video) — ${count} attached.`);
-      else if (names && videos > 1) warnings.push(`${names} support one video (or up to 4 images) — ${videos} videos attached.`);
-      if (has("instagram") && count > 10) warnings.push("Instagram supports up to 10 carousel items.");
+      const names = has("x") && has("bluesky") ? "X + Bluesky" : has("x") ? "X" : has("bluesky") ? "Bluesky" : "";
+      if (names && count > 4) warnings.push(fill(T.warn_limit, { names, count }));
+      else if (names && videos > 1) warnings.push(fill(T.warn_one_video, { names, count: videos }));
+      if (has("instagram") && count > 10) warnings.push(T.warn_instagram);
       if (has("tiktok")) {
-        if (count > 10) warnings.push("TikTok supports up to 10 photos.");
-        if (videos > 1) warnings.push("TikTok supports one video or up to 10 photos.");
-        if (images > 0 && videos > 0) warnings.push("TikTok photo posts can't mix images and video.");
+        if (count > 10) warnings.push(T.warn_tiktok_photos);
+        if (videos > 1) warnings.push(T.warn_tiktok_one_video);
+        if (images > 0 && videos > 0) warnings.push(T.warn_tiktok_no_mix);
         if (videos === 0 && media.some((m) => m.mime && !/^image\/(jpe?g|webp)$/i.test(m.mime))) {
-          warnings.push("TikTok photo posts require JPG, JPEG, or WebP — convert PNG/HEIC images first.");
+          warnings.push(T.warn_tiktok_formats);
         }
       }
       if (has("facebook")) {
-        if (count > 10) warnings.push("Facebook supports up to 10 images in a multi-photo post.");
-        if (videos > 1) warnings.push("Facebook supports one video or up to 10 images.");
-        if (images > 0 && videos > 0) warnings.push("Facebook can't mix images and video in one post.");
+        if (count > 10) warnings.push(T.warn_facebook_photos);
+        if (videos > 1) warnings.push(T.warn_facebook_one_video);
+        if (images > 0 && videos > 0) warnings.push(T.warn_facebook_no_mix);
       }
       if (has("threads")) {
-        if (count > 10) warnings.push("Threads supports up to 10 images (or one video).");
-        if (videos > 1) warnings.push("Threads supports one video or up to 10 images.");
-        if (images > 0 && videos > 0) warnings.push("Threads can't mix images and video in one post.");
+        if (count > 10) warnings.push(T.warn_threads_photos);
+        if (videos > 1) warnings.push(T.warn_threads_one_video);
+        if (images > 0 && videos > 0) warnings.push(T.warn_threads_no_mix);
       }
-      if (has("pinterest") && count > 1) warnings.push("Pinterest supports one image or video per pin.");
-      if (has("youtube") && count > 1) warnings.push("YouTube supports one video per upload.");
+      if (has("pinterest") && count > 1) warnings.push(T.warn_pinterest_one);
+      if (has("youtube") && count > 1) warnings.push(T.warn_youtube_one);
     }
     if (!text.trim()) {
       const required = ["linkedin", "youtube", "reddit", "google_business"]
         .filter((p) => selected.has(p))
         .map((p) => (p === "google_business" ? "Google Business" : p.charAt(0).toUpperCase() + p.slice(1)));
-      if (required.length) warnings.push(`${required.join(", ")} require text — add a caption.`);
+      if (required.length) warnings.push(fill(T.warn_require_text, { names: required.join(", ") }));
     }
     return warnings;
   })();
@@ -420,34 +430,34 @@ export default function ComposeScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.screen}>
         <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
           keyboardShouldPersistTaps="handled">
-        <Text style={[styles.label, { color: colors.textMuted }]}>Team</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>{T.team}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.teamRow}>
-          {teams.length === 0 && <Text style={{ color: colors.textMuted, fontSize: 13 }}>No teams yet — add one in Accounts.</Text>}
+          {teams.length === 0 && <Text style={{ color: colors.textMuted, fontSize: 13 }}>{T.no_teams_yet}</Text>}
           {teams.map((t) => (
             <TouchableOpacity key={t.id} style={[styles.teamChip, { borderColor: colors.border, backgroundColor: colors.surface }, teamId === t.id && { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
               onPress={() => setTeamId(t.id)}>
               <Text style={[styles.teamChipText, { color: teamId === t.id ? colors.brand : colors.textSecondary }]}>{t.label}</Text>
-              {t.is_active && <Text style={[styles.activeBadge, { color: colors.textMuted }]}>default</Text>}
+              {t.is_active && <Text style={[styles.activeBadge, { color: colors.textMuted }]}>{T.default_label}</Text>}
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         <TextInput style={[styles.textarea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-          placeholder="What's on your mind?" placeholderTextColor={colors.textMuted} value={text} onChangeText={setText}
+          placeholder={T.what_s_on_your_mind} placeholderTextColor={colors.textMuted} value={text} onChangeText={setText}
           multiline maxLength={CHAR_LIMIT} textAlignVertical="top" />
 
         {hasLink(text) && (
           <View style={[styles.linkWarning, { borderColor: colors.warning, backgroundColor: "rgba(217,119,6,0.12)" }]}>
-            <Text style={[styles.linkWarningText, { color: colors.warning }]}>Contains a link — X charges $0.20 instead of $0.015</Text>
+            <Text style={[styles.linkWarningText, { color: colors.warning }]}>{T.contains_link_warning}</Text>
           </View>
         )}
 
-        <Text style={[styles.label, { color: colors.textMuted }]}>First comment (optional)</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>{T.first_comment}</Text>
         <TextInput style={[styles.firstCommentInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-          placeholder="Posted right after publishing to seed engagement" placeholderTextColor={colors.textMuted}
+          placeholder={T.posted_right_after} placeholderTextColor={colors.textMuted}
           value={firstComment} onChangeText={setFirstComment} multiline maxLength={10000} textAlignVertical="top" />
 
-        <Text style={[styles.label, { color: colors.textMuted }]}>Media</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>{T.media}</Text>
         <View style={styles.mediaRow}>
           {media.map((m, i) => (
             <View key={m.uri + i} style={[styles.mediaThumbWrap, { borderColor: colors.border }]}>
@@ -470,7 +480,7 @@ export default function ComposeScreen() {
           {media.length < MAX_MEDIA && (
             <TouchableOpacity style={[styles.addMedia, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={pickMedia}>
               <ImagePlus size={20} color={colors.brand} />
-              <Text style={[styles.addMediaText, { color: colors.brand }]}>Add</Text>
+              <Text style={[styles.addMediaText, { color: colors.brand }]}>{T.add_media}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -487,11 +497,11 @@ export default function ComposeScreen() {
           <TouchableOpacity style={[styles.connectBanner, { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
             onPress={() => nav.navigate("Accounts")}>
             <Users size={16} color={colors.brand} />
-            <Text style={[styles.connectBannerText, { color: colors.brand }]}>No accounts connected yet. Tap to connect your socials.</Text>
+            <Text style={[styles.connectBannerText, { color: colors.brand }]}>{T.no_accounts_connected}</Text>
           </TouchableOpacity>
         )}
 
-        <Text style={[styles.platformsHint, { color: colors.textMuted }]}>Go to the Accounts tab to connect your social profiles.</Text>
+        <Text style={[styles.platformsHint, { color: colors.textMuted }]}>{T.go_to_accounts}</Text>
 
         <View style={styles.chips}>
           {PLATFORMS.map((p) => {
@@ -505,7 +515,7 @@ export default function ComposeScreen() {
                 onPress={() => { if (!disabled) toggle(p.key); }} disabled={disabled}>
                 {label ? <View style={[styles.connectedDot, { backgroundColor: colors.success }]} /> : null}
                 <Text style={[styles.chipText, { color: colors.textSecondary }, on && !disabled && { color: colors.brand }, disabled && { color: colors.textMuted }]}>
-                  {p.name}{soon ? " · soon" : ""}{label ? ` · ${label}` : ""}
+                  {p.name}{soon ? ` · ${T.soon}` : ""}{label ? ` · ${label}` : ""}
                 </Text>
               </TouchableOpacity>
             );
@@ -514,8 +524,8 @@ export default function ComposeScreen() {
 
         <Text style={[styles.postingTo, { color: colors.textSecondary }]}>
           {selected.size > 0
-            ? `Posting to: ${PLATFORMS.filter((p) => selected.has(p.key)).map((p) => p.name).join(", ")}`
-            : "No platforms selected"}
+            ? `${T.posting_to} ${PLATFORMS.filter((p) => selected.has(p.key)).map((p) => p.name).join(", ")}`
+            : T.no_platforms_selected}
         </Text>
 
         {Array.from(selected).some((p) => AI_DISCLOSURE_PLATFORMS.has(p)) && (
@@ -523,13 +533,13 @@ export default function ComposeScreen() {
             <View style={[styles.disclosureCheck, { borderColor: colors.border }, aiGenerated && { backgroundColor: colors.brand, borderColor: colors.brand }]}>
               {aiGenerated && <Check size={14} color="#fff" />}
             </View>
-            <Text style={[styles.disclosureText, { color: colors.textSecondary }]}>Mark content as AI-generated</Text>
+            <Text style={[styles.disclosureText, { color: colors.textSecondary }]}>{T.ai_generated}</Text>
           </TouchableOpacity>
         )}
 
         {needTarget && (
           <View style={styles.targetRow}>
-            <Text style={[styles.label, { color: colors.textMuted }]}>{TARGETS[needTarget].label}</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>{(T as any)[TARGETS[needTarget].labelKey]}</Text>
             <TextInput style={[styles.targetInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               placeholder={TARGETS[needTarget].placeholder} placeholderTextColor={colors.textMuted}
               value={targetValue} onChangeText={setTargetValue} autoCapitalize="none" />
@@ -538,9 +548,9 @@ export default function ComposeScreen() {
 
         <View style={[styles.scheduleCard, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
           <View style={styles.scheduleHeader}>
-            <Text style={[styles.scheduleTitle, { color: colors.text }]}>Schedule (optional)</Text>
+            <Text style={[styles.scheduleTitle, { color: colors.text }]}>{T.schedule_optional}</Text>
             <TouchableOpacity onPress={saveCurrentDraft}>
-              <Text style={[styles.draftLink, { color: colors.brand }]}>Save draft</Text>
+              <Text style={[styles.draftLink, { color: colors.brand }]}>{T.save_draft}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.scheduleInputs}>
@@ -565,18 +575,18 @@ export default function ComposeScreen() {
           </View>
           {willSchedule && (
             <Text style={[styles.schedulePreview, { color: colors.textSecondary }]}>
-              Posts at {new Date(wallClockToUTC(`${scheduleDate}T${scheduleTime}`, selectedTz)).toLocaleString()} ({selectedTz.replace(/_/g, " ")})
+              {T.posts_at} {new Date(wallClockToUTC(`${scheduleDate}T${scheduleTime}`, selectedTz)).toLocaleString()} ({selectedTz.replace(/_/g, " ")})
             </Text>
           )}
           <TouchableOpacity style={[styles.tzButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => setTzOpen(true)}>
-            <Text style={[styles.tzLabel, { color: colors.textMuted }]}>Time zone</Text>
+            <Text style={[styles.tzLabel, { color: colors.textMuted }]}>{T.time_zone}</Text>
             <Text style={[styles.tzValue, { color: colors.brand }]}>{selectedTz.replace(/_/g, " ")}</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand }, (!canPost || loading) && { opacity: 0.5 }]}
           onPress={post} disabled={!canPost || loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{willSchedule ? "Schedule" : "Post"}</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{willSchedule ? T.schedule : T.post_action}</Text>}
         </TouchableOpacity>
         <Text style={[styles.charCount, { color: len > 300 ? colors.warning : colors.textMuted }]}>{len} / {CHAR_LIMIT}</Text>
         </ScrollView>
@@ -585,7 +595,7 @@ export default function ComposeScreen() {
       <Modal visible={tzOpen} transparent animationType="fade" onRequestClose={() => setTzOpen(false)}>
         <View style={styles.tzBackdrop}>
           <View style={[styles.tzCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.tzCardTitle, { color: colors.text }]}>Time zone</Text>
+            <Text style={[styles.tzCardTitle, { color: colors.text }]}>{T.time_zone}</Text>
             <ScrollView style={{ maxHeight: 380 }}>
               {TIMEZONES.map((tz) => (
                 <TouchableOpacity key={tz} style={[styles.tzOption, selectedTz === tz && { backgroundColor: colors.brandSoft }]}

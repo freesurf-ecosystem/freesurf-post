@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Menu, Send, CalendarClock, FileText, Users, LogOut, Globe, Shield, Mail, Code2, Activity } from "lucide-react-native";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
+import { useAppLanguage } from "../lib/useAppLanguage";
 import type { RootStackParamList } from "../App";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -15,12 +16,12 @@ const MenuCtx = createContext<{ open: () => void; close: () => void }>({ open: (
 export const useMenu = () => useContext(MenuCtx);
 
 const LINKS = [
-  { label: "FreeSurf Home", url: "https://freesurf.tools", Icon: Globe },
-  { label: "Privacy", url: "https://freesurf.tools/privacy.html", Icon: Shield },
-  { label: "Terms", url: "https://freesurf.tools/terms.html", Icon: FileText },
-  { label: "Support", url: "mailto:hello@freesurf.tools", Icon: Mail },
-  { label: "GitHub", url: "https://github.com/freesurf-ecosystem", Icon: Code2 },
-];
+  { key: "home", url: "https://freesurf.tools", Icon: Globe },
+  { key: "privacy", url: "https://freesurf.tools/privacy.html", Icon: Shield },
+  { key: "terms_link", url: "https://freesurf.tools/terms.html", Icon: FileText },
+  { key: "support", url: "mailto:hello@freesurf.tools", Icon: Mail },
+  { key: "github", url: "https://github.com/freesurf-ecosystem", Icon: Code2 },
+] as const;
 
 export function MenuButton() {
   const menu = useMenu();
@@ -45,6 +46,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const nav = useNavigation<Nav>();
   const { theme, colors, toggleTheme } = useTheme();
+  const { T } = useAppLanguage();
 
   const open = () => setVisible(true);
   const close = () => setVisible(false);
@@ -60,11 +62,11 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
   }
 
   const tabs = [
-    { key: "Compose", label: "Compose", Icon: Send },
-    { key: "Schedule", label: "Schedule", Icon: CalendarClock },
-    { key: "Drafts", label: "Drafts", Icon: FileText },
-    { key: "Analytics", label: "Analytics", Icon: Activity },
-    { key: "Accounts", label: "Accounts", Icon: Users },
+    { key: "Compose", label: T.compose, Icon: Send },
+    { key: "Schedule", label: T.schedule, Icon: CalendarClock },
+    { key: "Drafts", label: T.drafts, Icon: FileText },
+    { key: "Analytics", label: T.analytics, Icon: Activity },
+    { key: "Accounts", label: T.accounts, Icon: Users },
   ] as const;
 
   return (
@@ -79,7 +81,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
             </View>
 
             <ScrollView>
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Sections</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>{T.sections}</Text>
               {tabs.map(({ key, label, Icon }) => (
                 <TouchableOpacity key={key} style={styles.row} onPress={() => go(key)}>
                   <Icon size={18} color={colors.textSecondary} />
@@ -87,26 +89,30 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
                 </TouchableOpacity>
               ))}
 
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Appearance</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>{T.appearance}</Text>
               <TouchableOpacity style={styles.row} onPress={toggleTheme}>
                 <Text style={[styles.themeIcon, { color: colors.textSecondary }]}>◐</Text>
                 <Text style={[styles.rowLabel, { color: colors.text }]}>
-                  {theme === "dark" ? "Light mode" : "Dark mode"}
+                  {theme === "dark" ? T.light_mode : T.dark_mode}
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.row} onPress={() => go("Language")}>
+                <Globe size={18} color={colors.textSecondary} />
+                <Text style={[styles.rowLabel, { color: colors.text }]}>{T.language}</Text>
+              </TouchableOpacity>
 
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>FreeSurf</Text>
-              {LINKS.map(({ label, url, Icon }) => (
-                <TouchableOpacity key={label} style={styles.row} onPress={() => { Linking.openURL(url).catch(() => {}); }}>
+              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>{T.free_surf}</Text>
+              {LINKS.map(({ key, url, Icon }) => (
+                <TouchableOpacity key={key} style={styles.row} onPress={() => { Linking.openURL(url).catch(() => {}); }}>
                   <Icon size={18} color={colors.textSecondary} />
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{(T as any)[key]}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             <TouchableOpacity style={[styles.signOut, { borderTopColor: colors.border }]} onPress={signOut}>
               <LogOut size={18} color={colors.error} />
-              <Text style={[styles.signOutLabel, { color: colors.error }]}>Sign out</Text>
+              <Text style={[styles.signOutLabel, { color: colors.error }]}>{T.sign_out}</Text>
             </TouchableOpacity>
           </View>
         </View>

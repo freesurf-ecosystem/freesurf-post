@@ -8,6 +8,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Plus, Pencil, Trash2, Star } from "lucide-react-native";
 import { useTheme } from "../lib/theme";
+import { useAppLanguage } from "../lib/useAppLanguage";
 import { FloatingMenuButton } from "../components/Menu";
 import {
   listTeams, createTeam, activateTeam, renameTeam, deleteTeam,
@@ -34,6 +35,7 @@ const ACCOUNTS = [
 
 export default function AccountsScreen() {
   const { colors } = useTheme();
+  const { T } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -83,24 +85,24 @@ export default function AccountsScreen() {
       setName("");
       await load();
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed to save team.");
+      Alert.alert(T.error_title, e?.message || T.failed);
     }
   }
 
   async function makeDefault(t: Team) {
     try { await activateTeam(t.id); await load(); }
-    catch (e: any) { Alert.alert("Error", e?.message || "Failed."); }
+    catch (e: any) { Alert.alert(T.error_title, e?.message || T.failed); }
   }
 
   function removeTeam(t: Team) {
-    Alert.alert("Delete team?", `"${t.label}" and its connected accounts will be removed.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
+    Alert.alert(T.delete_team_q, t.label, [
+      { text: T.cancel, style: "cancel" },
+      { text: T.delete, style: "destructive", onPress: async () => {
         try {
           await deleteTeam(t.id);
           if (selectedTeamId === t.id) setSelectedTeamId("");
           await load();
-        } catch (e: any) { Alert.alert("Error", e?.message || "Failed."); }
+        } catch (e: any) { Alert.alert(T.error_title, e?.message || T.failed); }
       } },
     ]);
   }
@@ -118,7 +120,7 @@ export default function AccountsScreen() {
       await setChannel(platform, channelId, selectedTeamId || undefined);
       await loadAccounts(selectedTeamId);
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Could not set page.");
+      Alert.alert(T.error_title, e?.message || T.failed);
     }
   }
 
@@ -127,30 +129,28 @@ export default function AccountsScreen() {
     try {
       url = await connectUrl(key, selectedTeamId || undefined);
     } catch (e: any) {
-      Alert.alert("Connect", e?.message || "Couldn't start the connection. Please try again.");
+      Alert.alert(T.connect_title, e?.message || T.failed);
       return;
     }
     if (!url) {
-      Alert.alert("Connect", "The connection portal didn't return a link. Please try again.");
+      Alert.alert(T.connect_title, T.failed);
       return;
     }
     try {
-      // Server bridges OAuth back to the app's deep link, so the browser closes
-      // itself and the user never sees the web dashboard.
       await WebBrowser.openAuthSessionAsync(url, CONNECT_RETURN_URL);
       await loadAccounts(selectedTeamId);
     } catch {
       try { await Linking.openURL(url); }
-      catch { Alert.alert("Connect", "Couldn't open the connection portal. Try again."); }
+      catch { Alert.alert(T.connect_title, T.failed); }
     }
   }
 
   function disconnect(key: string) {
-    Alert.alert("Disconnect?", `Remove ${key} from this team?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Disconnect", style: "destructive", onPress: async () => {
+    Alert.alert(T.disconnect_q, key, [
+      { text: T.cancel, style: "cancel" },
+      { text: T.disconnect, style: "destructive", onPress: async () => {
         try { await disconnectAccount(key, selectedTeamId || undefined); await loadAccounts(selectedTeamId); }
-        catch (e: any) { Alert.alert("Error", e?.message || "Failed."); }
+        catch (e: any) { Alert.alert(T.error_title, e?.message || T.failed); }
       } },
     ]);
   }
@@ -161,16 +161,16 @@ export default function AccountsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]} keyboardShouldPersistTaps="handled">
       <View style={[styles.sectionHeader, { marginTop: 0 }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Teams</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{T.teams}</Text>
         <TouchableOpacity style={[styles.addBtn, { borderColor: colors.brand }]} onPress={() => { setName(""); setEditor({ mode: "create" }); }}>
           <Plus size={16} color={colors.brand} />
-          <Text style={[styles.addBtnText, { color: colors.brand }]}>New team</Text>
+          <Text style={[styles.addBtnText, { color: colors.brand }]}>{T.new_team}</Text>
         </TouchableOpacity>
       </View>
 
       {loadingTeams ? <ActivityIndicator color={colors.brand} style={{ marginVertical: 20 }} /> : (
         teams.length === 0 ? (
-          <Text style={[styles.emptyNote, { color: colors.textMuted }]}>No teams yet. Create one to organize your accounts.</Text>
+          <Text style={[styles.emptyNote, { color: colors.textMuted }]}>{T.no_teams_note}</Text>
         ) : teams.map((t) => {
           const isSel = t.id === selectedTeamId;
           return (
@@ -179,9 +179,9 @@ export default function AccountsScreen() {
               <View style={styles.teamInfo}>
                 <View style={styles.teamNameRow}>
                   <Text style={[styles.teamName, { color: colors.text }]}>{t.label}</Text>
-                  {t.is_active && <Text style={[styles.defaultBadge, { color: colors.success }]}>default</Text>}
+                  {t.is_active && <Text style={[styles.defaultBadge, { color: colors.success }]}>{T.default_label}</Text>}
                 </View>
-                <Text style={[styles.teamSub, { color: colors.textMuted }]}>{isSel ? "Showing accounts" : "Tap to view accounts"}</Text>
+                <Text style={[styles.teamSub, { color: colors.textMuted }]}>{isSel ? T.showing_accounts : T.tap_view_accounts}</Text>
               </View>
               <View style={styles.teamActions}>
                 {!t.is_active && (
@@ -202,12 +202,12 @@ export default function AccountsScreen() {
       )}
 
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Accounts</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{T.accounts}</Text>
         <Text style={[styles.sectionSub, { color: colors.textMuted }]}>
-          {selectedTeam ? `for ${selectedTeam.label}` : ""}
+          {selectedTeam ? `${T.for_label} ${selectedTeam.label}` : ""}
         </Text>
       </View>
-      <Text style={[styles.helper, { color: colors.textMuted }]}>Connect your social profiles to start cross-posting.</Text>
+      <Text style={[styles.helper, { color: colors.textMuted }]}>{T.connect_helper}</Text>
 
       {loadingAccounts ? <ActivityIndicator color={colors.brand} style={{ marginVertical: 20 }} /> : (
         ACCOUNTS.map((p) => {
@@ -225,16 +225,16 @@ export default function AccountsScreen() {
                   {p.name}{handle ? `  @${handle}` : ""}
                 </Text>
                 <Text style={[styles.accountStatus, { color: on ? colors.success : colors.textMuted }]}>
-                  {on ? "Connected" : p.soon ? "Coming soon" : "Not connected"}
+                  {on ? T.connected : p.soon ? T.coming_soon : T.not_connected}
                 </Text>
                 {needsChannel && (
                   channels.length === 0 ? (
-                    <Text style={[styles.channelHint, { color: colors.textMuted }]}>No pages found — reconnect to refresh pages.</Text>
+                    <Text style={[styles.channelHint, { color: colors.textMuted }]}>{T.no_pages_found}</Text>
                   ) : (
                     <TouchableOpacity style={[styles.channelBtn, { borderColor: colors.border }]}
                       onPress={() => setChannelPicker({ platform: p.key, channels, selectedId: acc?.selectedChannelId || "" })}>
                       <Text style={[styles.channelBtnText, { color: colors.textSecondary }]}>
-                        Page: {selChannel?.name || "None selected"}
+                        {T.page_label} {selChannel?.name || T.none_selected}
                       </Text>
                       <Text style={[styles.channelBtnCaret, { color: colors.textMuted }]}>▾</Text>
                     </TouchableOpacity>
@@ -244,7 +244,7 @@ export default function AccountsScreen() {
               <TouchableOpacity style={[styles.connectBtn, { borderColor: on ? colors.success : colors.border }]}
                 disabled={disabled} onPress={() => on ? disconnect(p.key) : connect(p.key)}>
                 <Text style={[styles.connectBtnText, { color: on ? colors.success : colors.brand }]}>
-                  {on ? "Disconnect" : "Connect"}
+                  {on ? T.disconnect : T.connect}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -255,10 +255,10 @@ export default function AccountsScreen() {
       <Modal visible={!!channelPicker} transparent animationType="fade" onRequestClose={() => setChannelPicker(null)}>
         <View style={styles.editorBackdrop}>
           <View style={[styles.editorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.editorTitle, { color: colors.text }]}>Choose page</Text>
+            <Text style={[styles.editorTitle, { color: colors.text }]}>{T.choose_page}</Text>
             <TouchableOpacity style={[styles.channelOpt, channelPicker?.selectedId === "" && { backgroundColor: colors.brandSoft }]}
               onPress={() => { if (channelPicker) { pickChannel(channelPicker.platform, undefined); setChannelPicker(null); } }}>
-              <Text style={[styles.channelOptText, { color: colors.textSecondary }]}>No page selected</Text>
+              <Text style={[styles.channelOptText, { color: colors.textSecondary }]}>{T.no_page_selected}</Text>
             </TouchableOpacity>
             {(channelPicker?.channels || []).map((c) => (
               <TouchableOpacity key={c.id} style={[styles.channelOpt, channelPicker?.selectedId === c.id && { backgroundColor: colors.brandSoft }]}
@@ -274,16 +274,16 @@ export default function AccountsScreen() {
         <View style={styles.editorBackdrop}>
           <View style={[styles.editorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.editorTitle, { color: colors.text }]}>
-              {editor?.mode === "rename" ? "Rename team" : "New team"}
+              {editor?.mode === "rename" ? T.rename_team : T.new_team}
             </Text>
-            <TextInput style={inputStyle} value={name} onChangeText={setName} placeholder="Team name" placeholderTextColor={colors.textMuted}
+            <TextInput style={inputStyle} value={name} onChangeText={setName} placeholder={T.team_name} placeholderTextColor={colors.textMuted}
               autoCapitalize="words" autoFocus onSubmitEditing={submitTeam} />
             <View style={styles.editorActions}>
               <TouchableOpacity style={[styles.editorBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => setEditor(null)}>
-                <Text style={[styles.editorBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.editorBtnText, { color: colors.textSecondary }]}>{T.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.editorBtn, { backgroundColor: colors.brand }]} onPress={submitTeam} disabled={!name.trim()}>
-                <Text style={[styles.editorBtnText, { color: "#fff" }]}>{editor?.mode === "rename" ? "Save" : "Create"}</Text>
+                <Text style={[styles.editorBtnText, { color: "#fff" }]}>{editor?.mode === "rename" ? T.save : T.create}</Text>
               </TouchableOpacity>
             </View>
           </View>

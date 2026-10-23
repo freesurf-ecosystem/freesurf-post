@@ -4,11 +4,13 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalendarClock } from "lucide-react-native";
 import { useTheme } from "../lib/theme";
+import { useAppLanguage } from "../lib/useAppLanguage";
 import { FloatingMenuButton } from "../components/Menu";
 import { listScheduled, cancelScheduled, type ScheduledPost } from "../lib/api";
 
 export default function ScheduleScreen() {
   const { colors } = useTheme();
+  const { T } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,11 +26,11 @@ export default function ScheduleScreen() {
   }
 
   async function cancel(p: ScheduledPost) {
-    Alert.alert("Cancel post?", `Cancel the post scheduled for ${new Date(p.scheduledAt).toLocaleString()}?`, [
-      { text: "No", style: "cancel" },
-      { text: "Cancel post", style: "destructive", onPress: async () => {
+    Alert.alert(T.cancel_post, `${T.cancel_scheduled_post} ${new Date(p.scheduledAt).toLocaleString()}?`, [
+      { text: T.no_cancel, style: "cancel" },
+      { text: T.cancel, style: "destructive", onPress: async () => {
         try { await cancelScheduled(p.id); setPosts((prev) => prev.filter((x) => x.id !== p.id)); }
-        catch (e: any) { Alert.alert("Error", e?.message || "Could not cancel."); }
+        catch (e: any) { Alert.alert(T.error_title, e?.message || T.error_message); }
       } },
     ]);
   }
@@ -49,7 +51,7 @@ export default function ScheduleScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <CalendarClock size={28} color={colors.textMuted} />
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No scheduled posts yet. Compose a post and flip on "Schedule for later".</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{T.no_scheduled_posts}</Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -58,7 +60,7 @@ export default function ScheduleScreen() {
             <Text style={[styles.scheduled, { color: colors.textMuted }]}>{new Date(item.scheduledAt).toLocaleString()}</Text>
             <Text style={[styles.textPreview, { color: colors.text }]} numberOfLines={3}>"{item.text}"</Text>
             <TouchableOpacity onPress={() => cancel(item)}>
-              <Text style={[styles.cancel, { color: colors.error }]}>Cancel</Text>
+              <Text style={[styles.cancel, { color: colors.error }]}>{T.cancel}</Text>
             </TouchableOpacity>
           </View>
         )}

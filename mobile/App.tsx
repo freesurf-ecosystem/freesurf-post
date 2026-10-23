@@ -4,17 +4,21 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./lib/supabase";
 import { ThemeProvider, useTheme } from "./lib/theme";
 import { MenuProvider } from "./components/Menu";
+import OnboardingScreen from "./screens/OnboardingScreen";
 import AuthScreen from "./screens/AuthScreen";
 import ComposeScreen from "./screens/ComposeScreen";
 import ScheduleScreen from "./screens/ScheduleScreen";
 import DraftsScreen from "./screens/DraftsScreen";
 import AccountsScreen from "./screens/AccountsScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
-import OnboardingScreen from "./screens/OnboardingScreen";
 import { loadOnboardingState, onboardingComplete, OnboardingState } from "./lib/onboarding";
+import { useAppLanguage, LanguageProvider } from "./lib/useAppLanguage";
+import LanguageChooser from "./screens/LanguageChooser";
+import LanguageScreen from "./screens/LanguageScreen";
 
 export type RootStackParamList = {
   Compose: { draftText?: string; draftPlatforms?: string[] } | undefined;
@@ -23,6 +27,7 @@ export type RootStackParamList = {
   Accounts: undefined;
   Analytics: undefined;
   Auth: undefined;
+  Language: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -31,21 +36,42 @@ function ThemedNavigator() {
   const { colors, theme } = useTheme();
   const [session, setSession] = useState<boolean | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
+  const { lang, setLanguage, T, loaded } = useAppLanguage();
+
+  // Get stored language status for navigation flow
+  const [languageSelected, setLanguageSelected] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const sl = await AsyncStorage.getItem("@freesurf-app-lang");
+      setLanguageSelected(!!sl);
+    })();
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(Boolean(data.session));
-      setOnboarding(data.session?.user ? await loadOnboardingState(data.session.user.id) : null);
+      if (data.session?.user) {
+        const state = await loadOnboardingState(data.session.user.id);
+        setOnboarding(onboardingComplete(state) ? null : state);
+      } else {
+        setOnboarding(null);
+      }
     });
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, s) => {
       console.log("[App] auth state change, session=", Boolean(s));
       setSession(Boolean(s));
-      setOnboarding(s?.user ? await loadOnboardingState(s.user.id) : null);
+      if (s?.user) {
+        const state = await loadOnboardingState(s.user.id);
+        setOnboarding(onboardingComplete(state) ? null : state);
+      } else {
+        setOnboarding(null);
+      }
     });
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  if (session === null || (session && onboarding === null)) {
+  // If loading or no session, show spinner
+  if (!loaded || session === null) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}>
         <ActivityIndicator size="large" color={colors.brand} />
@@ -53,7 +79,17 @@ function ThemedNavigator() {
     );
   }
 
-  // Blocking onboarding: shown until Terms are accepted and both opt-ins are answered.
+  // If language not selected (no stored language), show LanguageChooser first
+  if (!languageSelected) {
+    return (
+      <LanguageChooser
+        onDone={() => setLanguageSelected(true)}
+        onSelect={(code: string) => setLanguage(code)}
+      />
+    );
+  }
+
+  // If onboarding not complete, show onboarding screen
   if (session && onboarding && !onboardingComplete(onboarding)) {
     return (
       <OnboardingScreen
@@ -88,6 +124,7 @@ function ThemedNavigator() {
               <Stack.Screen name="Drafts" component={DraftsScreen} />
               <Stack.Screen name="Accounts" component={AccountsScreen} />
               <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+              <Stack.Screen name="Language" component={LanguageScreen} />
             </>
           ) : (
             <Stack.Screen name="Auth" component={AuthScreen} />
@@ -98,13 +135,17 @@ function ThemedNavigator() {
   );
 }
 
-export default function App() {
+function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <StatusBar style="auto" />
-        <ThemedNavigator />
+        <LanguageProvider>
+          <StatusBar style="auto" />
+          <ThemedNavigator />
+        </LanguageProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
 }
+
+export default App;

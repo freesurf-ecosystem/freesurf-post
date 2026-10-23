@@ -5,9 +5,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
-import {
-  TERMS_VERSION, recordConsent, subscribeDigest, subscribeProductUpdates, OnboardingState,
-} from "../lib/onboarding";
+import { useAppLanguage } from "../lib/useAppLanguage";
+import { TERMS_VERSION, recordConsent, subscribeDigest, subscribeProductUpdates, OnboardingState } from "../lib/onboarding";
 
 const TERMS_URL = "https://freesurf.tools/terms";
 const PRIVACY_URL = "https://freesurf.tools/privacy";
@@ -22,6 +21,7 @@ export default function OnboardingScreen({
   onDone: () => void;
 }) {
   const { colors } = useTheme();
+  const { T } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [terms, setTerms] = useState(initial.terms);
   const [digest, setDigest] = useState(initial.digest);
@@ -46,7 +46,7 @@ export default function OnboardingScreen({
       await recordConsent(uid, "terms", TERMS_VERSION);
       setTerms(true);
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Could not save your agreement. Please try again.");
+      Alert.alert(T.error_title, e?.message || T.error_message);
     } finally {
       setLoading(false);
     }
@@ -70,9 +70,10 @@ export default function OnboardingScreen({
       if (digest && email && !initial.digest) {
         try { await subscribeDigest(email); } catch (e) { console.warn("[onboarding] digest subscribe failed", e); }
       }
+
       onDone();
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Could not save your preferences. Please try again.");
+      Alert.alert(T.error_title, e?.message || T.error_message);
     } finally {
       setLoading(false);
     }
@@ -86,15 +87,15 @@ export default function OnboardingScreen({
     <ScrollView
       contentContainerStyle={[styles.inner, { backgroundColor: colors.bg, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}
     >
-      <Text style={[styles.title, { color: colors.text }]}>{terms ? "Almost there" : "Welcome to FreeSurf"}</Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>{terms ? "Step 2 of 2" : "Step 1 of 2"}</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{terms ? T.almost_there : T.welcome}</Text>
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>{terms ? T.step2 : T.step1}</Text>
 
       {!terms ? (
         <>
           <TouchableOpacity onPress={() => setAgreeChecked(!agreeChecked)} style={styles.checkRow}>
             {box(agreeChecked)}
             <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
-              I agree to the {link(TERMS_URL, "Terms")}, {link(PRIVACY_URL, "Privacy Policy")}, and {link(AI_URL, "AI Processing")} policy
+              {T.agree_to_terms} {link(TERMS_URL, T.terms)}, {link(PRIVACY_URL, T.privacy_policy)}, {link(AI_URL, T.ai_processing)}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -102,31 +103,25 @@ export default function OnboardingScreen({
             onPress={acceptTerms}
             disabled={!agreeChecked || loading}
           >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Accept & continue</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{T.accept_terms}</Text>}
           </TouchableOpacity>
         </>
       ) : (
         <>
-          <Text style={[styles.intro, { color: colors.text }]}>
-            Since our tool is free for posting (at cost for the X API), we rely on sign-ups to our FeedFree newsletter (a free newsletter) which curates blog-length social posts covering AI, SEO, social media marketing, open-source projects — from X and LinkedIn (with more channels being added). Instead of scrolling social media for insight all day, you can get links to worthwhile posts in your inbox on a regular basis. Feel free to give it a try — unsubscribe at any time, it is highly appreciated.
-          </Text>
+          <Text style={[styles.intro, { color: colors.text }]}>{T.onboarding_intro}</Text>
           <TouchableOpacity onPress={() => setDigest(!digest)} style={styles.checkRow}>
             {box(digest)}
-            <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
-              Subscribe to the {link(DIGEST_URL, "FeedFree Digest")}
-            </Text>
+            <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>{link(DIGEST_URL, T.subscribe_digest)}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setUpdates(!updates)} style={styles.checkRow}>
             {box(updates)}
-            <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>
-              FreeSurf product updates — occasional news about our other free tools. Unsubscribe any time.
-            </Text>
+            <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>{T.product_updates}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand, marginTop: 12 }]} onPress={finish} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Finish</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{T.finish}</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={remindLater} disabled={loading}>
-            <Text style={[styles.switch, { color: colors.brand }]}>Remind me later</Text>
+            <Text style={[styles.switch, { color: colors.brand }]}>{T.remind_later}</Text>
           </TouchableOpacity>
         </>
       )}

@@ -7,6 +7,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Activity, RefreshCw, Send } from "lucide-react-native";
 import { useTheme } from "../lib/theme";
+import { useAppLanguage } from "../lib/useAppLanguage";
 import { FloatingMenuButton } from "../components/Menu";
 import {
   listRecentPosts, forceAnalytics, listComments, importComments, deletePost, replyToComment,
@@ -32,13 +33,14 @@ function platformName(key: string): string {
 
 const STAT_KEYS: (keyof PostMetrics)[] = ["impressions", "likes", "comments", "shares"];
 
-function statsFor(m: PostMetrics | undefined): { label: string; value: string }[] {
+function statsFor(m: PostMetrics | undefined): { key: string; value: string }[] {
   if (!m) return [];
-  return STAT_KEYS.filter((k) => m[k] != null).map((k) => ({ label: k, value: fmtNum(m[k] as number) }));
+  return STAT_KEYS.filter((k) => m[k] != null).map((k) => ({ key: k as string, value: fmtNum(m[k] as number) }));
 }
 
 export default function AnalyticsScreen() {
   const { colors } = useTheme();
+  const { T } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<RecentPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +84,7 @@ export default function AnalyticsScreen() {
       await forceAnalytics({ platform: r.platform, postId: r.postId, postRowId: post.id, via: r.via });
       await fetchPosts();
     } catch (e: any) {
-      Alert.alert("Refresh failed", e?.message || "Couldn't refresh metrics.");
+      Alert.alert(T.refresh_failed, e?.message || T.could_not_refresh);
     } finally {
       setBusyKey(null);
     }
@@ -96,7 +98,7 @@ export default function AnalyticsScreen() {
       await deletePost(r.platform, r.postId);
       await fetchPosts();
     } catch (e: any) {
-      Alert.alert("Delete failed", e?.message || "Couldn't delete post.");
+      Alert.alert(T.delete_failed, e?.message || T.could_not_delete_post);
     } finally {
       setBusyKey(null);
     }
@@ -104,11 +106,11 @@ export default function AnalyticsScreen() {
 
   function confirmDelete(post: RecentPost, r: PostResult) {
     Alert.alert(
-      "Delete post?",
-      `This deletes the actual post from ${platformName(r.platform)} permanently — there's no undo.`,
+      T.delete_post_q,
+      `${T.delete_post_warning} ${platformName(r.platform)} ${T.delete_post_warning2}`,
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => doDelete(post, r) },
+        { text: T.cancel, style: "cancel" },
+        { text: T.delete, style: "destructive", onPress: () => doDelete(post, r) },
       ]
     );
   }
@@ -121,7 +123,6 @@ export default function AnalyticsScreen() {
     }
     setOpenComments((prev) => ({ ...prev, [key]: true }));
     if (!commentLoaded[key]) {
-      // Auto-pull from the platform on first open, so expanding is enough.
       await loadCommentsFromPlatform(platform, postId);
     }
   }
@@ -139,7 +140,6 @@ export default function AnalyticsScreen() {
       }
       setCommentItems((prev) => ({ ...prev, [key]: items }));
     } catch {
-      // keep whatever was there
     } finally {
       setCommentLoading((prev) => ({ ...prev, [key]: false }));
       setCommentLoaded((prev) => ({ ...prev, [key]: true }));
@@ -164,7 +164,7 @@ export default function AnalyticsScreen() {
       setReplyDraft((prev) => ({ ...prev, [key]: "" }));
       setReplyTo((prev) => ({ ...prev, [key]: undefined }));
     } catch (e: any) {
-      Alert.alert("Reply failed", e?.message || "Couldn't post your reply.");
+      Alert.alert(T.reply_failed, e?.message || T.could_not_post_reply);
     } finally {
       setReplySending((prev) => ({ ...prev, [key]: false }));
     }
@@ -178,16 +178,16 @@ export default function AnalyticsScreen() {
         {target ? (
           <View style={styles.replyTargetRow}>
             <Text style={[styles.commentWhen, { color: colors.textMuted }]} numberOfLines={1}>
-              Replying to {target.name || "comment"}
+              {T.replying_to} {target.name || T.comments}
             </Text>
             <TouchableOpacity onPress={() => setReplyTo((prev) => ({ ...prev, [key]: undefined }))}>
-              <Text style={[styles.replyCancel, { color: colors.textMuted }]}>Cancel</Text>
+              <Text style={[styles.replyCancel, { color: colors.textMuted }]}>{T.cancel}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
         <TextInput
           style={[styles.replyInput, { borderColor: colors.border, color: colors.text }]}
-          placeholder={target ? "Write a reply…" : `Reply to this ${platformLabel} post…`}
+          placeholder={target ? T.write_reply : `${T.reply_to_post} ${platformLabel} ${T.post_ellipsis}`}
           placeholderTextColor={colors.textMuted}
           value={replyDraft[key] || ""}
           onChangeText={(t) => setReplyDraft((prev) => ({ ...prev, [key]: t }))}
@@ -203,7 +203,7 @@ export default function AnalyticsScreen() {
           ) : (
             <>
               <Send size={13} color={colors.brand} />
-              <Text style={[styles.actionText, { color: colors.brand }]}>Reply</Text>
+              <Text style={[styles.actionText, { color: colors.brand }]}>{T.reply}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -228,9 +228,9 @@ export default function AnalyticsScreen() {
     if (!items.length) {
       return (
         <View style={styles.commentsPanel}>
-          <Text style={[styles.commentsEmpty, { color: colors.textMuted }]}>No comments loaded yet.</Text>
+          <Text style={[styles.commentsEmpty, { color: colors.textMuted }]}>{T.no_comments_loaded}</Text>
           <TouchableOpacity style={[styles.commentsLoadBtn, { borderColor: colors.border }]} onPress={() => loadCommentsFromPlatform(platform, postId)}>
-            <Text style={[styles.commentsLoadText, { color: colors.brand }]}>Reload from {platformLabel}</Text>
+            <Text style={[styles.commentsLoadText, { color: colors.brand }]}>{T.reload_from} {platformLabel}</Text>
           </TouchableOpacity>
           {renderComposer(platform, postId, key, platformLabel)}
         </View>
@@ -242,22 +242,22 @@ export default function AnalyticsScreen() {
         {items.map((c, i) => (
           <View key={i} style={[styles.commentRow, { borderBottomColor: colors.borderLight }]}>
             <View style={styles.commentMeta}>
-              <Text style={[styles.commentAuthor, { color: colors.text }]}>{c.authorName || "unknown"}</Text>
+              <Text style={[styles.commentAuthor, { color: colors.text }]}>{c.authorName || T.unknown}</Text>
               {c.publishedAt ? <Text style={[styles.commentWhen, { color: colors.textMuted }]}>{new Date(c.publishedAt).toLocaleString()}</Text> : null}
             </View>
             {c.text ? <Text style={[styles.commentText, { color: colors.textSecondary }]}>{c.text}</Text> : null}
             {c.id ? (
               <TouchableOpacity
                 style={styles.commentReplyLink}
-                onPress={() => setReplyTo((prev) => ({ ...prev, [key]: { id: c.id!, name: c.authorName || "comment" } }))}
+                onPress={() => setReplyTo((prev) => ({ ...prev, [key]: { id: c.id!, name: c.authorName || T.comments } }))}
               >
-                <Text style={[styles.commentReplyText, { color: colors.brand }]}>Reply</Text>
+                <Text style={[styles.commentReplyText, { color: colors.brand }]}>{T.reply}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
         ))}
         <TouchableOpacity style={[styles.commentsLoadBtn, { borderColor: colors.border }]} onPress={() => loadCommentsFromPlatform(platform, postId)}>
-          <Text style={[styles.commentsLoadText, { color: colors.brand }]}>Reload from {platformLabel}</Text>
+          <Text style={[styles.commentsLoadText, { color: colors.brand }]}>{T.reload_from} {platformLabel}</Text>
         </TouchableOpacity>
         {renderComposer(platform, postId, key, platformLabel)}
       </View>
@@ -281,42 +281,42 @@ export default function AnalyticsScreen() {
         <View style={styles.resultTop}>
           <Text style={[styles.resultPlatform, { color: colors.textSecondary }]}>{platformName(r.platform).toUpperCase()}</Text>
           {failed
-            ? <Text style={[styles.resultFailed, { color: colors.error }]}>failed{r.error ? `: ${r.error}` : ""}</Text>
+            ? <Text style={[styles.resultFailed, { color: colors.error }]}>{T.failed_word}{r.error ? `: ${r.error}` : ""}</Text>
             : r.status === "POSTED"
-              ? <Text style={[styles.resultPosted, { color: colors.success }]}>posted</Text>
+              ? <Text style={[styles.resultPosted, { color: colors.success }]}>{T.posted_word}</Text>
               : null}
         </View>
 
         {stats.length > 0 ? (
           <Text style={[styles.resultStats, { color: colors.textMuted }]}>
-            {stats.map((s) => `${s.label}: ${s.value}`).join(" · ")}
+            {stats.map((s) => `${(T as any)[s.key] || s.key}: ${s.value}`).join(" · ")}
           </Text>
         ) : failed ? null : (
-          <Text style={[styles.resultStats, { color: colors.textMuted }]}>no metrics yet</Text>
+          <Text style={[styles.resultStats, { color: colors.textMuted }]}>{T.no_metrics_yet}</Text>
         )}
 
         <View style={styles.resultActions}>
           {r.postId ? (
             <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={() => refreshPost(post, r)} disabled={busy}>
               {busy ? <ActivityIndicator size="small" color={colors.brand} /> : <RefreshCw size={13} color={colors.brand} />}
-              <Text style={[styles.actionText, { color: colors.brand }]}>Refresh</Text>
+              <Text style={[styles.actionText, { color: colors.brand }]}>{T.refresh}</Text>
             </TouchableOpacity>
           ) : null}
           {r.postUrl ? (
             <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={() => Linking.openURL(r.postUrl!).catch(() => {})}>
-              <Text style={[styles.actionText, { color: colors.brand }]}>View</Text>
+              <Text style={[styles.actionText, { color: colors.brand }]}>{T.view}</Text>
             </TouchableOpacity>
           ) : null}
           {canComments ? (
             <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={() => toggleComments(r.platform, r.postId!)}>
               <Text style={[styles.actionText, { color: colors.brand }]}>
-                Comments{Number(m?.comments) ? ` (${Number(m?.comments)})` : ""}
+                {T.comments}{Number(m?.comments) ? ` (${Number(m?.comments)})` : ""}
               </Text>
             </TouchableOpacity>
           ) : null}
           {canDelete ? (
             <TouchableOpacity style={[styles.actionBtn, { borderColor: colors.border }]} onPress={() => confirmDelete(post, r)} disabled={busyDelete}>
-              <Text style={[styles.actionText, { color: colors.error }]}>{busyDelete ? "Deleting…" : "Delete"}</Text>
+              <Text style={[styles.actionText, { color: colors.error }]}>{busyDelete ? T.deleting : T.delete}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -340,16 +340,14 @@ export default function AnalyticsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Posts</Text>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-              Published posts and per-platform stats. Use <Text style={{ color: colors.textSecondary }}>Refresh</Text> on a single post to pull fresh metrics without extra X fees.
-            </Text>
+            <Text style={[styles.title, { color: colors.text }]}>{T.posts}</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>{T.analytics_subtitle}</Text>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Activity size={28} color={colors.textMuted} />
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No published posts yet. Your post history will appear here.</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{T.no_published_posts}</Text>
           </View>
         }
         renderItem={({ item }) => (

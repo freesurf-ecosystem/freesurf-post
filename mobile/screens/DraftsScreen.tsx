@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FileText } from "lucide-react-native";
 import { useTheme } from "../lib/theme";
+import { useAppLanguage } from "../lib/useAppLanguage";
 import { FloatingMenuButton } from "../components/Menu";
 import { listDrafts, deleteDraft, type Draft } from "../lib/api";
 import type { RootStackParamList } from "../App";
@@ -13,6 +14,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function DraftsScreen() {
   const { colors } = useTheme();
+  const { T } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<Nav>();
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -31,11 +33,11 @@ export default function DraftsScreen() {
   }
 
   function remove(d: Draft) {
-    Alert.alert("Delete draft?", "This can't be undone.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
+    Alert.alert(T.delete_draft_q, T.cant_be_undone, [
+      { text: T.cancel, style: "cancel" },
+      { text: T.delete, style: "destructive", onPress: async () => {
         try { await deleteDraft(d.id); setDrafts((prev) => prev.filter((x) => x.id !== d.id)); }
-        catch (e: any) { Alert.alert("Error", e?.message || "Could not delete."); }
+        catch (e: any) { Alert.alert(T.error_title, e?.message || T.could_not_delete); }
       } },
     ]);
   }
@@ -56,23 +58,23 @@ export default function DraftsScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <FileText size={28} color={colors.textMuted} />
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No drafts yet. Save a post from Compose to get started.</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{T.no_drafts}</Text>
           </View>
         }
         renderItem={({ item }) => (
           <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.rowTop}>
               <Text style={[styles.meta, { color: colors.textMuted }]}>
-                {item.platforms?.length ? item.platforms.join(", ") : "No platforms"} · {new Date(item.updated_at).toLocaleDateString()}
+                {item.platforms?.length ? item.platforms.join(", ") : T.no_platforms} · {new Date(item.updated_at).toLocaleDateString()}
               </Text>
             </View>
             <Text style={[styles.text, { color: colors.text }]} numberOfLines={3}>{item.text}</Text>
             <View style={styles.actions}>
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.brand }]} onPress={() => load(item)}>
-                <Text style={styles.actionText}>Load</Text>
+                <Text style={styles.actionText}>{T.load}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.actionBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => remove(item)}>
-                <Text style={[styles.actionGhostText, { color: colors.error }]}>Delete</Text>
+                <Text style={[styles.actionGhostText, { color: colors.error }]}>{T.delete}</Text>
               </TouchableOpacity>
             </View>
           </View>
