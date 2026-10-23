@@ -141,14 +141,6 @@ function choiceModal({ title, message, options }) {
 // safety margin for multipart overhead.
 const VIDEO_MAX_UPLOAD_MB = 95;
 const VIDEO_LIMIT_MB = 100;
-const VIDEO_COMPRESS_CMD =
-  "ffmpeg -i input.mp4 -c:v libx264 -preset medium -crf 22 -maxrate 4M -bufsize 8M -c:a aac -b:a 128k -movflags +faststart output.mp4";
-const VIDEO_CROP_916_CMD =
-  "ffmpeg -i input.mp4 -vf \"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920\" -c:v libx264 -crf 22 -c:a aac -movflags +faststart output.mp4";
-const VIDEO_PAD_916_CMD =
-  "ffmpeg -i input.mp4 -filter_complex \"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=40:2[bg];[0:v]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2\" -c:v libx264 -crf 22 -c:a aac -movflags +faststart output.mp4";
-const VIDEO_TRIM_90_CMD =
-  "ffmpeg -i input.mp4 -t 90 -c:v libx264 -crf 22 -c:a aac -movflags +faststart output.mp4";
 
 function fmtMb(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -184,7 +176,7 @@ function videoHelpModal() {
         <div class="modal-body" style="max-height:65vh;overflow:auto;color:var(--text);font-size:0.9rem;line-height:1.55;">
           <div style="border:1px solid var(--border);background:var(--bg-alt);border-radius:10px;padding:12px;margin-bottom:14px;">
             <strong>Upload limit: ${VIDEO_LIMIT_MB} MB per file.</strong><br>
-            Cloudflare rejects files over ${VIDEO_LIMIT_MB} MB before they reach us. Aim for &le;90 MB to leave room for upload overhead. Images are rarely affected; long or high-bitrate videos are. This is a file-size limit, not a duration limit: a 4-minute 1080p clip at 8 Mbps is ~240 MB, but at 3 Mbps it is ~90 MB (720p at ~2 Mbps is ~60 MB). Automatic compression is on the roadmap.
+            Cloudflare rejects files over ${VIDEO_LIMIT_MB} MB before they reach us. Aim for &le;90 MB to leave room for upload overhead. Images are rarely affected; long or high-bitrate videos are. This is a file-size limit, not a duration limit: a 4-minute 1080p clip at 8 Mbps is ~240 MB, but at 3 Mbps it is ~90 MB (720p at ~2 Mbps is ~60 MB). As a practical rule, we currently can't handle videos longer than about 5 minutes unless they compress well below 100 MB (720p / low bitrate, or a dedicated compressor). Automatic compression is on the roadmap.
           </div>
 
           <p style="margin:0 0 4px;"><strong>Quickest fix: CapCut</strong></p>
@@ -200,7 +192,7 @@ function videoHelpModal() {
             </li>
             <li>Scale/position the clip (or use Auto reframe), then trim to the platform limit (Reels &le;90s, Shorts &le;60s, TikTok &le;10 min).</li>
             <li><strong>Export</strong>: Format MP4, Codec H.264, Resolution 1080p (or 720p for smaller), Frame rate 30, <strong>Bitrate &rarr; Custom/Lower</strong>.</li>
-            <li>Target &le;90 MB. Rough size: <strong>MB &asymp; Mbps &times; seconds &divide; 8</strong>. For 127s: 5 Mbps &asymp; 79 MB, 3 Mbps &asymp; 48 MB. For 4 min: 3 Mbps &asymp; 90 MB, 2 Mbps &asymp; 60 MB.</li>
+            <li>Target &le;90 MB. Use a lower export bitrate and/or 720p for longer clips.</li>
           </ol>
           <p style="margin:0 0 2px;color:var(--text-muted);">Mobile:</p>
           <ol style="margin:0 0 10px 18px;padding:0;">
@@ -252,23 +244,13 @@ function videoHelpModal() {
             <li><a href="https://8mb.video/" target="_blank" rel="noopener">8mb.video</a> &mdash; target a specific file size.</li>
           </ul>
 
-          <p style="margin:0 0 4px;"><strong>ffmpeg recipes (desktop)</strong></p>
-          <p style="margin:0 0 4px;color:var(--text-muted);">Compress under ~90 MB:</p>
-          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_COMPRESS_CMD)}</pre>
-          <p style="margin:10px 0 4px;color:var(--text-muted);">Center-crop to 9:16 (may cut heads):</p>
-          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_CROP_916_CMD)}</pre>
-          <p style="margin:10px 0 4px;color:var(--text-muted);">Pad to 9:16 with a blurred background (safer):</p>
-          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_PAD_916_CMD)}</pre>
-          <p style="margin:10px 0 4px;color:var(--text-muted);">Trim to the first 90 seconds:</p>
-          <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_TRIM_90_CMD)}</pre>
-
           <p style="margin:12px 0 4px;"><strong>Quality tips</strong></p>
           <ul style="margin:0 0 8px 18px;padding:0;">
             <li>Prefer MP4 (H.264 + AAC) &mdash; most compatible.</li>
             <li>1080p is plenty; 4K just makes files larger.</li>
             <li>CRF 22&ndash;24 balances quality/size; lower = better quality and bigger files.</li>
             <li>Keep audio at 128 kbps.</li>
-            <li>If a platform starts cropping heads, use the blurred-background pad recipe instead of hard cropping.</li>
+            <li>If a platform crops heads, scale the clip down and pad with a background instead of hard cropping (CapCut/Clipchamp can do this).</li>
             <li>For very long videos, some editors limit export length or features; HandBrake/ffmpeg handle longer clips, but the 100 MB upload cap still applies (use 720p / lower bitrate for 4+ minutes).</li>
           </ul>
 
