@@ -10,7 +10,7 @@ const COOKIE_DOMAIN = config.COOKIE_DOMAIN;
 
 let _supabasePromise = null;
 
-function getSupabase() {
+export function getSupabase() {
   if (!_supabasePromise) {
     _supabasePromise = import("https://esm.sh/@supabase/supabase-js@2").then(
       ({ createClient }) =>

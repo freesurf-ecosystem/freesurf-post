@@ -62,10 +62,23 @@ export interface Env {
 const ALLOWED_ORIGINS: string[] = [...FREESURF.CORS_ORIGINS.post];
 const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
 
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
 function corsHeaders(origin: string): Record<string, string> {
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowed = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allowed,
+    "Vary": "Origin",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, FSP-API-KEY",
   };
@@ -259,7 +272,12 @@ export default {
 
     // --- API routes ---
     if (url.pathname.startsWith("/api/")) {
-      return handleApi(request, env, url, origin);
+      try {
+        return await handleApi(request, env, url, origin);
+      } catch (e: any) {
+        console.error("[api] unhandled error", url.pathname, e?.stack || e);
+        return errorResponse("Internal server error", 500, origin);
+      }
     }
 
     // --- Static dashboard (Workers Assets) ---
@@ -2208,7 +2226,11 @@ async function handlePost(
   // Fetch per-user platform tokens first (needed for direct adapter fallback)
   let userTokens: PlatformToken[] = [];
   if (env.SUPABASE_SECRET_KEY) {
-    userTokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY, env.TOKEN_ENCRYPTION_KEY);
+    try {
+      userTokens = await fetchUserTokens(user.sub, env.SUPABASE_SECRET_KEY, env.TOKEN_ENCRYPTION_KEY);
+    } catch (e: any) {
+      console.error("[post] fetchUserTokens failed", e?.message || e);
+    }
   }
 
   if (env.RATE_LIMITS) {
@@ -2248,10 +2270,18 @@ async function handlePost(
   // a platform post fails. When direct credentials exist (e.g. own X keys), we
   // prefer them so we can migrate off Bundle gradually.
   const bundleConfigured = Boolean(env.SOCIAL_API_PROVIDER_KEY && env.SUPABASE_SECRET_KEY);
-  const bundleTeamId = bundleConfigured ? await resolveTeamId(user.sub, body.teamId, body.team, env) : null;
+  let bundleTeamId: string | null = null;
+  if (bundleConfigured) {
+    try {
+      bundleTeamId = await resolveTeamId(user.sub, body.teamId, body.team, env);
+    } catch (e: any) {
+      console.error("[post] resolveTeamId failed", e?.message || e);
+    }
+  }
 
   const results: PlatformPostResult[] = await Promise.all(
     body.platforms.map(async (platform) => {
+      try {
       const mediaError = validateMediaForPlatform(platform, media);
       if (mediaError) return { platform, success: false, error: mediaError };
       if (!text && TEXT_REQUIRED_PLATFORMS[platform]) {
@@ -2308,6 +2338,10 @@ async function handlePost(
         return { ...(await postToPlatform(platform, text, env, mediaIds, body.replyTo, userTokens)), via: "direct" as const };
       }
       return { ...providerResult, via: "bundle" as const };
+      } catch (e: any) {
+        console.error("[post] platform failed", platform, e?.message || e);
+        return { platform, success: false, error: e?.message || "Posting failed" };
+      }
     })
   );
 

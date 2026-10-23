@@ -1,5 +1,5 @@
 // ── FreeSurf Post — Dashboard ──
-import { getSharedSession, clearSharedSession } from "./freesurf-auth.js";
+import { getSharedSession, clearSharedSession, getSupabase } from "./freesurf-auth.js";
 import config from "./freesurf.config.js";
 
 const API_BASE = config.URLS.post;
@@ -64,13 +64,19 @@ async function apiFetch(path, options = {}) {
   if (res.status === 401) {
     const fresh = await getSharedSession();
     if (fresh?.accessToken) {
-      session = { ...session, ...fresh };
+      session = { ...session, ...fresh, access_token: fresh.accessToken, user: fresh.user || session?.user };
       headers.Authorization = `Bearer ${fresh.accessToken}`;
       res = await fetch(`${API_BASE}${path}`, { ...options, headers });
     }
     if (res.status === 401) handleExpiredSession();
   }
   return res;
+}
+
+async function readJson(res) {
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return { __raw: text.slice(0, 300) }; }
 }
 
 function handleExpiredSession() {
@@ -111,9 +117,11 @@ const $$ = (s) => document.querySelectorAll(s);
 
 // ── Auth ──
 
+// Reuse the single shared Supabase client from freesurf-auth.js. Creating a new
+// client per call spawns multiple GoTrueClient instances on the same storage key,
+// which causes token-refresh races and intermittent 401s.
 async function initSupabase() {
-  const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+  return getSupabase();
 }
 
 async function refreshAuth() {
@@ -541,18 +549,6 @@ $$(".nav-link").forEach((link) => {
   });
 });
 
-// ── Sidebar navigation ──
-$$(".sidebar-nav-item").forEach((link) => {
-  link.addEventListener("click", () => {
-    if (!link.dataset.view) return; // external links (e.g. Google Play) handle their own navigation
-    if (!session && (link.dataset.view === "compose" || link.dataset.view === "accounts")) {
-      showView("welcome");
-      return;
-    }
-    showView(link.dataset.view);
-  });
-});
-
 // ── Platform Chips ──
 
 // Platforms that are on the roadmap but not ready — shown as "In progress".
@@ -758,9 +754,9 @@ btnPost.addEventListener("click", async () => {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: fd,
       });
-      const upData = await upRes.json();
-      if (!upRes.ok || !upData.uploadId) {
-        showFeedback(upData.error || "Media upload failed.", "error");
+      const upData = await readJson(upRes);
+      if (!upRes.ok || !upData?.uploadId) {
+        showFeedback(upData?.error || `Media upload failed (${upRes.status}).`, "error");
         btnPost.disabled = false;
         btnPost.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Post`;
         return;
@@ -775,11 +771,12 @@ btnPost.addEventListener("click", async () => {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions(), firstComment: collectFirstComment() }),
     });
-    const data = await res.json();
+    const data = await readJson(res);
+    const results = Array.isArray(data?.results) ? data.results : [];
 
-    if (res.ok) {
+    if (res.ok && results.length) {
       let html = "";
-      for (const r of data.results) {
+      for (const r of results) {
         html += `<div class="feedback-result-item">
           <span class="feedback-icon ${r.success ? "feedback-icon-success" : "feedback-icon-error"}">
             ${r.success 
@@ -790,11 +787,11 @@ btnPost.addEventListener("click", async () => {
           <span><strong>${r.platform}</strong>: ${r.success ? (r.postUrl ? `<a href="${r.postUrl}" target="_blank">View →</a>` : "Posted") : r.error}</span>
         </div>`;
       }
-      const ok = data.results.filter((r) => r.success).length;
-      const fail = data.results.filter((r) => !r.success).length;
+      const ok = results.filter((r) => r.success).length;
+      const fail = results.filter((r) => !r.success).length;
       showFeedback(fail === 0 ? `Posted to ${ok} platform(s)!` : `${ok} OK, ${fail} failed.`, fail === 0 ? "success" : "warning");
       feedback.insertAdjacentHTML("beforeend", `<div class="feedback-results">${html}</div>`);
-      postHistory.unshift({ id: data.id, text, results: data.results, postedAt: data.postedAt });
+      postHistory.unshift({ id: data?.id, text, results, postedAt: data?.postedAt });
       saveHistory();
       textarea.value = "";
       charCount.textContent = "0 / 300";
@@ -804,10 +801,12 @@ btnPost.addEventListener("click", async () => {
       resetDisclosures();
       resetFirstComment();
     } else {
-      showFeedback(data.error || "Post failed.", "error");
+      showFeedback(data?.error || data?.__raw || `Post failed (HTTP ${res.status}).`, "error");
     }
-  } catch {
-    showFeedback("Network error.", "error");
+  } catch (err) {
+    console.error("[post] failed", err);
+    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error — the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
+    showFeedback(msg, "error");
   }
   btnPost.disabled = false;
   btnPost.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Post`;
@@ -854,9 +853,9 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: fd,
       });
-      const upData = await upRes.json();
-      if (!upRes.ok || !upData.uploadId) {
-        showFeedback(upData.error || "Media upload failed.", "error");
+      const upData = await readJson(upRes);
+      if (!upRes.ok || !upData?.uploadId) {
+        showFeedback(upData?.error || `Media upload failed (${upRes.status}).`, "error");
         return;
       }
       uploadIds.push(upData.uploadId);
@@ -879,11 +878,13 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
       resetDisclosures();
       resetFirstComment();
     } else {
-      const err = await res.json();
-      showFeedback(err.error || "Failed to schedule.", "error");
+      const err = await readJson(res);
+      showFeedback(err?.error || err?.__raw || `Failed to schedule (HTTP ${res.status}).`, "error");
     }
-  } catch {
-    showFeedback("Network error.", "error");
+  } catch (err) {
+    console.error("[schedule] failed", err);
+    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error — the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
+    showFeedback(msg, "error");
   } finally {
     setScheduling(false);
   }
@@ -1553,6 +1554,27 @@ function renderDayPosts() {
   });
 }
 
+const uploadsCache = new Map();
+const uploadsInflight = new Map();
+async function getUploads(idsStr) {
+  if (uploadsCache.has(idsStr)) return uploadsCache.get(idsStr);
+  if (uploadsInflight.has(idsStr)) return uploadsInflight.get(idsStr);
+  const p = (async () => {
+    try {
+      const res = await apiFetch(`/api/uploads?ids=${encodeURIComponent(idsStr)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const items = (await res.json()) || [];
+      uploadsCache.set(idsStr, items);
+      return items;
+    } finally {
+      uploadsInflight.delete(idsStr);
+    }
+  })();
+  uploadsInflight.set(idsStr, p);
+  return p;
+}
+
 async function renderUpcoming() {
   const container = $("#upcoming-list");
   if (!container) return;
@@ -1583,10 +1605,8 @@ async function renderUpcoming() {
     const slot = container.querySelector(`[data-media-for="${p.id}"]`);
     if (!slot) continue;
     try {
-      const res = await apiFetch(`/api/uploads?ids=${encodeURIComponent(p.mediaUrls.join(","))}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const items = (await res.json()) || [];
+      const idsStr = p.mediaUrls.join(",");
+      const items = await getUploads(idsStr);
       slot.innerHTML = items.map((u) => u.thumbnailUrl
         ? `<img src="${esc(u.thumbnailUrl)}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--border);" alt="media" />`
         : "").join("");
