@@ -2032,7 +2032,16 @@ function updateComposeWarnings() {
     const issues = [];
     if (composeVideoError) issues.push(composeVideoError);
     issues.push(...videoSpecIssues(platforms));
-    videoWarning.textContent = issues.join(" ");
+    if (issues.length) {
+      videoWarning.innerHTML =
+        issues.map((msg) => `<div>${esc(msg)}</div>`).join("") +
+        `<div style="margin-top:4px;"><a href="#" data-video-help style="color:var(--brand);text-decoration:underline;">Free tools &amp; tips</a> — compression, crop/pad, trim, and platform specs.</div>`;
+      videoWarning.querySelectorAll("[data-video-help]").forEach((a) =>
+        a.addEventListener("click", (e) => { e.preventDefault(); videoHelpModal(); })
+      );
+    } else {
+      videoWarning.innerHTML = "";
+    }
     videoWarning.classList.toggle("hidden", issues.length === 0);
   }
   const mediaWarning = $("#media-warning");
@@ -2076,7 +2085,7 @@ async function handleMediaUpload(files) {
     uploadedMedia.push(item);
   }
   composeVideoError = rejected.length
-    ? `${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the ${VIDEO_LIMIT_MB} MB upload limit. Compress or trim ${rejected.length === 1 ? "it" : "them"} with a free tool before adding. See "Video requirements & free tools" below.`
+    ? `${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the ${VIDEO_LIMIT_MB} MB upload limit. Target 90 MB or less (a 2-minute 1080p clip is usually 30-50 MB). Compress or trim ${rejected.length === 1 ? "it" : "them"} with CapCut (export at a lower bitrate), HandBrake, or another free tool, then re-add.`
     : "";
   renderMediaPreview();
   updateComposeWarnings();
