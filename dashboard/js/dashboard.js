@@ -184,8 +184,30 @@ function videoHelpModal() {
         <div class="modal-body" style="max-height:65vh;overflow:auto;color:var(--text);font-size:0.9rem;line-height:1.55;">
           <div style="border:1px solid var(--border);background:var(--bg-alt);border-radius:10px;padding:12px;margin-bottom:14px;">
             <strong>Upload limit: ${VIDEO_LIMIT_MB} MB per file.</strong><br>
-            Cloudflare rejects files over ${VIDEO_LIMIT_MB} MB before they reach us. Aim for &le;90 MB to leave room for upload overhead. Images are rarely affected; long or high-bitrate videos are. Automatic compression is on the roadmap.
+            Cloudflare rejects files over ${VIDEO_LIMIT_MB} MB before they reach us. Aim for &le;90 MB to leave room for upload overhead. Images are rarely affected; long or high-bitrate videos are. This is a file-size limit, not a duration limit: a 4-minute 1080p clip at 8 Mbps is ~240 MB, but at 3 Mbps it is ~90 MB (720p at ~2 Mbps is ~60 MB). Automatic compression is on the roadmap.
           </div>
+
+          <p style="margin:0 0 4px;"><strong>Quickest fix: CapCut</strong></p>
+          <p style="margin:0 0 2px;color:var(--text-muted);">Desktop (best for crop + compress in one pass):</p>
+          <ol style="margin:0 0 10px 18px;padding:0;">
+            <li>New project &rarr; import your video.</li>
+            <li><strong>Set the canvas/ratio:</strong>
+              <ul style="margin:4px 0 0 18px;padding:0;">
+                <li>TikTok / Instagram Reels: <strong>9:16</strong> (1080&times;1920).</li>
+                <li>Instagram feed: <strong>4:5</strong> (1080&times;1350) using a custom canvas if your version doesn't list 4:5. <strong>1:1 (1080&times;1080) is also accepted</strong> and is a built-in preset.</li>
+                <li>Facebook feed: 4:5 or 16:9. YouTube: 16:9.</li>
+              </ul>
+            </li>
+            <li>Scale/position the clip (or use Auto reframe), then trim to the platform limit (Reels &le;90s, Shorts &le;60s, TikTok &le;10 min).</li>
+            <li><strong>Export</strong>: Format MP4, Codec H.264, Resolution 1080p (or 720p for smaller), Frame rate 30, <strong>Bitrate &rarr; Custom/Lower</strong>.</li>
+            <li>Target &le;90 MB. Rough size: <strong>MB &asymp; Mbps &times; seconds &divide; 8</strong>. For 127s: 5 Mbps &asymp; 79 MB, 3 Mbps &asymp; 48 MB. For 4 min: 3 Mbps &asymp; 90 MB, 2 Mbps &asymp; 60 MB.</li>
+          </ol>
+          <p style="margin:0 0 2px;color:var(--text-muted);">Mobile:</p>
+          <ol style="margin:0 0 10px 18px;padding:0;">
+            <li>Import &rarr; trim and set Ratio to 9:16 or 1:1.</li>
+            <li>Export at 1080p or 720p, 30 fps. Mobile has less bitrate control &mdash; use desktop CapCut, HandBrake, Clipchamp, or ffmpeg for 4:5 or strict size targets.</li>
+          </ol>
+          <p style="margin:0 0 14px;color:var(--text-muted);">Basic CapCut exports are watermark-free; some templates/effects are Pro-only. If 4:5 isn't available in your version, use custom 1080&times;1350, or 1:1 (Instagram accepts it); Canva and Clipchamp also have Instagram-portrait presets.</p>
 
           <p style="margin:0 0 4px;"><strong>Recommended order</strong></p>
           <ol style="margin:0 0 14px 18px;padding:0;">
@@ -230,22 +252,6 @@ function videoHelpModal() {
             <li><a href="https://8mb.video/" target="_blank" rel="noopener">8mb.video</a> &mdash; target a specific file size.</li>
           </ul>
 
-          <p style="margin:0 0 4px;"><strong>Step-by-step: CapCut</strong></p>
-          <p style="margin:0 0 2px;color:var(--text-muted);">Desktop (best for crop + compress in one pass):</p>
-          <ol style="margin:0 0 10px 18px;padding:0;">
-            <li>New project &rarr; import your video.</li>
-            <li>If needed: <strong>Ratio &rarr; 9:16</strong>, then scale/position the clip (or use Auto reframe).</li>
-            <li>Trim to the platform limit (Reels &le;90s, Shorts &le;60s, TikTok &le;10 min).</li>
-            <li><strong>Export</strong>: Format MP4, Codec H.264, Resolution 1080p (or 720p for smaller), Frame rate 30, <strong>Bitrate &rarr; Custom/Lower</strong>.</li>
-            <li>Target &le;90 MB. Rough size: <strong>MB &asymp; Mbps &times; seconds &divide; 8</strong>. For a 127s clip: 5 Mbps &asymp; 79 MB, 3 Mbps &asymp; 48 MB.</li>
-          </ol>
-          <p style="margin:0 0 2px;color:var(--text-muted);">Mobile:</p>
-          <ol style="margin:0 0 10px 18px;padding:0;">
-            <li>Import &rarr; trim and set Ratio to 9:16.</li>
-            <li>Export at 1080p or 720p, 30 fps. Mobile has less bitrate control &mdash; use desktop or HandBrake for strict size targets.</li>
-          </ol>
-          <p style="margin:0 0 14px;color:var(--text-muted);">Basic CapCut exports are watermark-free; some templates/effects are Pro-only.</p>
-
           <p style="margin:0 0 4px;"><strong>ffmpeg recipes (desktop)</strong></p>
           <p style="margin:0 0 4px;color:var(--text-muted);">Compress under ~90 MB:</p>
           <pre style="white-space:pre-wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.76rem;">${esc(VIDEO_COMPRESS_CMD)}</pre>
@@ -263,6 +269,7 @@ function videoHelpModal() {
             <li>CRF 22&ndash;24 balances quality/size; lower = better quality and bigger files.</li>
             <li>Keep audio at 128 kbps.</li>
             <li>If a platform starts cropping heads, use the blurred-background pad recipe instead of hard cropping.</li>
+            <li>For very long videos, some editors limit export length or features; HandBrake/ffmpeg handle longer clips, but the 100 MB upload cap still applies (use 720p / lower bitrate for 4+ minutes).</li>
           </ul>
 
           <p style="margin-bottom:0;color:var(--text-muted);">Automatic compression/cropping is planned. For now, these manual steps are the reliable path.</p>
@@ -292,7 +299,7 @@ function videoSpecIssues(platforms) {
     if (platforms.includes("instagram")) {
       if (ratio < 0.8) {
         issues.push(
-          `Instagram feed: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1) — taller than Instagram feed's 4:5 maximum, so it will be rejected as a feed post. Edit it to 4:5 (1080×1350) or 1:1, or post it as a Reel in the Instagram app (9:16, ≤90s) until Reels posting is supported here.`
+          `Instagram feed: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1) — taller than Instagram feed's 4:5 maximum, so it will be rejected as a feed post. Edit it to 4:5 (1080×1350) or 1:1, or post it as a Reel in the Instagram app (9:16, ≤90s) until Reels posting is supported here. CapCut fix: set Ratio to 9:16 for Reels, or use a custom 1080×1350 canvas for 4:5 feed (1:1 / 1080×1080 is also accepted); export MP4/H.264 at 1080p.`
         );
       } else if (ratio > 1.91) {
         issues.push(`Instagram feed: ${label} is wider than 1.91:1. Edit it to between 4:5 and 1.91:1 (e.g. 1:1 or 16:9).`);
@@ -300,10 +307,10 @@ function videoSpecIssues(platforms) {
     }
     if (platforms.includes("tiktok")) {
       if (ratio > 0.85) {
-        issues.push(`TikTok: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1). TikTok recommends 9:16 vertical (1080×1920); it may crop or letterbox this video. Edit to 9:16 for best results.`);
+        issues.push(`TikTok: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1). TikTok recommends 9:16 vertical (1080×1920); it may crop or letterbox this video. Edit to 9:16 for best results. CapCut fix: set Ratio to 9:16 (1080×1920) and export 1080p at a lower bitrate.`);
       }
       if (Number(m.duration) > 600) {
-        issues.push(`TikTok: ${label} is ${fmtDuration(m.duration)} long — over TikTok's 10-minute limit. Trim it before posting.`);
+        issues.push(`TikTok: ${label} is ${fmtDuration(m.duration)} long — over TikTok's 10-minute limit. Trim it in CapCut or another editor before posting.`);
       }
     }
     if (platforms.includes("facebook") && (ratio < 0.8 || ratio > 1.78)) {
@@ -2091,7 +2098,7 @@ async function handleMediaUpload(files) {
     uploadedMedia.push(item);
   }
   composeVideoError = rejected.length
-    ? `${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the ${VIDEO_LIMIT_MB} MB upload limit. Target 90 MB or less (a 2-minute 1080p clip is usually 30-50 MB). Compress or trim ${rejected.length === 1 ? "it" : "them"} with CapCut (export at a lower bitrate), HandBrake, or another free tool, then re-add.`
+    ? `${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the ${VIDEO_LIMIT_MB} MB upload limit. Target 90 MB or less (a 2-minute 1080p clip is usually 30-50 MB; for 4 minutes or more, use 720p or a lower bitrate). Compress or trim ${rejected.length === 1 ? "it" : "them"} with CapCut (export at a lower bitrate), HandBrake, or another free tool, then re-add.`
     : "";
   renderMediaPreview();
   updateComposeWarnings();
