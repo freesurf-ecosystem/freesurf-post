@@ -1,4 +1,4 @@
-﻿// â”€â”€ FreeSurf Post â€” Dashboard â”€â”€
+﻿// ── FreeSurf Post — Dashboard ──
 import { getSharedSession, clearSharedSession, getSupabase } from "./freesurf-auth.js";
 import config from "./freesurf.config.js";
 
@@ -8,7 +8,7 @@ const CHAR_HARD_LIMIT = 5000;
 const SUPABASE_URL = config.AUTH.SUPABASE_URL;
 const SUPABASE_ANON_KEY = config.AUTH.SUPABASE_ANON_KEY;
 
-// â”€â”€ Platform config â”€â”€
+// ── Platform config ──
 const PLATFORMS = [
   { key: "bluesky",   name: "Bluesky",   oauth: false },
   { key: "x",         name: "X",          oauth: true },
@@ -36,7 +36,7 @@ const PLATFORM_TARGETS = {
   reddit: { label: "Subreddit", placeholder: "e.g. r/example" },
 };
 
-// â”€â”€ State â”€â”€
+// ── State ──
 let session = null;
 let connectedProfiles = []; // { platform, label, handle, id }[]
 let composeAccounts = [];   // accounts for the team selected in the compose dropdown
@@ -47,16 +47,16 @@ let currentView = "compose";
 // opt-ins. Anyone missing any of the three is asked again on their next login.
 const TERMS_VERSION = "2026.09.17";
 let onboarding = { terms: false, digest: false, updates: false };
-let onboardingDismissed = false; // "Remind me later" â€” lets them in for this session
+let onboardingDismissed = false; // "Remind me later" — lets them in for this session
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 let calSelected = null;
 
 const $ = (s) => document.querySelector(s);
 
-// â”€â”€ API helper: prepends API_BASE, attaches the session token, and retries
+// ── API helper: prepends API_BASE, attaches the session token, and retries
 // once with a freshly-refreshed session if the server says the token is stale.
-// If the session is truly dead, asks the user to sign in again. â”€â”€
+// If the session is truly dead, asks the user to sign in again. ──
 async function apiFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (session?.access_token && !headers.Authorization) headers.Authorization = `Bearer ${session.access_token}`;
@@ -89,8 +89,8 @@ function handleExpiredSession() {
   showFeedback("Your session expired. Please sign in again.", "warning");
 }
 
-// â”€â”€ Custom confirmation modal (replaces window.confirm so browsers can't
-// auto-block prompts / show "don't prompt again"). â”€â”€
+// ── Custom confirmation modal (replaces window.confirm so browsers can't
+// auto-block prompts / show "don't prompt again"). ──
 function confirmModal(message, title = "Are you sure?") {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -113,7 +113,7 @@ function confirmModal(message, title = "Are you sure?") {
     overlay.querySelector('[data-m="yes"]')?.focus();
   });
 }
-// â”€â”€ Generic choice modal (2â€“3 buttons) used for video preflight warnings. â”€â”€
+// ── Generic choice modal (2–3 buttons) used for video preflight warnings. ──
 function choiceModal({ title, message, options }) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -136,7 +136,7 @@ function choiceModal({ title, message, options }) {
   });
 }
 
-// â”€â”€ Video preflight helpers â”€â”€
+// ── Video preflight helpers ──
 // Cloudflare rejects request bodies over 100 MB on Free/Pro; use 95 MB as a
 // safety margin for multipart overhead.
 const VIDEO_MAX_UPLOAD_MB = 95;
@@ -292,7 +292,7 @@ function videoSpecIssues(platforms) {
     if (platforms.includes("instagram")) {
       if (ratio < 0.8) {
         issues.push(
-          `Instagram feed: ${label} is ${m.width}Ã—${m.height} (${ratio.toFixed(2)}:1) â€” taller than Instagram feed's 4:5 maximum, so it will be rejected as a feed post. Edit it to 4:5 (1080Ã—1350) or 1:1, or post it as a Reel in the Instagram app (9:16, â‰¤90s) until Reels posting is supported here.`
+          `Instagram feed: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1) — taller than Instagram feed's 4:5 maximum, so it will be rejected as a feed post. Edit it to 4:5 (1080×1350) or 1:1, or post it as a Reel in the Instagram app (9:16, ≤90s) until Reels posting is supported here.`
         );
       } else if (ratio > 1.91) {
         issues.push(`Instagram feed: ${label} is wider than 1.91:1. Edit it to between 4:5 and 1.91:1 (e.g. 1:1 or 16:9).`);
@@ -300,10 +300,10 @@ function videoSpecIssues(platforms) {
     }
     if (platforms.includes("tiktok")) {
       if (ratio > 0.85) {
-        issues.push(`TikTok: ${label} is ${m.width}Ã—${m.height} (${ratio.toFixed(2)}:1). TikTok recommends 9:16 vertical (1080Ã—1920); it may crop or letterbox this video. Edit to 9:16 for best results.`);
+        issues.push(`TikTok: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1). TikTok recommends 9:16 vertical (1080×1920); it may crop or letterbox this video. Edit to 9:16 for best results.`);
       }
       if (Number(m.duration) > 600) {
-        issues.push(`TikTok: ${label} is ${fmtDuration(m.duration)} long â€” over TikTok's 10-minute limit. Trim it before posting.`);
+        issues.push(`TikTok: ${label} is ${fmtDuration(m.duration)} long — over TikTok's 10-minute limit. Trim it before posting.`);
       }
     }
     if (platforms.includes("facebook") && (ratio < 0.8 || ratio > 1.78)) {
@@ -332,7 +332,7 @@ async function confirmVideoSpecs(platforms) {
 
 const $$ = (s) => document.querySelectorAll(s);
 
-// â”€â”€ Auth â”€â”€
+// ── Auth ──
 
 // Reuse the single shared Supabase client from freesurf-auth.js. Creating a new
 // client per call spawns multiple GoTrueClient instances on the same storage key,
@@ -438,7 +438,7 @@ $("#btn-sign-out").addEventListener("click", async () => {
   renderPlatformChips();
 });
 
-// â”€â”€ Local Auth (sign in / sign up) â”€â”€
+// ── Local Auth (sign in / sign up) ──
 
 let authMode = "signin";
 
@@ -528,7 +528,7 @@ $("#btn-auth-submit").addEventListener("click", async () => {
 
   const btn = $("#btn-auth-submit");
   btn.disabled = true;
-  btn.textContent = "Please waitâ€¦";
+  btn.textContent = "Please wait…";
 
   try {
     const supabase = await initSupabase();
@@ -545,10 +545,10 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       // post-sign-in onboarding flow, so they are also shown to social-login
       // users. See renderOnboarding() / loadOnboardingState() below.
       if (signUpData?.session) {
-        // Email confirmation is disabled â€” sign the user straight in.
+        // Email confirmation is disabled — sign the user straight in.
         await refreshAuth();
       } else {
-        // Email confirmation still enabled â€” show the verify state as a fallback.
+        // Email confirmation still enabled — show the verify state as a fallback.
         $("#auth-verify-text").textContent = "Check your email to verify your address and get started.";
         showAuthVerify();
       }
@@ -563,7 +563,7 @@ $("#btn-auth-submit").addEventListener("click", async () => {
   }
 });
 
-// â”€â”€ Onboarding (post-sign-in: Terms & Privacy + the two marketing opt-ins) â”€â”€
+// ── Onboarding (post-sign-in: Terms & Privacy + the two marketing opt-ins) ──
 
 function onboardingComplete() {
   return onboarding.terms && onboarding.digest && onboarding.updates;
@@ -625,7 +625,7 @@ async function acceptTerms() {
   const btn = $("#btn-onboarding-terms");
   const errEl = $("#onboarding-error");
   btn.disabled = true;
-  btn.textContent = "Please waitâ€¦";
+  btn.textContent = "Please wait…";
   try {
     await recordConsent("terms", TERMS_VERSION);
     onboarding.terms = true;
@@ -646,7 +646,7 @@ async function finishOnboarding() {
   const wantsUpdates = $("#onboarding-updates").checked;
   const email = (session.user.email || "").trim().toLowerCase();
   btn.disabled = true;
-  btn.textContent = "Please waitâ€¦";
+  btn.textContent = "Please wait…";
   try {
     // Record the decision for BOTH opt-ins (accept or decline) so we don't ask again.
     await recordConsent("onboarding_digest", wantsDigest ? "accepted" : "declined");
@@ -695,7 +695,7 @@ $("#btn-onboarding-later")?.addEventListener("click", () => {
   renderAuthUI();
 });
 
-// â”€â”€ Mobile Menu & Sidebar â”€â”€
+// ── Mobile Menu & Sidebar ──
 
 const mobileMenuBtn = $("#mobile-menu-btn");
 const sidebar = $("#sidebar");
@@ -729,7 +729,7 @@ $$(".sidebar-nav-item").forEach((link) => {
   });
 });
 
-// â”€â”€ Navigation â”€â”€
+// ── Navigation ──
 
 function showView(name) {
   // Onboarding is blocking until Terms are accepted, and keeps re-appearing on
@@ -749,13 +749,13 @@ function showView(name) {
   // Update sidebar nav
   $$(".sidebar-nav-item").forEach((l) => l.classList.toggle("sidebar-nav-item-active", l.dataset.view === name));
 
-  // Reflect the view in the URL hash for deep linking (#accounts, #analytics, â€¦)
+  // Reflect the view in the URL hash for deep linking (#accounts, #analytics, …)
   try { history.replaceState(null, "", `#${name}`); } catch {}
 }
 
 const PROTECTED_VIEWS = new Set(["compose", "accounts"]);
 
-// â”€â”€ Old topbar navigation (for reference) â”€â”€
+// ── Old topbar navigation (for reference) ──
 $$(".nav-link").forEach((link) => {
   link.addEventListener("click", () => {
     if (!session && (link.dataset.view === "compose" || link.dataset.view === "accounts")) {
@@ -766,9 +766,9 @@ $$(".nav-link").forEach((link) => {
   });
 });
 
-// â”€â”€ Platform Chips â”€â”€
+// ── Platform Chips ──
 
-// Platforms that are on the roadmap but not ready â€” shown as "In progress".
+// Platforms that are on the roadmap but not ready — shown as "In progress".
 const IN_PROGRESS_PLATFORMS = new Set(["reddit", "google_business"]);
 
 // For page-based platforms (Facebook/LinkedIn/YouTube), show the human page
@@ -796,7 +796,7 @@ function renderPlatformChips() {
     const disabled = inProgress || !connected;
     const title = inProgress ? "In progress" : (!connected ? "Connect this account first" : "");
     return `<label class="platform-chip${connected ? " connected" : ""}${disabled ? " disabled" : ""}" data-platform="${p.key}" title="${title}">
-      ${connected ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " Â· soon" : ""}${label ? ` ${label}` : ""}
+      ${connected ? '<span class="chip-connected-dot"></span>' : ""}${p.name}${inProgress ? " · soon" : ""}${label ? ` ${label}` : ""}
       <input type="checkbox" />
     </label>`;
   }).join("");
@@ -915,7 +915,7 @@ function updateLinkWarning(text) {
   if (el) el.classList.toggle("hidden", !hasLink(text));
 }
 
-// â”€â”€ Compose â”€â”€
+// ── Compose ──
 
 const textarea = $("#post-text");
 const charCount = $("#char-count");
@@ -953,7 +953,7 @@ btnPost.addEventListener("click", async () => {
   }
 
   btnPost.disabled = true;
-  btnPost.textContent = "Postingâ€¦";
+  btnPost.textContent = "Posting…";
   clearFeedback();
 
   try {
@@ -1001,7 +1001,7 @@ btnPost.addEventListener("click", async () => {
               : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
             }
           </span>
-          <span><strong>${r.platform}</strong>: ${r.success ? (r.postUrl ? `<a href="${r.postUrl}" target="_blank">View â†’</a>` : "Posted") : r.error}</span>
+          <span><strong>${r.platform}</strong>: ${r.success ? (r.postUrl ? `<a href="${r.postUrl}" target="_blank">View →</a>` : "Posted") : r.error}</span>
         </div>`;
       }
       const ok = results.filter((r) => r.success).length;
@@ -1022,7 +1022,7 @@ btnPost.addEventListener("click", async () => {
     }
   } catch (err) {
     console.error("[post] failed", err);
-    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error â€” the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
+    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error — the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
     showFeedback(msg, "error");
   }
   btnPost.disabled = false;
@@ -1053,9 +1053,9 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
   const setScheduling = (on, label) => {
     if (!scheduleBtn) return;
     scheduleBtn.disabled = on;
-    scheduleBtn.textContent = on ? label || "Schedulingâ€¦" : scheduleLabel;
+    scheduleBtn.textContent = on ? label || "Scheduling…" : scheduleLabel;
   };
-  setScheduling(true, uploadedMedia.length ? "Uploadingâ€¦" : "Schedulingâ€¦");
+  setScheduling(true, uploadedMedia.length ? "Uploading…" : "Scheduling…");
   try {
     // Upload any attached media to Bundle first (scoped to the selected team).
     const uploadIds = [];
@@ -1100,7 +1100,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     }
   } catch (err) {
     console.error("[schedule] failed", err);
-    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error â€” the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
+    const msg = err?.message && err.message !== "Failed to fetch" ? err.message : "Network error — the request was blocked or the server is unreachable. If you're testing locally, make sure this page's origin is allowed by the API (CORS).";
     showFeedback(msg, "error");
   } finally {
     setScheduling(false);
@@ -1151,7 +1151,7 @@ function localDateStr(date, tz) {
 }
 initTzSelect();
 
-// â”€â”€ History (kept in localStorage, surfaced in Analytics) â”€â”€
+// ── History (kept in localStorage, surfaced in Analytics) ──
 
 function saveHistory() { try { localStorage.setItem("freesurf-post-history", JSON.stringify(postHistory.slice(0, 50))); } catch {} }
 function loadHistory() { try { postHistory = JSON.parse(localStorage.getItem("freesurf-post-history") || "[]"); } catch { postHistory = []; } }
@@ -1163,7 +1163,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// â”€â”€ Accounts & OAuth â”€â”€
+// ── Accounts & OAuth ──
 
 function renderAccounts() {
   const platformMap = new Map();
@@ -1183,7 +1183,7 @@ function renderAccounts() {
       ? (selectedChannel?.name || handle || "Connected")
       : (p.note || "Not connected");
 
-    // Platforms still on the roadmap â€” greyed out, no connect action yet.
+    // Platforms still on the roadmap — greyed out, no connect action yet.
     if (IN_PROGRESS_PLATFORMS.has(p.key)) {
       return `<div class="account-item" style="opacity:0.45;">
         <div class="account-item-info">
@@ -1199,7 +1199,7 @@ function renderAccounts() {
               <option value="">No page selected</option>
               ${channels.map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === prof.selectedChannelId ? "selected" : ""}>${escapeHtml(c.name || c.id)}</option>`).join("")}
             </select>
-            <button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">â†»</button>`
+            <button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">↻</button>`
           : `<button class="btn btn-sm btn-ghost" data-refresh-channels="${p.key}" title="Refresh pages">Refresh pages</button>`)
       : "";
 
@@ -1293,7 +1293,7 @@ async function disconnectPlatform(key) {
   }
 }
 
-// â”€â”€ Teams â”€â”€
+// ── Teams ──
 
 let teams = [];
 let accountsTeamId = "";
@@ -1329,7 +1329,7 @@ function renderTeams() {
     <div class="account-item${selected ? " team-selected" : ""}">
       <div class="account-item-info account-item-selectable" data-team-select="${t.id}">
         <div class="account-item-name">${escapeHtml(t.label)}${t.is_active ? ' <span class="history-platform-badge">Default</span>' : ""}</div>
-        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"} Â· <span style="color:var(--text-muted);font-family:ui-monospace,monospace;font-size:0.75rem;">${t.id}</span>
+        <div class="account-item-status">${t.is_active ? "Default team for posts and connects" : "Click to view accounts"} · <span style="color:var(--text-muted);font-family:ui-monospace,monospace;font-size:0.75rem;">${t.id}</span>
           <button class="copy-id-btn" data-copy-team-id="${t.id}" title="Copy team ID" style="margin-left:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         </div>
       </div>
@@ -1471,7 +1471,7 @@ async function deleteTeam(id) {
 $("#btn-create-team").addEventListener("click", createTeam);
 $("#post-team")?.addEventListener("change", updatePostTeamAccounts);
 
-// â”€â”€ API Keys â”€â”€
+// ── API Keys ──
 
 async function fetchKeys() {
   const container = $("#api-keys-list");
@@ -1489,8 +1489,8 @@ async function fetchKeys() {
     container.innerHTML = keys.map((k) => `
       <div class="account-item">
         <div class="account-item-info">
-          <div class="account-item-name">${escapeHtml(k.name)} <span style="color:var(--text-muted);font-weight:400;">Â· ${escapeHtml(k.hint || "")}</span></div>
-          <div class="account-item-status">${k.revoked_at ? "Revoked" : "Active"} Â· created ${fmtDate(k.created_at)}${k.last_used_at ? ` Â· used ${fmtDate(k.last_used_at)}` : ""}</div>
+          <div class="account-item-name">${escapeHtml(k.name)} <span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(k.hint || "")}</span></div>
+          <div class="account-item-status">${k.revoked_at ? "Revoked" : "Active"} · created ${fmtDate(k.created_at)}${k.last_used_at ? ` · used ${fmtDate(k.last_used_at)}` : ""}</div>
         </div>
         ${k.revoked_at ? "" : `<button class="btn btn-sm btn-ghost" data-revoke-key="${k.id}">Revoke</button>`}
       </div>
@@ -1501,7 +1501,7 @@ async function fetchKeys() {
   }
 }
 
-// â”€â”€ X fees / credits â”€â”€
+// ── X fees / credits ──
 
 function fmtMicros(micros) {
   return `$${(micros / 1_000_000).toFixed(2)}`;
@@ -1529,7 +1529,7 @@ function renderLedger() {
     return `
       <div class="account-item">
         <div class="account-item-info">
-          <div class="account-item-name">${kind} ${detail ? `<span style="color:var(--text-muted);font-weight:400;">Â· ${escapeHtml(detail)}</span>` : ""}</div>
+          <div class="account-item-name">${kind} ${detail ? `<span style="color:var(--text-muted);font-weight:400;">· ${escapeHtml(detail)}</span>` : ""}</div>
           <div class="account-item-status">${fmtDate(t.created_at)}</div>
         </div>
         <div class="account-item-status" style="font-weight:600;${t.amount_micros < 0 ? "color:var(--error);" : "color:var(--success);"}">${t.amount_micros < 0 ? "-" : "+"}${fmtMicros(Math.abs(t.amount_micros))}</div>
@@ -1571,7 +1571,7 @@ async function topUp() {
   if (statusEl) statusEl.textContent = "";
   const original = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Openingâ€¦';
+  btn.innerHTML = '<span class="spinner"></span>Opening…';
   try {
     const res = await apiFetch(`/api/credits/topup`, {
       method: "POST",
@@ -1622,7 +1622,7 @@ async function createKey() {
       const result = $("#api-key-result");
       result.innerHTML = `
         <div class="feedback success visible" style="word-break:break-all;margin:0;">
-          Copy your key now â€” it won't be shown again:<br>
+          Copy your key now — it won't be shown again:<br>
           <code>${escapeHtml(data.key)}</code>
         </div>
         <button class="btn btn-sm btn-secondary" id="btn-copy-key" style="margin-top:8px;">Copy</button>`;
@@ -1691,7 +1691,7 @@ async function fetchConnectUrl(platform) {
   }
 }
 
-// â”€â”€ Calendar â”€â”€
+// ── Calendar ──
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -1755,8 +1755,8 @@ function renderDayPosts() {
     html += dayPosts.map((p) => `
       <div class="scheduled-list-item">
         <div>
-          <div class="sli-text">${esc(p.text.slice(0, 100))}${p.text.length > 100 ? "â€¦" : ""} <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button></div>
-          <div class="sli-meta">${p.platforms?.join(", ")} Â· ${new Date(p.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: selectedTz() })} ${selectedTz().replace(/_/g, " ")}</div>
+          <div class="sli-text">${esc(p.text.slice(0, 100))}${p.text.length > 100 ? "…" : ""} <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button></div>
+          <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: selectedTz() })} ${selectedTz().replace(/_/g, " ")}</div>
         </div>
       </div>`).join("");
   } else {
@@ -1805,8 +1805,8 @@ async function renderUpcoming() {
       : "";
     return `
       <div class="account-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
-        <div class="sli-meta">${p.platforms?.join(", ")} Â· ${new Date(p.scheduledAt).toLocaleString()} ${mediaBadge}</div>
-        <div class="sli-text" style="font-size:0.9rem;">${esc(p.text.slice(0, 200))}${p.text.length > 200 ? "â€¦" : ""}</div>
+        <div class="sli-meta">${p.platforms?.join(", ")} · ${new Date(p.scheduledAt).toLocaleString()} ${mediaBadge}</div>
+        <div class="sli-text" style="font-size:0.9rem;">${esc(p.text.slice(0, 200))}${p.text.length > 200 ? "…" : ""}</div>
         <div class="upcoming-media" data-media-for="${p.id}" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
         <button class="btn btn-xs btn-ghost" data-cancel="${p.id}" style="color:var(--error);padding:2px 8px;">Cancel</button>
       </div>`;
@@ -1858,14 +1858,14 @@ async function fetchHistory() {
           const seen = new Set(rows.map((r) => r.platform));
           const pending = (p.platforms || []).filter((pl) => !seen.has(pl));
           const chips = rows.map((r) => r.success
-            ? `<span style="font-size:0.75rem;color:var(--success);white-space:nowrap;">${escapeHtml(r.platform)} âœ“</span>`
-            : `<span style="font-size:0.75rem;color:var(--error);">${escapeHtml(r.platform)} âœ—</span>`).join("")
-            + (pending.map((pl) => `<span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(pl)} â€¦</span>`).join(""));
+            ? `<span style="font-size:0.75rem;color:var(--success);white-space:nowrap;">${escapeHtml(r.platform)} ✓</span>`
+            : `<span style="font-size:0.75rem;color:var(--error);">${escapeHtml(r.platform)} ✗</span>`).join("")
+            + (pending.map((pl) => `<span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(pl)} …</span>`).join(""));
           const fails = rows.filter((r) => !r.success);
           return `
             <div class="account-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
               <div class="account-item-status" style="font-size:0.72rem;color:var(--text-muted);">${new Date(p.postedAt).toLocaleString()}</div>
-              <div class="account-item-name">${escapeHtml(p.text.length > 120 ? p.text.slice(0, 120) + "â€¦" : p.text)}</div>
+              <div class="account-item-name">${escapeHtml(p.text.length > 120 ? p.text.slice(0, 120) + "…" : p.text)}</div>
               <div style="display:flex;flex-wrap:wrap;gap:8px;">${chips}</div>
               ${fails.length ? `<div style="font-size:0.75rem;color:var(--text-muted);">${fails.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join("<br/>")}</div>` : ""}
             </div>`;
@@ -1916,11 +1916,12 @@ async function cancelScheduled(id) {
 $("#cal-prev").addEventListener("click", () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } calSelected = null; renderCalendar(); });
 $("#cal-next").addEventListener("click", () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } calSelected = null; renderCalendar(); });
 
-// â”€â”€ Media Upload â”€â”€
+// ── Media Upload ──
 
 const mediaDropzone = $("#media-dropzone");
 const mediaInput = $("#media-input");
 const mediaPreview = $("#media-preview");
+const mediaMeta = $("#media-meta");
 
 let uploadedMedia = [];
 let composeVideoError = "";
@@ -1987,8 +1988,8 @@ function computeMediaWarnings(platforms) {
 
   if (count) {
     const imageOnlyName = has("x") && has("bluesky") ? "X and Bluesky" : has("x") ? "X" : has("bluesky") ? "Bluesky" : "";
-    if (imageOnlyName && count > 4) warnings.push(`${imageOnlyName} support up to 4 images (or one video) â€” ${count} attached.`);
-    else if (imageOnlyName && videos > 1) warnings.push(`${imageOnlyName} support one video (or up to 4 images) â€” ${videos} videos attached.`);
+    if (imageOnlyName && count > 4) warnings.push(`${imageOnlyName} support up to 4 images (or one video) — ${count} attached.`);
+    else if (imageOnlyName && videos > 1) warnings.push(`${imageOnlyName} support one video (or up to 4 images) — ${videos} videos attached.`);
 
     if (has("instagram") && count > 10) warnings.push("Instagram supports up to 10 carousel items.");
     if (has("tiktok")) {
@@ -1997,7 +1998,7 @@ function computeMediaWarnings(platforms) {
       if (images > 0 && videos > 0) warnings.push("TikTok photo posts can't mix images and video.");
       if (videos === 0) {
         const bad = uploadedMedia.find((m) => m.type === "image" && m.file?.type && !/^image\/(jpe?g|webp)$/i.test(m.file.type));
-        if (bad) warnings.push("TikTok photo posts require JPG, JPEG, or WebP â€” convert PNG/HEIC images first.");
+        if (bad) warnings.push("TikTok photo posts require JPG, JPEG, or WebP — convert PNG/HEIC images first.");
       }
     }
     if (has("facebook")) {
@@ -2016,7 +2017,7 @@ function computeMediaWarnings(platforms) {
 
   if (!textarea?.value.trim()) {
     const textRequired = platforms.map((p) => TEXT_REQUIRED_PLATFORMS[p]).filter(Boolean);
-    if (textRequired.length) warnings.push(`${textRequired.join(", ")} require text â€” add a caption.`);
+    if (textRequired.length) warnings.push(`${textRequired.join(", ")} require text — add a caption.`);
   }
   return warnings;
 }
@@ -2103,8 +2104,15 @@ function renderMediaPreview() {
   const dropText = mediaDropzone.querySelector(".media-dropzone-text");
   const dropSubtext = mediaDropzone.querySelector(".media-dropzone-subtext");
   if (dropText) dropText.textContent = hasMedia ? "Add more images or videos" : "Drop images or videos here";
-  if (dropSubtext) dropSubtext.textContent = hasMedia ? "drag and drop or click to browse Â· max 100 MB per file" : "or click to browse Â· max 100 MB per file";
+  if (dropSubtext) dropSubtext.textContent = hasMedia ? "drag and drop or click to browse · max 100 MB per file" : "or click to browse · max 100 MB per file";
   updatePostButtonState();
+  if (mediaMeta) {
+    const lines = uploadedMedia
+      .filter((m) => m.type === "video" && m.width)
+      .map((m) => `<div>${esc(m.file?.name || "Video")} — ${m.width}×${m.height} · ${fmtDuration(m.duration)} · ${fmtMb(m.file.size || 0)}</div>`);
+    mediaMeta.innerHTML = lines.join("");
+    mediaMeta.style.display = lines.length ? "flex" : "none";
+  }
   if (!hasMedia) return;
 
   mediaPreview.innerHTML = uploadedMedia.map((media, index) => `
@@ -2112,15 +2120,12 @@ function renderMediaPreview() {
       ${media.type === "image" 
         ? `<img src="${media.url}" alt="Uploaded media" />`
         : `<video src="${media.url}" muted preload="metadata"></video>`}
-      ${media.type === "video" && media.width
-        ? `<span style="position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:6px;pointer-events:none;">${media.width}Ã—${media.height} Â· ${fmtDuration(media.duration)}${media.file?.size ? ` Â· ${fmtMb(media.file.size)}` : ""}</span>`
-        : ""}
       ${uploadedMedia.length > 1 ? `
         <div class="media-preview-moves">
-          <button class="media-preview-move" data-move-index="${index}" data-move-dir="-1" title="Move left" ${index === 0 ? "disabled" : ""}>â€¹</button>
-          <button class="media-preview-move" data-move-index="${index}" data-move-dir="1" title="Move right" ${index === uploadedMedia.length - 1 ? "disabled" : ""}>â€º</button>
+          <button class="media-preview-move" data-move-index="${index}" data-move-dir="-1" title="Move left" ${index === 0 ? "disabled" : ""}>‹</button>
+          <button class="media-preview-move" data-move-index="${index}" data-move-dir="1" title="Move right" ${index === uploadedMedia.length - 1 ? "disabled" : ""}>›</button>
         </div>` : ""}
-      <button class="media-preview-remove" data-index="${index}" title="Remove">Ã—</button>
+      <button class="media-preview-remove" data-index="${index}" title="Remove">×</button>
     </div>
   `).join("");
   
@@ -2141,7 +2146,7 @@ function renderMediaPreview() {
   });
 }
 
-// â”€â”€ Drafts â”€â”€
+// ── Drafts ──
 
 const btnSaveDraft = $("#btn-save-draft");
 
@@ -2161,7 +2166,7 @@ if (btnSaveDraft) {
     const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
     
     btnSaveDraft.disabled = true;
-    btnSaveDraft.textContent = "Savingâ€¦";
+    btnSaveDraft.textContent = "Saving…";
     
     try {
       const res = await apiFetch(`/api/drafts`, {
@@ -2198,7 +2203,7 @@ if (btnSaveDraft) {
   });
 }
 
-// â”€â”€ Drafts Feature â”€â”€
+// ── Drafts Feature ──
 
 async function fetchDrafts() {
   if (!session) return;
@@ -2291,7 +2296,7 @@ async function deleteDraft(draftId) {
   }
 }
 
-// â”€â”€ Hashtag Groups Feature â”€â”€
+// ── Hashtag Groups Feature ──
 
 async function fetchHashtagGroups() {
   if (!session) return;
@@ -2452,7 +2457,7 @@ async function deleteHashtagGroup(groupId) {
   }
 }
 
-// â”€â”€ Saved Replies Feature â”€â”€
+// ── Saved Replies Feature ──
 
 async function fetchSavedReplies() {
   if (!session) return;
@@ -2614,7 +2619,7 @@ async function deleteSavedReply(replyId) {
   }
 }
 
-// â”€â”€ Queue Feature â”€â”€
+// ── Queue Feature ──
 
 async function fetchQueue() {
   if (!session) return;
@@ -2708,7 +2713,7 @@ async function removeFromQueue(queueId) {
   }
 }
 
-// â”€â”€ Analytics Feature â”€â”€
+// ── Analytics Feature ──
 
 const IMPORT_PLATFORMS = [
   { key: "x", name: "X" }, { key: "bluesky", name: "Bluesky" }, { key: "threads", name: "Threads" },
@@ -2760,7 +2765,7 @@ async function refreshAnalytics() {
   btn.disabled = true;
   const original = btn.textContent;
   const pulling = Math.max(recentPostsShown, 6);
-  btn.textContent = `Pulling ${pulling} postsâ€¦`;
+  btn.textContent = `Pulling ${pulling} posts…`;
   try {
     const res = await apiFetch(`/api/analytics/refresh?limit=${pulling}`, {
       method: "POST",
@@ -2773,12 +2778,12 @@ async function refreshAnalytics() {
     } else {
       const n = Number(data?.refreshed) || 0;
       showFeedback(
-        n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet â€” the platform may still be reporting zeros.",
+        n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet — the platform may still be reporting zeros.",
         n ? "success" : "warning"
       );
     }
   } catch (e) {
-    showFeedback("Refresh failed â€” " + (e?.message || "network error"), "error");
+    showFeedback("Refresh failed — " + (e?.message || "network error"), "error");
   }
   btn.textContent = original;
   btn.disabled = false;
@@ -2807,8 +2812,8 @@ async function startHistoryImport() {
   const count = Math.min(Math.max(Math.floor(Number($("#import-count")?.value) || 20), 1), 200);
   btn.disabled = true;
   const original = btn.textContent;
-  btn.textContent = "Importingâ€¦";
-  if (status) status.textContent = "Starting importâ€¦";
+  btn.textContent = "Importing…";
+  if (status) status.textContent = "Starting import…";
   try {
     const res = await apiFetch(`/api/import`, {
       method: "POST",
@@ -2818,7 +2823,7 @@ async function startHistoryImport() {
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error || data?.message || "Import failed");
     const jobId = data?.import?.id || data?.id || "";
-    if (status) status.textContent = `Import started â€” processing up to ${count} ${platform} postsâ€¦`;
+    if (status) status.textContent = `Import started — processing up to ${count} ${platform} posts…`;
     await pollImport(jobId, platform, count, status);
   } catch (e) {
     if (status) status.textContent = `Import failed: ${e.message}`;
@@ -2840,7 +2845,7 @@ async function pollImport(jobId, platform, count, status) {
       const job = items.find((j) => j.id === jobId) || items[0];
       if (!job) continue;
       if (job.status === "COMPLETED" || job.status === "FINISHED") {
-        if (status) status.textContent = `Imported ${job.postsImported || "â€”"} posts â€” now interleaved into the timeline below by date.`;
+        if (status) status.textContent = `Imported ${job.postsImported || "—"} posts — now interleaved into the timeline below by date.`;
         fetchRecentPosts();
         return;
       }
@@ -2848,10 +2853,10 @@ async function pollImport(jobId, platform, count, status) {
         if (status) status.textContent = `Import failed: ${job.error || job.status}`;
         return;
       }
-      if (status) status.textContent = `Import ${String(job.status).toLowerCase()} â€” ${job.postsImported || 0} doneâ€¦`;
+      if (status) status.textContent = `Import ${String(job.status).toLowerCase()} — ${job.postsImported || 0} done…`;
     } catch { /* keep polling */ }
   }
-  if (status) status.textContent = "Still processing â€” check back shortly.";
+  if (status) status.textContent = "Still processing — check back shortly.";
 }
 
 async function fetchRecentPosts() {
@@ -2936,13 +2941,13 @@ function renderRecentPosts() {
   const statsFor = (m) => ["impressions", "likes", "comments", "shares"]
     .filter((k) => m[k] != null)
     .map((k) => `${k}: <strong>${fmtNum(m[k])}</strong>`)
-    .join(" Â· ");
+    .join(" · ");
 
   const visible = posts.slice(0, recentPostsShown);
   container.innerHTML = visible.map((p) => {
     const when = new Date(p.date).toLocaleString();
     const text = (p.text || "").replace(/\n/g, " ");
-    const name = escapeHtml(text.length > 160 ? text.slice(0, 160) + "â€¦" : text);
+    const name = escapeHtml(text.length > 160 ? text.slice(0, 160) + "…" : text);
 
     if (p.kind === "import") {
       const m = p.metrics || {};
@@ -2955,7 +2960,7 @@ function renderRecentPosts() {
           : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
       return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
-        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${when} Â· imported ${itemBadge(p, p.text)}</div>
+        <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${when} · imported ${itemBadge(p, p.text)}</div>
         <div class="account-item-name">${name || "<i>untitled</i>"}</div>
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(p.platform)}</span>
@@ -3001,7 +3006,7 @@ function renderRecentPosts() {
         ${canComments ? `<div class="post-comments hidden" data-comments-for="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}" style="border-left:2px solid var(--border);padding-left:10px;margin:2px 0 8px 0;"></div>` : ""}`;
     }).join("");
     const failedText = failed.length
-      ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join(" Â· ")}</div>`
+      ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join(" · ")}</div>`
       : "";
     return `
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
@@ -3037,19 +3042,19 @@ $("#btn-load-more-posts")?.addEventListener("click", () => {
   renderRecentPosts();
 });
 
-// Delete a post from the platform itself (currently X). The wording is deliberate â€”
+// Delete a post from the platform itself (currently X). The wording is deliberate —
 // this removes it from the platform, not just from this analytics list.
 $("#recent-posts-list")?.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-delete-post]");
   if (!btn || !session?.access_token) return;
   const postId = btn.dataset.deletePost;
   const ok = window.confirm(
-    "Delete this post from X permanently?\n\nThis deletes the actual post from X â€” it is NOT just removing it from this list. There is no undo, and the delete is metered at $0.01 from your credit balance."
+    "Delete this post from X permanently?\n\nThis deletes the actual post from X — it is NOT just removing it from this list. There is no undo, and the delete is metered at $0.01 from your credit balance."
   );
   if (!ok) return;
   btn.disabled = true;
   const original = btn.textContent;
-  btn.textContent = "Deletingâ€¦";
+  btn.textContent = "Deleting…";
   try {
     const res = await apiFetch(`/api/posts/delete`, {
       method: "POST",
@@ -3066,7 +3071,7 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   }
 });
 
-// â”€â”€ Comments (view + reply, in the Analytics tab) â”€â”€
+// ── Comments (view + reply, in the Analytics tab) ──
 // Lists a post's replies via GET /api/comments, lazily loads them from the
 // platform via POST /api/comments/import (Bundle, metered), and posts replies
 // (to the post or to a specific comment) via POST /api/reply.
@@ -3119,14 +3124,14 @@ function commentsHtml(platform, postId) {
   const composer = `
     <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-light);">
       ${target ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">Replying to a comment <button type="button" class="btn btn-xs btn-ghost" data-cancel-reply="${escapeHtml(key)}">Cancel</button></div>` : ""}
-      <textarea class="form-input" data-reply-input="${escapeHtml(key)}" rows="2" placeholder="${target ? "Write a replyâ€¦" : `Reply to this ${escapeHtml(label)} postâ€¦`}" style="width:100%;resize:vertical;font-family:inherit;font-size:0.85rem;"></textarea>
+      <textarea class="form-input" data-reply-input="${escapeHtml(key)}" rows="2" placeholder="${target ? "Write a reply…" : `Reply to this ${escapeHtml(label)} post…`}" style="width:100%;resize:vertical;font-family:inherit;font-size:0.85rem;"></textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:6px;">
         <button class="btn btn-xs btn-primary" data-submit-reply="1" data-reply-platform="${escapeHtml(platform)}" data-reply-post-id="${escapeHtml(postId)}" data-reply-key="${escapeHtml(key)}">Reply</button>
       </div>
     </div>`;
 
   if (commentBusy.has(key)) {
-    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments from ${escapeHtml(label)}â€¦</div>`;
+    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments from ${escapeHtml(label)}…</div>`;
   }
 
   if (!state.items.length) {
@@ -3208,7 +3213,7 @@ async function importComments(panel, platform, postId) {
     renderCommentsPanel(panel, platform, postId);
     return;
   }
-  // The import is async â€” poll until comments appear (or give up).
+  // The import is async — poll until comments appear (or give up).
   for (let attempt = 0; attempt < 10; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 4000));
     const state = await fetchComments(platform, postId);
@@ -3225,7 +3230,7 @@ async function submitReply(panel, key, platform, postId, commentId) {
   const btn = panel.querySelector("[data-submit-reply]");
   if (!text) { showFeedback("Write something before replying.", "warning"); return; }
   const original = btn?.textContent || "Reply";
-  if (btn) { btn.disabled = true; btn.textContent = "Sendingâ€¦"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
   try {
     const res = await apiFetch(`/api/reply`, {
       method: "POST",
@@ -3243,7 +3248,7 @@ async function submitReply(panel, key, platform, postId, commentId) {
     showFeedback("Reply posted.", "success");
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = original; }
-    showFeedback(`Reply failed â€” ${err.message}`, "error");
+    showFeedback(`Reply failed — ${err.message}`, "error");
   }
 }
 
@@ -3312,14 +3317,14 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   }
 });
 
-// Per-post metrics refresh â€” pulls just one post (bounded X spend) instead of
+// Per-post metrics refresh — pulls just one post (bounded X spend) instead of
 // the whole list. Persists via /api/analytics/force (postRowId), then re-renders.
 $("#recent-posts-list")?.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-force-post]");
   if (!btn || !session?.access_token) return;
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "â€¦";
+  btn.textContent = "…";
   try {
     const res = await apiFetch(`/api/analytics/force`, {
       method: "POST",
@@ -3343,7 +3348,7 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   }
 });
 
-// â”€â”€ Helper Functions â”€â”€
+// ── Helper Functions ──
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -3351,7 +3356,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// â”€â”€ Init â”€â”€
+// ── Init ──
 
 async function init() {
   const initialHash = location.hash.replace("#", "");
@@ -3370,7 +3375,7 @@ async function init() {
   // Handle Bundle OAuth connect callback (Bundle sends ?success=<platform>-callback or ?success=true)
   const params = new URLSearchParams(location.search);
   if (params.get("tab") === "fees") {
-    // Returned from a Stripe checkout (success or cancelled) â†’ show the X fees tab.
+    // Returned from a Stripe checkout (success or cancelled) → show the X fees tab.
     history.replaceState(null, "", location.pathname);
     if (session) {
       showView("fees");
@@ -3416,7 +3421,7 @@ async function init() {
   if ($("#view-analytics")) loadAnalyticsView();
 }
 
-// â”€â”€ Navigation â”€â”€
+// ── Navigation ──
 
 $$(".sidebar-nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -3454,7 +3459,7 @@ function switchView(viewName) {
   if (viewName === "schedule") fetchScheduled();
 }
 
-// â”€â”€ Event Listeners â”€â”€
+// ── Event Listeners ──
 
 $("#btn-create-hashtag-group")?.addEventListener("click", showCreateHashtagGroupModal);
 $("#btn-create-reply")?.addEventListener("click", showCreateReplyModal);
