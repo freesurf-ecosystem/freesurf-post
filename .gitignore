@@ -7,6 +7,9 @@ mobile/android/
 # Local test media (not part of the product)
 /test/
 
+# Local X search output
+/out/
+
 # EAS / store signing credentials (secret - never commit)
 credentials.json
 credentials/

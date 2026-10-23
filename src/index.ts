@@ -1777,8 +1777,30 @@ async function handleCommentImport(
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
       body: JSON.stringify({ teamId, postId: body.postId, socialAccountType: bsPlatform }),
     });
-    return json(await res.json(), res.status, headers);
-  } catch { return json({ error: "Comment import failed" }, 502, headers); }
+    // Bundle can return non-JSON (e.g. an HTML error page) when it crashes, so
+    // read text first — otherwise res.json() throws and we lose the real reason.
+    const raw = await res.text();
+    let data: any = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+    console.log(`Bundle comment import (${bsPlatform}, post ${body.postId}) -> ${res.status} ${raw.slice(0, 500)}`);
+    if (!res.ok) {
+      console.error(`Bundle comment import failed (${bsPlatform}, post ${body.postId}):`, res.status, raw.slice(0, 500));
+      const issues = Array.isArray(data?.issues)
+        ? data.issues.map((i: any) => `${(i.path || []).join(".")}: ${i.message}`).join("; ")
+        : "";
+      const message = issues || data?.message || data?.error || raw.slice(0, 300) || `Comment import failed (${res.status})`;
+      return json({ error: message }, res.status, headers);
+    }
+    // A 200 can still carry a job that failed upstream (e.g. TikTok).
+    if (data && typeof data === "object" && String(data.status || "").toUpperCase() === "FAILED") {
+      console.error(`Bundle comment import job FAILED (${bsPlatform}, post ${body.postId}):`, raw.slice(0, 500));
+      return json({ error: data.error || data.message || "Comment import job failed", job: data }, 200, headers);
+    }
+    return json(data, res.status, headers);
+  } catch (e) {
+    console.error("Bundle comment import exception:", e instanceof Error ? e.message : String(e));
+    return json({ error: "Comment import failed" }, 502, headers);
+  }
 }
 
 /**
@@ -1793,6 +1815,7 @@ async function handleComments(
 
   const postId = url.searchParams.get("postId");
   if (!postId) return errorResponse("postId required", 400, origin);
+  const platform = url.searchParams.get("platform") || "";
 
   const teamId = await getOrCreateBundleTeam(user.sub, env);
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
@@ -1802,8 +1825,53 @@ async function handleComments(
       `https://api.bundle.social/api/v1/comment/import/comments?teamId=${teamId}&postId=${postId}`,
       { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
     );
-    return json(await res.json(), res.status, headers);
-  } catch { return json({ error: "Comments unavailable" }, 502, headers); }
+    const raw = await res.text();
+    let data: any = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+    console.log(`Bundle comments list (${platform}, post ${postId}): ${res.status} ${raw.slice(0, 500)}`);
+    if (!res.ok) {
+      return json(
+        { items: [], error: data?.message || data?.error || `Comments unavailable (${res.status})`, debug: raw.slice(0, 500) },
+        res.status,
+        headers
+      );
+    }
+    const items = normalizeComments(data);
+    const payload: Record<string, unknown> = { items };
+    // When nothing comes back, hand the raw provider response to the client so
+    // the cause is visible in the UI without digging through logs.
+    if (!items.length) payload.debug = raw.slice(0, 500);
+    return json(payload, 200, headers);
+  } catch (e) {
+    console.error("Comments list exception:", e instanceof Error ? e.message : String(e));
+    return json({ items: [], error: "Comments unavailable" }, 502, headers);
+  }
+}
+
+/**
+ * Bundle's fetched-comments response shape varies by platform/version (bare
+ * array, { items }, { comments }, …). Pull the list out of whichever envelope
+ * it used and map to the camelCase fields the web/mobile UIs render.
+ */
+function normalizeComments(data: any): any[] {
+  const list = Array.isArray(data) ? data
+    : Array.isArray(data?.items) ? data.items
+      : Array.isArray(data?.comments) ? data.comments
+        : Array.isArray(data?.data) ? data.data
+          : [];
+  return list.map((c: any) => ({
+    ...c,
+    id: c.id || c.commentId || c.internalId || "",
+    text: c.text ?? c.message ?? c.comment ?? c.content ?? "",
+    authorName: c.authorName || c.author?.name || c.author?.displayName || c.author?.username
+      || c.username || c.user?.display_name || c.user?.unique_id || c.from?.name || "",
+    authorProfileUrl: c.authorProfileUrl || c.authorProfileLink || c.author?.url || c.authorUrl
+      || c.user?.profile_url || c.from?.link || "",
+    authorAvatarUrl: c.authorAvatarUrl || c.author?.avatar || c.avatarUrl || c.avatar
+      || c.user?.avatar_url || c.from?.picture?.data?.url || "",
+    publishedAt: c.publishedAt || c.createdAt || c.created_at || c.createdTime
+      || c.timestamp || c.create_time || "",
+  }));
 }
 
 /**
@@ -2230,7 +2298,7 @@ async function handlePost(
         };
       }
 
-      const providerResult = await postViaProvider(platform, text, env, media, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles, body.platformOptions);
+      const providerResult = await postViaProvider(platform, text, env, media, bundleTeamId, body.instagramImageFit, body.platformTargets, body.titles, body.platformOptions, body.firstComment);
       if (providerResult.success) return { ...providerResult, via: "bundle" as const };
 
       // Only fall back to a direct adapter when one is actually configured;
@@ -2416,7 +2484,8 @@ async function postViaProvider(
   instagramImageFit?: "fit" | "crop",
   platformTargets?: Record<string, string>,
   titles?: Record<string, string>,
-  platformOptions?: Record<string, Record<string, unknown>>
+  platformOptions?: Record<string, Record<string, unknown>>,
+  firstComment?: string
 ): Promise<PlatformPostResult> {
   if (!env.SOCIAL_API_PROVIDER_KEY || !teamId) {
     return { platform, success: false, error: "Posting is not configured yet" };
@@ -2560,6 +2629,11 @@ async function postViaProvider(
       }
     }
 
+    // Best-effort: post the "first comment" immediately after publishing.
+    if (firstComment && FIRST_COMMENT_PLATFORMS.has(platform) && data.id) {
+      await postFirstComment(teamId, bsPlatform, data.id, firstComment, env);
+    }
+
     return {
       platform,
       success: true,
@@ -2584,7 +2658,7 @@ async function handleSchedule(
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
-  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[]; media?: MediaRef[]; teamId?: string; team?: string; platformTargets?: Record<string, string> };
+  let body: { platforms: Platform[]; text: string; scheduledAt: string; mediaUrls?: string[]; media?: MediaRef[]; teamId?: string; team?: string; platformTargets?: Record<string, string>; firstComment?: string };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
 
   if (!body.platforms?.length) return errorResponse("At least one platform required", 400, origin);
@@ -2620,7 +2694,7 @@ async function handleSchedule(
     const res = await fetch(`${env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co"}/rest/v1/post_posts`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text, platforms: body.platforms, media_urls: mediaIds, has_link: detectHasLink(text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}), ...((body as any).platformOptions ? { __platformOptions: (body as any).platformOptions } : {}), ...(media.length ? { __media: media } : {}) } }),
+      body: JSON.stringify({ user_id: user.sub, status: "scheduled", text, platforms: body.platforms, media_urls: mediaIds, has_link: detectHasLink(text), bundle_team_id: bundleTeamId, scheduled_at: body.scheduledAt, platform_targets: { ...(body.platformTargets || {}), ...((body as any).titles ? { __titles: (body as any).titles } : {}), ...((body as any).platformOptions ? { __platformOptions: (body as any).platformOptions } : {}), ...(body.firstComment ? { __firstComment: body.firstComment } : {}), ...(media.length ? { __media: media } : {}) } }),
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -3079,6 +3153,55 @@ async function createBlueskySession(handle: string, password: string) {
 }
 
 /** Map our platform names to Bundle.social ALL CAPS format */
+/** Platforms Bundle's comment API can post a "first comment" to.
+ *  Pinterest and Google Business have no comment surface via Bundle. */
+const FIRST_COMMENT_PLATFORMS: Set<Platform> = new Set([
+  "bluesky", "x", "linkedin", "facebook", "instagram", "threads",
+  "tiktok", "youtube", "reddit", "discord", "slack",
+]);
+
+/**
+ * Post a "first comment" on a just-published post via Bundle's comment API.
+ * Best-effort: a failed first comment never fails the underlying post.
+ */
+async function postFirstComment(
+  teamId: string,
+  bsPlatform: string,
+  internalPostId: string,
+  text: string,
+  env: Env
+): Promise<boolean> {
+  const comment = text.trim();
+  if (!comment || !env.SOCIAL_API_PROVIDER_KEY) return false;
+  try {
+    const now = new Date().toISOString();
+    const payload = {
+      teamId,
+      title: comment.slice(0, 80),
+      text: comment,
+      status: "SCHEDULED",
+      postDate: now,
+      socialAccountTypes: [bsPlatform],
+      data: { [bsPlatform]: { text: comment } },
+      internalPostId,
+    };
+    const res = await fetch("https://api.bundle.social/api/v1/comment/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as any;
+      console.error(`Bundle first comment failed (${bsPlatform}):`, res.status, JSON.stringify(data));
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error(`Bundle first comment exception (${bsPlatform}):`, e instanceof Error ? e.message : String(e));
+    return false;
+  }
+}
+
 function bundlePlatform(key: string): string | null {
   const m: Record<string, string> = {
     bluesky: "BLUESKY", x: "TWITTER", linkedin: "LINKEDIN",
@@ -4451,8 +4574,9 @@ async function handleCron(env: Env): Promise<Response> {
             if (bundleTeamId) {
               const titles = (storedTargets.__titles as Record<string, string> | undefined) || undefined;
               const platformOptions = (storedTargets.__platformOptions as Record<string, Record<string, unknown>> | undefined) || undefined;
+              const firstComment = (storedTargets.__firstComment as string | undefined) || undefined;
               const providerResult = await postViaProvider(
-                platform, queuedPost.text, env, media, bundleTeamId, undefined, storedTargets, titles, platformOptions
+                platform, queuedPost.text, env, media, bundleTeamId, undefined, storedTargets, titles, platformOptions, firstComment
               );
               if (providerResult.success) return { ...providerResult, via: "bundle" as const };
               // Only fall back to a direct adapter when media is single (the

@@ -1,15 +1,15 @@
 import React, { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator,
-  TouchableOpacity, Alert, Linking,
+  TouchableOpacity, Alert, Linking, TextInput,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Activity, RefreshCw } from "lucide-react-native";
+import { Activity, RefreshCw, Send } from "lucide-react-native";
 import { useTheme } from "../lib/theme";
 import { FloatingMenuButton } from "../components/Menu";
 import {
-  listRecentPosts, forceAnalytics, listComments, importComments, deletePost,
+  listRecentPosts, forceAnalytics, listComments, importComments, deletePost, replyToComment,
   type RecentPost, type PostResult, type PostMetrics, type CommentItem,
 } from "../lib/api";
 
@@ -48,6 +48,9 @@ export default function AnalyticsScreen() {
   const [commentItems, setCommentItems] = useState<Record<string, CommentItem[]>>({});
   const [commentLoading, setCommentLoading] = useState<Record<string, boolean>>({});
   const [commentLoaded, setCommentLoaded] = useState<Record<string, boolean>>({});
+  const [replyTo, setReplyTo] = useState<Record<string, { id: string; name: string } | undefined>>({});
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replySending, setReplySending] = useState<Record<string, boolean>>({});
 
   const commentKey = (platform: string, postId: string) => `${platform}::${postId}`;
 
@@ -118,14 +121,8 @@ export default function AnalyticsScreen() {
     }
     setOpenComments((prev) => ({ ...prev, [key]: true }));
     if (!commentLoaded[key]) {
-      setCommentLoading((prev) => ({ ...prev, [key]: true }));
-      try {
-        const items = await listComments(platform, postId).catch(() => [] as CommentItem[]);
-        setCommentItems((prev) => ({ ...prev, [key]: items }));
-      } finally {
-        setCommentLoading((prev) => ({ ...prev, [key]: false }));
-        setCommentLoaded((prev) => ({ ...prev, [key]: true }));
-      }
+      // Auto-pull from the platform on first open, so expanding is enough.
+      await loadCommentsFromPlatform(platform, postId);
     }
   }
 
@@ -135,8 +132,8 @@ export default function AnalyticsScreen() {
     try {
       await importComments(platform, postId);
       let items: CommentItem[] = [];
-      for (let i = 0; i < 6; i++) {
-        await new Promise((r) => setTimeout(r, 3000));
+      for (let i = 0; i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
         items = await listComments(platform, postId).catch(() => [] as CommentItem[]);
         if (items.length) break;
       }
@@ -147,6 +144,71 @@ export default function AnalyticsScreen() {
       setCommentLoading((prev) => ({ ...prev, [key]: false }));
       setCommentLoaded((prev) => ({ ...prev, [key]: true }));
     }
+  }
+
+  async function sendReply(platform: string, postId: string) {
+    const key = commentKey(platform, postId);
+    const text = (replyDraft[key] || "").trim();
+    if (!text || replySending[key]) return;
+    setReplySending((prev) => ({ ...prev, [key]: true }));
+    try {
+      const target = replyTo[key];
+      const res: any = await replyToComment({ platform, postId, text, commentId: target?.id });
+      setCommentItems((prev) => ({
+        ...prev,
+        [key]: [
+          { id: res?.id || "", text, authorName: "You", publishedAt: new Date().toISOString() },
+          ...(prev[key] || []),
+        ],
+      }));
+      setReplyDraft((prev) => ({ ...prev, [key]: "" }));
+      setReplyTo((prev) => ({ ...prev, [key]: undefined }));
+    } catch (e: any) {
+      Alert.alert("Reply failed", e?.message || "Couldn't post your reply.");
+    } finally {
+      setReplySending((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  function renderComposer(platform: string, postId: string, key: string, platformLabel: string) {
+    const target = replyTo[key];
+    const sending = replySending[key];
+    return (
+      <View style={{ marginTop: 10 }}>
+        {target ? (
+          <View style={styles.replyTargetRow}>
+            <Text style={[styles.commentWhen, { color: colors.textMuted }]} numberOfLines={1}>
+              Replying to {target.name || "comment"}
+            </Text>
+            <TouchableOpacity onPress={() => setReplyTo((prev) => ({ ...prev, [key]: undefined }))}>
+              <Text style={[styles.replyCancel, { color: colors.textMuted }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        <TextInput
+          style={[styles.replyInput, { borderColor: colors.border, color: colors.text }]}
+          placeholder={target ? "Write a reply…" : `Reply to this ${platformLabel} post…`}
+          placeholderTextColor={colors.textMuted}
+          value={replyDraft[key] || ""}
+          onChangeText={(t) => setReplyDraft((prev) => ({ ...prev, [key]: t }))}
+          multiline
+        />
+        <TouchableOpacity
+          style={[styles.replySendBtn, { borderColor: colors.border, opacity: (replyDraft[key] || "").trim() && !sending ? 1 : 0.5 }]}
+          disabled={!((replyDraft[key] || "").trim()) || sending}
+          onPress={() => sendReply(platform, postId)}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color={colors.brand} />
+          ) : (
+            <>
+              <Send size={13} color={colors.brand} />
+              <Text style={[styles.actionText, { color: colors.brand }]}>Reply</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   function renderComments(platform: string, postId: string) {
@@ -168,8 +230,9 @@ export default function AnalyticsScreen() {
         <View style={styles.commentsPanel}>
           <Text style={[styles.commentsEmpty, { color: colors.textMuted }]}>No comments loaded yet.</Text>
           <TouchableOpacity style={[styles.commentsLoadBtn, { borderColor: colors.border }]} onPress={() => loadCommentsFromPlatform(platform, postId)}>
-            <Text style={[styles.commentsLoadText, { color: colors.brand }]}>Load from {platformLabel}</Text>
+            <Text style={[styles.commentsLoadText, { color: colors.brand }]}>Reload from {platformLabel}</Text>
           </TouchableOpacity>
+          {renderComposer(platform, postId, key, platformLabel)}
         </View>
       );
     }
@@ -183,11 +246,20 @@ export default function AnalyticsScreen() {
               {c.publishedAt ? <Text style={[styles.commentWhen, { color: colors.textMuted }]}>{new Date(c.publishedAt).toLocaleString()}</Text> : null}
             </View>
             {c.text ? <Text style={[styles.commentText, { color: colors.textSecondary }]}>{c.text}</Text> : null}
+            {c.id ? (
+              <TouchableOpacity
+                style={styles.commentReplyLink}
+                onPress={() => setReplyTo((prev) => ({ ...prev, [key]: { id: c.id!, name: c.authorName || "comment" } }))}
+              >
+                <Text style={[styles.commentReplyText, { color: colors.brand }]}>Reply</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ))}
         <TouchableOpacity style={[styles.commentsLoadBtn, { borderColor: colors.border }]} onPress={() => loadCommentsFromPlatform(platform, postId)}>
-          <Text style={[styles.commentsLoadText, { color: colors.brand }]}>Check for new replies</Text>
+          <Text style={[styles.commentsLoadText, { color: colors.brand }]}>Reload from {platformLabel}</Text>
         </TouchableOpacity>
+        {renderComposer(platform, postId, key, platformLabel)}
       </View>
     );
   }
@@ -323,4 +395,10 @@ const styles = StyleSheet.create({
   commentAuthor: { fontSize: 13, fontWeight: "700" },
   commentWhen: { fontSize: 11 },
   commentText: { fontSize: 13, marginTop: 2 },
+  commentReplyLink: { marginTop: 4, alignSelf: "flex-start" },
+  commentReplyText: { fontSize: 12, fontWeight: "600" },
+  replyTargetRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 },
+  replyCancel: { fontSize: 12, fontWeight: "600" },
+  replyInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, minHeight: 44, textAlignVertical: "top" },
+  replySendBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "flex-end", borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginTop: 6 },
 });

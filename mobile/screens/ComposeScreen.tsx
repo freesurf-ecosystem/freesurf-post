@@ -161,6 +161,7 @@ export default function ComposeScreen() {
   const [selectedTz, setSelectedTz] = useState("UTC");
   const [tzOpen, setTzOpen] = useState(false);
   const [aiGenerated, setAiGenerated] = useState(false);
+  const [firstComment, setFirstComment] = useState("");
 
   function prefillSchedule(tz: string) {
     const now = nowInTz(tz);
@@ -326,7 +327,7 @@ export default function ComposeScreen() {
       const mediaUrls = refs.map((r) => r.uploadId);
 
       const willSchedule = !!(scheduleDate.trim() && scheduleTime.trim());
-      const body = { platforms: Array.from(selected), text: text.trim(), teamId: teamId || undefined, mediaUrls: mediaUrls.length ? mediaUrls : undefined, media: refs.length ? refs : undefined, platformTargets: targets(), platformOptions: platformOptions() };
+      const body = { platforms: Array.from(selected), text: text.trim(), teamId: teamId || undefined, mediaUrls: mediaUrls.length ? mediaUrls : undefined, media: refs.length ? refs : undefined, platformTargets: targets(), platformOptions: platformOptions(), firstComment: firstComment.trim() || undefined };
 
       if (willSchedule) {
         const scheduledAt = buildScheduledAt();
@@ -354,6 +355,7 @@ export default function ComposeScreen() {
     setTargetValue("");
     setMedia([]);
     setAiGenerated(false);
+    setFirstComment("");
     prefillSchedule(selectedTz);
   }
 
@@ -439,6 +441,11 @@ export default function ComposeScreen() {
             <Text style={[styles.linkWarningText, { color: colors.warning }]}>Contains a link — X charges $0.20 instead of $0.015</Text>
           </View>
         )}
+
+        <Text style={[styles.label, { color: colors.textMuted }]}>First comment (optional)</Text>
+        <TextInput style={[styles.firstCommentInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+          placeholder="Posted right after publishing to seed engagement" placeholderTextColor={colors.textMuted}
+          value={firstComment} onChangeText={setFirstComment} multiline maxLength={10000} textAlignVertical="top" />
 
         <Text style={[styles.label, { color: colors.textMuted }]}>Media</Text>
         <View style={styles.mediaRow}>
@@ -606,7 +613,7 @@ const styles = StyleSheet.create({
   teamChipText: { fontSize: 13, fontWeight: "500" },
   activeBadge: { fontSize: 10, fontWeight: "600", textTransform: "uppercase" },
   textarea: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16, minHeight: 150, marginBottom: 16 },
-  connectBanner: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16 },
+  firstCommentInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, minHeight: 56, marginBottom: 16 },  connectBanner: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16 },
   connectBannerText: { flex: 1, fontSize: 13, fontWeight: "600" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   platformsHint: { fontSize: 12, marginBottom: 8 },

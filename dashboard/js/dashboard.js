@@ -680,6 +680,16 @@ function collectPlatformTargets() {
   return { [input.dataset.platform]: input.value.trim() };
 }
 
+function collectFirstComment() {
+  const input = $("#first-comment");
+  return input && input.value.trim() ? input.value.trim() : undefined;
+}
+
+function resetFirstComment() {
+  const input = $("#first-comment");
+  if (input) input.value = "";
+}
+
 function hasLink(text) {
   if (!text) return false;
   // Mirrors the backend detectHasLink exactly so the UI warning always matches
@@ -763,7 +773,7 @@ btnPost.addEventListener("click", async () => {
     const res = await apiFetch(`/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
+      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions(), firstComment: collectFirstComment() }),
     });
     const data = await res.json();
 
@@ -792,6 +802,7 @@ btnPost.addEventListener("click", async () => {
       uploadedMedia = [];
       renderMediaPreview();
       resetDisclosures();
+      resetFirstComment();
     } else {
       showFeedback(data.error || "Post failed.", "error");
     }
@@ -855,7 +866,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions() }),
+      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions(), firstComment: collectFirstComment() }),
     });
     if (res.ok) {
       showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
@@ -866,6 +877,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
       uploadedMedia = [];
       renderMediaPreview();
       resetDisclosures();
+      resetFirstComment();
     } else {
       const err = await res.json();
       showFeedback(err.error || "Failed to schedule.", "error");
@@ -1069,7 +1081,7 @@ let teams = [];
 let accountsTeamId = "";
 let analyticsTeamId = "";
 let recentPostsAll = [];
-let recentPostsShown = 5;
+let recentPostsShown = 6;
 
 async function fetchTeams() {
   if (!session?.access_token) { teams = []; renderTeams(); return; }
@@ -2622,7 +2634,9 @@ async function fetchRecentPosts() {
   recentPostsAll = [...appItems, ...imported]
     .filter((x) => x.date)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
-  recentPostsShown = 6;
+  // Keep however far the user expanded (Load more) across refreshes, but never
+  // show fewer than the first page or more than we actually have.
+  recentPostsShown = Math.min(Math.max(recentPostsShown, 6), Math.max(recentPostsAll.length, 6));
   renderRecentPosts();
 }
 
@@ -2725,7 +2739,7 @@ function renderRecentPosts() {
           ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}"><span class="comments-chevron" style="display:inline-block;transition:transform .15s ease;margin-right:4px;">\u25B8</span>Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}
           ${r.platform === "x" && r.postId ? `<button class="btn btn-xs btn-ghost" data-delete-post="${escapeHtml(r.postId)}" style="color:var(--error);" title="Delete from X (permanent, $0.01)">Delete</button>` : ""}
         </div>
-        ${canComments ? `<div class="post-comments hidden" data-comments-for="${escapeHtml(r.postId)}" style="border-left:2px solid var(--border);padding-left:10px;margin:2px 0 8px 0;"></div>` : ""}`;
+        ${canComments ? `<div class="post-comments hidden" data-comments-for="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}" style="border-left:2px solid var(--border);padding-left:10px;margin:2px 0 8px 0;"></div>` : ""}`;
     }).join("");
     const failedText = failed.length
       ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${failed.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join(" · ")}</div>`
@@ -2744,6 +2758,19 @@ function renderRecentPosts() {
     loadMore.classList.toggle("hidden", remaining === 0);
     loadMore.textContent = `Load more (${remaining} left)`;
   }
+
+  // A re-render (Refresh / Load more) replaces the list HTML, so re-open any
+  // comment panels the user had expanded and repaint them from cache.
+  commentOpen.forEach((key) => {
+    const { platform, postId } = splitCommentKey(key);
+    const panel = container.querySelector(`[data-comments-for="${selEscape(postId)}"]`);
+    if (!panel) return;
+    panel.classList.remove("hidden");
+    renderCommentsPanel(panel, platform, postId);
+    const btn = container.querySelector(`[data-show-comments="${selEscape(postId)}"]`);
+    const chevron = btn?.querySelector(".comments-chevron");
+    if (chevron) chevron.style.transform = "rotate(90deg)";
+  });
 }
 
 $("#btn-load-more-posts")?.addEventListener("click", () => {
@@ -2780,82 +2807,185 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   }
 });
 
-// ── Comments (view-only, in the Analytics tab) ──
-// Lists a post's replies via GET /api/comments, and lazily loads them from the
-// platform via POST /api/comments/import (Bundle, metered) when the user asks.
+// ── Comments (view + reply, in the Analytics tab) ──
+// Lists a post's replies via GET /api/comments, lazily loads them from the
+// platform via POST /api/comments/import (Bundle, metered), and posts replies
+// (to the post or to a specific comment) via POST /api/reply.
 
-async function fetchComments(platform, postId) {
-  const res = await apiFetch(`/api/comments?platform=${encodeURIComponent(platform)}&postId=${encodeURIComponent(postId)}`);
-  if (!res.ok) return [];
-  const data = await res.json().catch(() => ({}));
-  return Array.isArray(data.items) ? data.items : [];
+const commentCache = new Map();       // key -> { items, error }
+const commentOpen = new Set();        // keys the user has expanded
+const commentBusy = new Set();        // keys with a platform import in flight
+const commentReplyTarget = new Map(); // key -> commentId being replied to ("" = post)
+
+function commentKey(platform, postId) { return `${platform}::${postId}`; }
+function splitCommentKey(key) {
+  const idx = key.indexOf("::");
+  return { platform: key.slice(0, idx), postId: key.slice(idx + 2) };
+}
+function selEscape(value) {
+  const s = String(value ?? "");
+  return typeof CSS !== "undefined" && CSS.escape ? CSS.escape(s) : s.replace(/["\\]/g, "\\$&");
+}
+function commentPlatformLabel(platform) {
+  return platform === "x" ? "X" : platform === "bluesky" ? "Bluesky" : platform;
 }
 
-function renderCommentsPanel(panel, platform, postId, items) {
-  const platformLabel = platform === "x" ? "X" : platform === "bluesky" ? "Bluesky" : platform;
-  const loadBtn = `<button class="btn btn-xs btn-secondary" data-import-comments="1" data-comments-platform="${escapeHtml(platform)}" data-comments-post-id="${escapeHtml(postId)}">Load from ${platformLabel}</button>`;
+async function fetchComments(platform, postId) {
+  const key = commentKey(platform, postId);
+  const prev = commentCache.get(key) || { items: [], error: "" };
+  try {
+    const res = await apiFetch(`/api/comments?platform=${encodeURIComponent(platform)}&postId=${encodeURIComponent(postId)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = data?.error || data?.message || `Couldn't load comments (${res.status}).`;
+      commentCache.set(key, { items: prev.items, error, debug: data?.debug || "" });
+    } else {
+      const items = Array.isArray(data?.items) ? data.items
+        : Array.isArray(data?.comments) ? data.comments
+        : Array.isArray(data) ? data : [];
+      commentCache.set(key, { items, error: "", debug: data?.debug || "" });
+    }
+  } catch (err) {
+    commentCache.set(key, { items: prev.items, error: err?.message || "Network error loading comments.", debug: "" });
+  }
+  return commentCache.get(key);
+}
 
-  if (!items.length) {
-    panel.innerHTML = `
-      <div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        No comments loaded yet. ${loadBtn}
-      </div>`;
-    return;
+function commentsHtml(platform, postId) {
+  const key = commentKey(platform, postId);
+  const state = commentCache.get(key) || { items: [], error: "" };
+  const label = commentPlatformLabel(platform);
+  const target = commentReplyTarget.get(key) || "";
+  const loadBtn = `<button class="btn btn-xs btn-secondary" data-import-comments="1" data-comments-platform="${escapeHtml(platform)}" data-comments-post-id="${escapeHtml(postId)}">Reload from ${escapeHtml(label)}</button>`;
+  const composer = `
+    <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-light);">
+      ${target ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">Replying to a comment <button type="button" class="btn btn-xs btn-ghost" data-cancel-reply="${escapeHtml(key)}">Cancel</button></div>` : ""}
+      <textarea class="form-input" data-reply-input="${escapeHtml(key)}" rows="2" placeholder="${target ? "Write a reply…" : `Reply to this ${escapeHtml(label)} post…`}" style="width:100%;resize:vertical;font-family:inherit;font-size:0.85rem;"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+        <button class="btn btn-xs btn-primary" data-submit-reply="1" data-reply-platform="${escapeHtml(platform)}" data-reply-post-id="${escapeHtml(postId)}" data-reply-key="${escapeHtml(key)}">Reply</button>
+      </div>
+    </div>`;
+
+  if (commentBusy.has(key)) {
+    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments from ${escapeHtml(label)}…</div>`;
   }
 
-  const rows = items.map((c) => {
+  if (!state.items.length) {
+    const msg = state.error
+      ? `<span style="color:var(--error);">${escapeHtml(state.error)}</span>`
+      : "No comments found yet.";
+    const debug = state.debug
+      ? `<div style="margin-top:4px;font-size:0.7rem;color:var(--text-muted);word-break:break-word;opacity:0.8;">provider: ${escapeHtml(state.debug)}</div>`
+      : "";
+    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${msg} ${loadBtn}</div>${debug}${composer}`;
+  }
+
+  const rows = state.items.map((c) => {
     const when = c.publishedAt ? new Date(c.publishedAt).toLocaleString() : "";
     const author = escapeHtml(c.authorName || "unknown");
-    const handle = c.authorProfileUrl ? "@" + escapeHtml((c.authorProfileUrl.split("/").pop() || "")) : "";
+    const handle = c.authorProfileUrl ? "@" + escapeHtml(String(c.authorProfileUrl).split("/").pop() || "") : "";
     const avatar = c.authorAvatarUrl
       ? `<img src="${escapeHtml(c.authorAvatarUrl)}" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+      : "";
+    const replyLink = c.id
+      ? `<button class="btn btn-xs btn-ghost" data-reply-comment="1" data-reply-key="${escapeHtml(key)}" data-reply-comment-id="${escapeHtml(c.id)}">Reply</button>`
       : "";
     return `
       <div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border-light);">
         ${avatar}
-        <div style="min-width:0;">
-          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">
-            ${c.authorProfileUrl
-              ? `<a href="${escapeHtml(c.authorProfileUrl)}" target="_blank" rel="noopener" style="font-weight:700;color:var(--text);">${author}</a>`
-              : `<span style="font-weight:700;color:var(--text);">${author}</span>`}
-            ${handle ? `<span>${handle}</span>` : ""}
-            ${when ? `<span>${escapeHtml(when)}</span>` : ""}
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;justify-content:space-between;">
+            <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">
+              ${c.authorProfileUrl
+                ? `<a href="${escapeHtml(c.authorProfileUrl)}" target="_blank" rel="noopener" style="font-weight:700;color:var(--text);">${author}</a>`
+                : `<span style="font-weight:700;color:var(--text);">${author}</span>`}
+              ${handle ? `<span>${handle}</span>` : ""}
+              ${when ? `<span>${escapeHtml(when)}</span>` : ""}
+            </span>
+            ${replyLink}
           </div>
           <div style="font-size:0.85rem;white-space:pre-wrap;margin-top:2px;">${escapeHtml(c.text || "")}</div>
         </div>
       </div>`;
   }).join("");
 
-  panel.innerHTML = `
+  return `
     <div style="padding:4px 0 0;">
       ${rows}
-      <div style="padding:8px 0;">${loadBtn} <span style="font-size:0.72rem;color:var(--text-muted);">checks for new replies (~$0.005 each)</span></div>
+      <div style="padding:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${loadBtn} <span style="font-size:0.72rem;color:var(--text-muted);">checks for new replies (~$0.005 each)</span></div>
+      ${composer}
     </div>`;
 }
 
+function renderCommentsPanel(panel, platform, postId) {
+  if (panel) panel.innerHTML = commentsHtml(platform, postId);
+}
+
 async function importComments(panel, platform, postId) {
-  const platformLabel = platform === "x" ? "X" : platform === "bluesky" ? "Bluesky" : platform;
-  panel.innerHTML = `<div style="padding:8px 0;color:var(--text-muted);font-size:0.8rem;"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments from ${platformLabel}…</div>`;
+  const key = commentKey(platform, postId);
+  commentBusy.add(key);
+  renderCommentsPanel(panel, platform, postId);
+  let error = "";
   try {
-    await apiFetch(`/api/comments/import`, {
+    const res = await apiFetch(`/api/comments/import`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ platform, postId }),
     });
-  } catch { /* fall through to polling */ }
-
-  // The import is async — poll until comments appear (or give up).
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 4000));
-    const items = await fetchComments(platform, postId);
-    if (items.length) {
-      panel.dataset.loaded = "1";
-      renderCommentsPanel(panel, platform, postId, items);
-      return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      error = data?.error || data?.detail || data?.message || `Import failed (${res.status}).`;
+    } else if (data?.error) {
+      // The import started but the job failed upstream (e.g. TikTok).
+      error = data.error;
     }
+  } catch (err) {
+    error = err?.message || "Import request failed.";
   }
-  panel.dataset.loaded = "1";
-  renderCommentsPanel(panel, platform, postId, await fetchComments(platform, postId));
+  if (error) {
+    commentBusy.delete(key);
+    const prev = commentCache.get(key) || { items: [], error: "" };
+    commentCache.set(key, { items: prev.items, error });
+    renderCommentsPanel(panel, platform, postId);
+    return;
+  }
+  // The import is async — poll until comments appear (or give up).
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    const state = await fetchComments(platform, postId);
+    if (state.items.length) break;
+  }
+  commentBusy.delete(key);
+  renderCommentsPanel(panel, platform, postId);
+}
+
+async function submitReply(panel, key, platform, postId, commentId) {
+  if (!panel) return;
+  const input = panel.querySelector(`[data-reply-input="${selEscape(key)}"]`);
+  const text = (input?.value || "").trim();
+  const btn = panel.querySelector("[data-submit-reply]");
+  if (!text) { showFeedback("Write something before replying.", "warning"); return; }
+  const original = btn?.textContent || "Reply";
+  if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+  try {
+    const res = await apiFetch(`/api/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform, postId, commentId: commentId || undefined, text }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.message || data?.error || `Reply failed (${res.status})`);
+    const state = commentCache.get(key) || { items: [], error: "" };
+    state.items = [{ id: data?.id || "", text, authorName: "You", publishedAt: new Date().toISOString() }, ...state.items];
+    state.error = "";
+    commentCache.set(key, state);
+    commentReplyTarget.delete(key);
+    renderCommentsPanel(panel, platform, postId);
+    showFeedback("Reply posted.", "success");
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+    showFeedback(`Reply failed — ${err.message}`, "error");
+  }
 }
 
 $("#recent-posts-list")?.addEventListener("click", async (e) => {
@@ -2863,18 +2993,24 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   if (showBtn) {
     const postId = showBtn.dataset.showComments;
     const platform = showBtn.dataset.commentsPlatform;
-    const panel = document.querySelector(`[data-comments-for="${postId}"]`);
+    const key = commentKey(platform, postId);
+    const panel = document.querySelector(`[data-comments-for="${selEscape(postId)}"]`);
     if (!panel) return;
-    const wasHidden = panel.classList.contains("hidden");
-    panel.classList.toggle("hidden");
-    const chevron = showBtn.querySelector(".comments-chevron");
-    if (chevron) chevron.style.transform = wasHidden ? "rotate(90deg)" : "";
-    if (wasHidden && !panel.dataset.loaded) {
-      panel.innerHTML = `<div style="padding:8px 0;color:var(--text-muted);font-size:0.8rem;"><span class="spinner spinner-surface" style="width:14px;height:14px;"></span> Loading comments…</div>`;
-      const items = await fetchComments(platform, postId);
-      panel.dataset.loaded = "1";
-      renderCommentsPanel(panel, platform, postId, items);
+    if (commentOpen.has(key)) {
+      commentOpen.delete(key);
+      panel.classList.add("hidden");
+    } else {
+      commentOpen.add(key);
+      panel.classList.remove("hidden");
+      if (!commentCache.has(key)) {
+        // Auto-pull from the platform on first open, so the chevron alone is enough.
+        await importComments(panel, platform, postId);
+      } else {
+        renderCommentsPanel(panel, platform, postId);
+      }
     }
+    const chevron = showBtn.querySelector(".comments-chevron");
+    if (chevron) chevron.style.transform = commentOpen.has(key) ? "rotate(90deg)" : "";
     return;
   }
 
@@ -2882,6 +3018,38 @@ $("#recent-posts-list")?.addEventListener("click", async (e) => {
   if (importBtn) {
     const panel = importBtn.closest(".post-comments");
     if (panel) await importComments(panel, importBtn.dataset.commentsPlatform, importBtn.dataset.commentsPostId);
+    return;
+  }
+
+  const replyCommentBtn = e.target.closest("[data-reply-comment]");
+  if (replyCommentBtn) {
+    const key = replyCommentBtn.dataset.replyKey;
+    const { platform, postId } = splitCommentKey(key);
+    commentReplyTarget.set(key, replyCommentBtn.dataset.replyCommentId || "");
+    const panel = replyCommentBtn.closest(".post-comments");
+    if (panel) {
+      renderCommentsPanel(panel, platform, postId);
+      panel.querySelector(`[data-reply-input="${selEscape(key)}"]`)?.focus();
+    }
+    return;
+  }
+
+  const cancelReplyBtn = e.target.closest("[data-cancel-reply]");
+  if (cancelReplyBtn) {
+    const key = cancelReplyBtn.dataset.cancelReply;
+    const { platform, postId } = splitCommentKey(key);
+    commentReplyTarget.delete(key);
+    const panel = cancelReplyBtn.closest(".post-comments");
+    if (panel) renderCommentsPanel(panel, platform, postId);
+    return;
+  }
+
+  const submitBtn = e.target.closest("[data-submit-reply]");
+  if (submitBtn) {
+    const key = submitBtn.dataset.replyKey;
+    const { platform, postId } = splitCommentKey(key);
+    await submitReply(submitBtn.closest(".post-comments"), key, platform, postId, commentReplyTarget.get(key) || "");
+    return;
   }
 });
 

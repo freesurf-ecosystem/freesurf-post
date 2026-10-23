@@ -31,6 +31,9 @@ export interface PostRequest {
   team?: string;
   /** Instagram feed image handling: "fit" (adds padding, default) or "crop" (center-crops). */
   instagramImageFit?: "fit" | "crop";
+  /** Optional "first comment" to post immediately after publishing (seeds engagement).
+   *  Applied to every posted platform that supports comments (skips Pinterest/Google Business). */
+  firstComment?: string;
   /** Per-platform targets for platforms that need one, e.g. { discord: "channelId", pinterest: "boardName", reddit: "r/example", slack: "channelId" }. */
   platformTargets?: Record<string, string>;
   /** Optional per-platform titles (e.g. { youtube: "My video title" }). */

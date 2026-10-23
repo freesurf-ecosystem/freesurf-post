@@ -961,6 +961,10 @@ a:hover { text-decoration: underline; }
   box-shadow: 0 0 0 4px var(--brand-ring);
 }
 
+.first-comment-wrap { margin-top: 12px; }
+.first-comment-wrap .form-textarea { width: 100%; box-sizing: border-box; }
+.first-comment-note { opacity: 0.6; font-weight: 400; }
+
 /* Compose Footer */
 .compose-footer {
   display: flex;

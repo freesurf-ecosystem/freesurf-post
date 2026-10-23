@@ -70,6 +70,9 @@ By team id:
 - `platformTargets` (optional): per-platform target, required for some platforms — `{"discord":"channelId","slack":"channelId","pinterest":"boardName","reddit":"r/example"}`.
 - `instagramImageFit` (optional): `"fit"` (default — adds padding) or `"crop"` (center-crops)
   so Instagram feed images outside 4:5–1.91:1 still publish. Applies to image posts only.
+- `firstComment` (optional): a comment posted on each platform right after publishing to
+  seed engagement. Supported on Facebook, Instagram, TikTok, Threads, LinkedIn, YouTube,
+  Reddit, Bluesky, and X — not Pinterest or Google Business.
 
 Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postId": "...", "postUrl": "..." }], "postedAt": "..." }`
 
@@ -91,6 +94,8 @@ A team is required, same as Post now — by name (`team`) or id (`teamId`).
 - `scheduledAt` (required): future ISO 8601 timestamp.
 - Posts publish within ~5 minutes of that time via a cron worker, to the team
   stored on the post (never an active-team fallback).
+- `firstComment` (optional): same as Post now — posted right after the scheduled
+  post publishes.
 
 ## Scheduled posts
 
@@ -187,7 +192,9 @@ POST /api/reply   { "platform": "x", "postId": "<postId>", "commentId": "<commen
 
 `postId` is the per-platform id of the original post (from `results[].postId` or
 `GET /api/posts/recent`). Replying posts live and is metered like a post on X
-($0.015 plain, $0.20 with a link). Works on X and Bluesky.
+($0.015 plain, $0.20 with a link). Works on any platform with a connected
+account (X, Bluesky, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube);
+Bluesky uses the direct adapter, all others proxy Bundle.
 
 ## Import post history
 

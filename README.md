@@ -31,6 +31,16 @@ Visit [post.freesurf.tools](https://post.freesurf.tools), sign in, connect your 
 start posting. The full API reference lives at
 [post.freesurf.tools/llms.txt](https://post.freesurf.tools/llms.txt).
 
+## Researching X
+
+For topic research there's a small CLI that uses X's recent-search API:
+
+```bash
+npm run x:search -- --query-file path/to/query.txt --max 50
+```
+
+See [docs/X_SEARCH.md](./docs/X_SEARCH.md) for query syntax and output options.
+
 ## Supported platforms
 
 X (Twitter), Bluesky, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube — all wired up.

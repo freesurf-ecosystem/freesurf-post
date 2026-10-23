@@ -93,6 +93,7 @@ export function forceAnalytics(body: { platform: string; postId?: string; import
 }
 
 export type CommentItem = {
+  id?: string;
   text?: string;
   authorName?: string;
   authorProfileUrl?: string;
@@ -101,18 +102,20 @@ export type CommentItem = {
 };
 export const listComments = (platform: string, postId: string) =>
   api(`/api/comments?platform=${encodeURIComponent(platform)}&postId=${encodeURIComponent(postId)}`)
-    .then((d) => (Array.isArray(d?.items) ? d.items : []) as CommentItem[]);
+    .then((d) => (Array.isArray(d?.items) ? d.items : Array.isArray(d?.comments) ? d.comments : []) as CommentItem[]);
 export const importComments = (platform: string, postId: string) =>
   api("/api/comments/import", { method: "POST", body: JSON.stringify({ platform, postId }) });
+export const replyToComment = (body: { platform: string; postId: string; text: string; commentId?: string; internalCommentId?: string }) =>
+  api("/api/reply", { method: "POST", body: JSON.stringify(body) });
 
 export const deletePost = (platform: string, postId: string) =>
   api("/api/posts/delete", { method: "POST", body: JSON.stringify({ platform, postId }) });
 
 export type PlatformOptions = Record<string, Record<string, unknown>>;
-export function publishPost(opts: { platforms: string[]; text: string; teamId?: string; mediaUrls?: string[]; media?: MediaRef[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
+export function publishPost(opts: { platforms: string[]; text: string; teamId?: string; mediaUrls?: string[]; media?: MediaRef[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions; firstComment?: string }) {
   return api("/api/post", { method: "POST", body: JSON.stringify(opts) });
 }
-export function schedulePost(opts: { platforms: string[]; text: string; scheduledAt: string; teamId?: string; mediaUrls?: string[]; media?: MediaRef[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions }) {
+export function schedulePost(opts: { platforms: string[]; text: string; scheduledAt: string; teamId?: string; mediaUrls?: string[]; media?: MediaRef[]; platformTargets?: PlatformTargets; platformOptions?: PlatformOptions; firstComment?: string }) {
   return api("/api/schedule", { method: "POST", body: JSON.stringify(opts) });
 }
 
