@@ -4684,7 +4684,7 @@ async function handleRecentPosts(
   if (!env.SUPABASE_SECRET_KEY) return json([], 200, headers);
   try {
     const url = new URL(request.url);
-    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 10, 1), 30);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 200);
     const res = await fetch(
       `${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=${limit}&select=id,text,platforms,results,metrics,posted_at,created_at`,
       { headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }

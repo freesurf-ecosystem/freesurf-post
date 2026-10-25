@@ -62,10 +62,24 @@ async function apiFetch(path, options = {}) {
   if (session?.access_token && !headers.Authorization) headers.Authorization = `Bearer ${session.access_token}`;
   let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (res.status === 401) {
-    const fresh = await getSharedSession();
-    if (fresh?.accessToken) {
-      session = { ...session, ...fresh, access_token: fresh.accessToken, user: fresh.user || session?.user };
-      headers.Authorization = `Bearer ${fresh.accessToken}`;
+    // Token may be expired while Supabase's auto-refresh is still in flight. Force
+    // a refresh (via the refresh token) and retry once before giving up.
+    let token = null;
+    try {
+      const supabase = await initSupabase();
+      const { data } = await supabase.auth.refreshSession();
+      token = data?.session?.access_token || null;
+      if (token) session = { ...session, access_token: token, user: data.session.user || session?.user };
+    } catch { token = null; }
+    if (!token) {
+      const fresh = await getSharedSession();
+      if (fresh?.accessToken) {
+        token = fresh.accessToken;
+        session = { ...session, ...fresh, access_token: fresh.accessToken, user: fresh.user || session?.user };
+      }
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
       res = await fetch(`${API_BASE}${path}`, { ...options, headers });
     }
     if (res.status === 401) handleExpiredSession();
@@ -2871,8 +2885,9 @@ async function refreshAnalytics() {
       showFeedback(data?.error || data?.detail || `Refresh failed (${res.status}).`, "error");
     } else {
       const n = Number(data?.refreshed) || 0;
+      const loaded = Number(data?.postsLoaded) || 0;
       const skippedX = Number(data?.skippedX) || 0;
-      let msg = n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet — the platform may still be reporting zeros.";
+      let msg = n ? `Refreshed ${n} of ${loaded} posts.` : `Loaded ${loaded} posts — no fresh metrics yet (the platform may still be reporting zeros).`;
       if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"} (no X credit — enable "Skip X" or top up).`;
       showFeedback(msg, n ? "success" : "warning");
     }
@@ -2945,31 +2960,10 @@ async function fetchRecentPosts() {
   if (!session?.access_token) return;
   let app = [];
   try {
-    const res = await apiFetch(`/api/posts/recent?limit=30`, {
+    const res = await apiFetch(`/api/posts/recent?limit=200`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     app = (await res.json()) || [];
-  } catch { /* ignore */ }
-
-  // Weave imported (pre-app) posts into the same timeline so everything sorts by date.
-  let imported = [];
-  try {
-    const res = await apiFetch(`/api/imports/posts?count=50`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const data = await res.json();
-    const list = Array.isArray(data) ? data : (data?.posts || []);
-    imported = list.map((p) => {
-      const a = p.analytics || {};
-      return {
-        kind: "import",
-        date: p.publishedAt || p.importedAt || p.createdAt || p.updatedAt,
-        platform: p.platform || "import",
-        text: p.title || "",
-        metrics: a,
-        url: p.permalink || "",
-      };
-    });
   } catch { /* ignore */ }
 
   const appItems = (app || []).map((p) => ({
@@ -2977,9 +2971,7 @@ async function fetchRecentPosts() {
     results: p.results || [], metrics: p.metrics || {},
   }));
 
-  recentPostsAll = [...appItems, ...imported]
-    .filter((x) => x.date)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  recentPostsAll = appItems.filter((x) => x.date).sort((a, b) => new Date(b.date) - new Date(a.date));
   // Keep however far the user expanded (Load more) across refreshes, but never
   // show fewer than the first page or more than we actually have.
   recentPostsShown = Math.min(Math.max(recentPostsShown, 6), Math.max(recentPostsAll.length, 6));
@@ -3271,7 +3263,7 @@ function commentsHtml(platform, postId) {
   return `
     <div style="padding:4px 0 0;">
       ${rows}
-      <div style="padding:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${loadBtn} <span style="font-size:0.72rem;color:var(--text-muted);">checks for new replies (~$0.005 each)</span></div>
+      <div style="padding:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${loadBtn} <span style="font-size:0.72rem;color:var(--text-muted);">checks for new replies${platform === "x" ? " (~$0.005 each)" : ""}</span></div>
       ${composer}
     </div>`;
 }
