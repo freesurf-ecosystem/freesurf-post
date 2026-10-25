@@ -1908,10 +1908,32 @@ async function handleForceAnalytics(
         }
         if (!metrics) {
           console.error(`Bundle force analytics failed (${bs}):`, res.status, JSON.stringify(data));
+          const upstreamMsg = data?.message || data?.error || `Analytics provider error ${res.status}`;
+          // Diagnose whether Bundle's own post record carries the platform's
+          // native id. "no external ID" means Bundle never captured it — no
+          // re-mapping on our side can fix that; the account likely needs a
+          // reconnect or the platform never confirmed the publish.
+          let hint = "";
+          if (!imported) {
+            try {
+              const dr = await fetch(`https://api.bundle.social/api/v1/post/${targetId}`, {
+                headers: { "x-api-key": apiKey },
+              });
+              if (dr.ok) {
+                const detail = (await dr.json()) as any;
+                const ext = detail?.externalData?.[bs] || detail?.externalData;
+                const hasExt = Boolean(ext && typeof ext === "object" && Object.keys(ext).length);
+                console.error(
+                  `[force-diagnostic] post=${targetId} platform=${bs} status=${detail?.status ?? "?"} hasExternalData=${hasExt} externalData=${JSON.stringify(ext ?? null)}`
+                );
+                if (!hasExt) hint = ` (Bundle has no native ${platform} id for this post — try reconnecting the ${platform} account)`;
+              }
+            } catch { /* best-effort */ }
+          }
           // Never surface an upstream 401/403 as 401 — reserve that for real auth failures.
           const status = res.status === 401 || res.status === 403 ? 502 : res.status;
           return json(
-            { ...data, upstreamStatus: res.status, error: data?.message || data?.error || `Analytics provider error ${res.status}` },
+            { ...data, upstreamStatus: res.status, error: `${upstreamMsg}${hint}` },
             status,
             headers
           );
