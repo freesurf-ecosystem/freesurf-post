@@ -344,12 +344,27 @@ async function initSupabase() {
   return getSupabase();
 }
 
+let authStateListenerAttached = false;
+
 async function refreshAuth() {
   try {
     await getSharedSession();
     const supabase = await initSupabase();
     const { data } = await supabase.auth.getSession();
     session = data.session;
+    // Keep the local `session` in sync with Supabase's background token refresh.
+    // Without this, `session.access_token` goes stale and the next request 401s,
+    // which bounces the user back to the compose view on the first analytics load.
+    if (!authStateListenerAttached) {
+      authStateListenerAttached = true;
+      supabase.auth.onAuthStateChange((event, newSession) => {
+        if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
+          if (newSession?.access_token) session = { ...session, access_token: newSession.access_token, user: newSession.user };
+        } else if (event === "SIGNED_OUT") {
+          session = null;
+        }
+      });
+    }
   } catch { session = null; }
   await loadOnboardingState();
   await fetchProfiles();
@@ -1302,7 +1317,7 @@ let teams = [];
 let accountsTeamId = "";
 let analyticsTeamId = "";
 let recentPostsAll = [];
-let recentPostsShown = 12;
+let recentPostsShown = 500;
 
 async function fetchTeams() {
   if (!session?.access_token) { teams = []; renderTeams(); return; }
