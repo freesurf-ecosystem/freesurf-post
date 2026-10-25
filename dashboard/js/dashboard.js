@@ -2973,9 +2973,12 @@ async function pollImport(jobId, platform, count, status) {
 
 async function fetchRecentPosts() {
   if (!session?.access_token) return;
+  // Keep the list + status reconciliation scoped to the same "Last X" the Refresh
+  // button uses, so the pills and the analytics pull stay in lockstep.
+  const limit = Math.min(Math.max(Number($("#refresh-count")?.value) || 50, 1), 200);
   let app = [];
   try {
-    const res = await apiFetch(`/api/posts/recent?limit=200`, {
+    const res = await apiFetch(`/api/posts/recent?limit=${limit}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     app = (await res.json()) || [];
