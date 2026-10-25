@@ -1557,15 +1557,23 @@ async function fetchBulkPostAnalytics(
       const res = await fetch(`https://api.bundle.social/api/v1/analytics/post/bulk?${qs.toString()}`, {
         headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
       });
-      if (!res.ok) break;
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error(`[bulk-analytics] platform=${bsPlatform} status=${res.status} body=${body.slice(0, 300)}`);
+        break;
+      }
       const data = (await res.json()) as any;
       const results = Array.isArray(data?.results) ? data.results : [];
       for (const r of results) {
-        const item = Array.isArray(r.items) ? r.items[0] : r.items;
+        const items = Array.isArray(r.items) ? r.items : [r.items].filter(Boolean);
+        // Prefer the most-recent snapshot (Bundle may return several).
+        const item = items[items.length - 1];
         if (r.postId && item) out.set(r.postId, normBundleMetrics(item));
       }
       totalPages = Number(data?.pagination?.totalPages) || 1;
-    } catch {
+      console.log(`[bulk-analytics] platform=${bsPlatform} page=${page} got=${results.length} totalPages=${totalPages}`);
+    } catch (e) {
+      console.error(`[bulk-analytics] platform=${bsPlatform} exception:`, e instanceof Error ? e.message : String(e));
       break;
     }
     page++;
