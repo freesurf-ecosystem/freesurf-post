@@ -853,6 +853,29 @@ async function findPostTeamId(env: Env, userId: string, platformPostId: string):
 }
 
 /**
+ * Fetch a team's Bundle posts (paginated) so delivery status can be reconciled
+ * for every post, not just the first page. Returns a map of Bundle post id → post.
+ */
+async function fetchBundlePosts(env: Env, teamId: string): Promise<Map<string, any>> {
+  const out = new Map<string, any>();
+  if (!env.SOCIAL_API_PROVIDER_KEY) return out;
+  const pageSize = 50;
+  for (let offset = 0; offset < 1000; offset += pageSize) {
+    const res = await fetch(
+      `https://api.bundle.social/api/v1/post?teamId=${teamId}&limit=${pageSize}&offset=${offset}&orderBy=createdAt&order=DESC`,
+      { headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY } }
+    );
+    if (!res.ok) break;
+    const data = (await res.json()) as any;
+    const list = data.items || data.posts || data.data || data;
+    const arr = Array.isArray(list) ? list : [];
+    for (const bp of arr) if (bp?.id) out.set(bp.id, bp);
+    if (arr.length < pageSize) break;
+  }
+  return out;
+}
+
+/**
  * GET /api/connect/:platform — Generate a Bundle.social OAuth URL.
  * The user is redirected to this URL to connect their account (Plaid-style
  * handoff), then sent back to redirectUrl once the platform OAuth completes.
@@ -4702,16 +4725,8 @@ async function handleRecentPosts(
       try {
         const teamId = await resolveBundleTeamId(user.sub, undefined, env);
         if (teamId) {
-          const br = await fetch(`https://api.bundle.social/api/v1/post?teamId=${teamId}&limit=200&orderBy=createdAt&order=DESC`, {
-            headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-          });
-          if (br.ok) {
-            const bd = (await br.json()) as any;
-            const list = bd.items || bd.posts || bd.data || bd;
-            for (const bp of Array.isArray(list) ? list : []) {
-              if (bp?.id) bundleById.set(bp.id, bp);
-            }
-          }
+          const listMap = await fetchBundlePosts(env, teamId);
+          for (const [id, bp] of listMap) bundleById.set(id, bp);
         }
       } catch { /* best-effort — never block the list */ }
 
