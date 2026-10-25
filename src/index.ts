@@ -4702,7 +4702,7 @@ async function handleRecentPosts(
       try {
         const teamId = await resolveBundleTeamId(user.sub, undefined, env);
         if (teamId) {
-          const br = await fetch(`https://api.bundle.social/api/v1/post?teamId=${teamId}&limit=50`, {
+          const br = await fetch(`https://api.bundle.social/api/v1/post?teamId=${teamId}&limit=200&orderBy=createdAt&order=DESC`, {
             headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
           });
           if (br.ok) {
@@ -4736,7 +4736,8 @@ async function handleRecentPosts(
 
     // The team-scoped list can miss posts (published under a now-inactive team,
     // or beyond the page). Fetch detail for any result the list didn't cover so
-    // delivery status still surfaces (bounded).
+    // delivery status still surfaces. Bounded to stay within the Worker's
+    // subrequest budget (the list above covers the common case).
     const knownIds = new Set(bundleById.keys());
     const missingIds: string[] = [];
     for (const p of posts) {
@@ -4746,7 +4747,7 @@ async function handleRecentPosts(
         }
       }
     }
-    for (const id of missingIds.slice(0, 12)) {
+    for (const id of missingIds.slice(0, 40)) {
       try {
         const dr = await fetch(`https://api.bundle.social/api/v1/post/${id}`, {
           headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
