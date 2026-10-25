@@ -1923,10 +1923,17 @@ async function handleForceAnalytics(
                 const detail = (await dr.json()) as any;
                 const ext = detail?.externalData?.[bs] || detail?.externalData;
                 const hasExt = Boolean(ext && typeof ext === "object" && Object.keys(ext).length);
+                const verbose = Object.values(detail?.errorsVerbose || {})[0] as any;
+                const errMsg = verbose?.userFacingMessage || verbose?.errorMessage
+                  || Object.values(detail?.errors || {})[0] || detail?.error || "";
                 console.error(
-                  `[force-diagnostic] post=${targetId} platform=${bs} status=${detail?.status ?? "?"} hasExternalData=${hasExt} externalData=${JSON.stringify(ext ?? null)}`
+                  `[force-diagnostic] post=${targetId} platform=${bs} status=${detail?.status ?? "?"} hasExternalData=${hasExt} externalData=${JSON.stringify(ext ?? null)} error=${JSON.stringify(errMsg)}`
                 );
-                if (!hasExt) hint = ` (Bundle has no native ${platform} id for this post — try reconnecting the ${platform} account)`;
+                if (detail?.status === "ERROR" && errMsg) {
+                  hint = ` (${platform} post failed to publish: ${String(errMsg)})`;
+                } else if (!hasExt) {
+                  hint = ` (Bundle has no native ${platform} id for this post — try reconnecting the ${platform} account)`;
+                }
               }
             } catch { /* best-effort */ }
           }
