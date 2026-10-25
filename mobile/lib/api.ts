@@ -67,13 +67,24 @@ export const saveDraft = (text: string, platforms: string[]) =>
   api("/api/drafts", { method: "POST", body: JSON.stringify({ text, platforms }) });
 export const deleteDraft = (id: string) => api(`/api/drafts/${id}`, { method: "DELETE" });
 
-export type PostMetrics = { impressions?: number; likes?: number; comments?: number; shares?: number };
+export type PostMetrics = {
+  impressions?: number;
+  views?: number;
+  reach?: number;
+  viewsUnique?: number;
+  likes?: number;
+  dislikes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+};
 export type PostResult = {
   platform: string;
   success: boolean;
   error?: string;
   postUrl?: string;
   postId?: string;
+  externalId?: string;
   via?: string;
   status?: string;
 };
@@ -85,7 +96,7 @@ export type RecentPost = {
   results: PostResult[];
   metrics: Record<string, PostMetrics>;
 };
-export const listRecentPosts = (limit = 30) =>
+export const listRecentPosts = (limit = 50) =>
   api(`/api/posts/recent?limit=${limit}`).then((d) => (Array.isArray(d) ? d : []) as RecentPost[]);
 
 export function forceAnalytics(body: { platform: string; postId?: string; importedPostId?: string; postRowId?: string; via?: string }) {

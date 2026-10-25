@@ -563,6 +563,12 @@ async function handleApi(
     return handleForceAnalytics(request, env, origin, h);
   }
 
+  // GET/POST /api/analytics/prefs — per-user analytics preferences (e.g. skip X)
+  if (url.pathname === "/api/analytics/prefs") {
+    if (request.method === "GET") return handleGetAnalyticsPrefs(request, env, origin, h);
+    if (request.method === "POST") return handleSetAnalyticsPrefs(request, env, origin, h);
+  }
+
   // --- Usage API (per-platform post counts for billing/tabulation) ---
   if (url.pathname === "/api/usage" && request.method === "GET") {
     return handleUsage(request, env, origin, h);
@@ -819,6 +825,31 @@ async function resolveTeamId(
     }
   }
   return getOrCreateBundleTeam(userId, env);
+}
+
+/**
+ * Find the Bundle team a post was published under, given a platform post id.
+ * Comment import/list must target the *post's* team (not the user's currently
+ * active team), otherwise Bundle rejects with "does not belong to this team"
+ * when a user has switched teams since publishing.
+ */
+async function findPostTeamId(env: Env, userId: string, platformPostId: string): Promise<string | null> {
+  if (!env.SUPABASE_SECRET_KEY) return null;
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${userId}&status=eq.posted&select=bundle_team_id,results&order=posted_at.desc.nullslast&limit=100`,
+      { headers: authHeaders }
+    );
+    if (!res.ok) return null;
+    const rows = (await res.json()) as any[];
+    for (const row of rows) {
+      const matches = (row.results || []).some((r: any) => r?.postId === platformPostId);
+      if (matches && row.bundle_team_id) return row.bundle_team_id;
+    }
+  } catch { /* best-effort */ }
+  return null;
 }
 
 /**
@@ -1478,7 +1509,10 @@ async function handleBundleAnalytics(
   }
 }
 
-/** Normalize a Bundle direct/forced analytics payload into our metric shape. */
+/** Normalize a Bundle direct/forced analytics payload into our metric shape.
+ *  Field names match Bundle's normalized post-analytics schema:
+ *  impressions, impressionsUnique, views, viewsUnique, likes, dislikes,
+ *  comments, shares, saves (see info.bundle.social/api-reference). */
 function normBundleMetrics(d: any): Record<string, number> {
   const num = (n: unknown): number => {
     const v = Number(n);
@@ -1487,10 +1521,56 @@ function normBundleMetrics(d: any): Record<string, number> {
   return {
     impressions: num(d?.impressions ?? d?.impression_count),
     views: num(d?.views ?? d?.view_count ?? d?.impressions),
+    reach: num(d?.impressionsUnique ?? d?.impressions_unique),
+    viewsUnique: num(d?.viewsUnique ?? d?.views_unique),
     likes: num(d?.likes ?? d?.likeCount ?? d?.like_count),
+    dislikes: num(d?.dislikes ?? d?.dislike_count),
     comments: num(d?.comments ?? d?.commentCount ?? d?.comment_count),
     shares: num(d?.shares ?? d?.shareCount ?? d?.share_count ?? d?.reposts ?? d?.retweet_count ?? d?.retweets),
+    saves: num(d?.saves ?? d?.save_count ?? d?.saved),
   };
+}
+
+/**
+ * Fetch analytics for many Bundle posts at once via the bulk endpoint
+ * (`GET /analytics/post/bulk`), keyed by Bundle post id. One call replaces N
+ * per-post force calls (passive — doesn't consume per-post force rate limits).
+ * Returns a map of `postId → normalized metrics`.
+ */
+async function fetchBulkPostAnalytics(
+  env: Env,
+  bsPlatform: string,
+  postIds: string[]
+): Promise<Map<string, Record<string, number>>> {
+  const out = new Map<string, Record<string, number>>();
+  const ids = postIds.slice(0, 60);
+  if (!ids.length || !env.SOCIAL_API_PROVIDER_KEY) return out;
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const qs = new URLSearchParams();
+    for (const id of ids) qs.append("postIds", id);
+    qs.set("platformType", bsPlatform);
+    qs.set("page", String(page));
+    qs.set("limit", "20");
+    try {
+      const res = await fetch(`https://api.bundle.social/api/v1/analytics/post/bulk?${qs.toString()}`, {
+        headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      });
+      if (!res.ok) break;
+      const data = (await res.json()) as any;
+      const results = Array.isArray(data?.results) ? data.results : [];
+      for (const r of results) {
+        const item = Array.isArray(r.items) ? r.items[0] : r.items;
+        if (r.postId && item) out.set(r.postId, normBundleMetrics(item));
+      }
+      totalPages = Number(data?.pagination?.totalPages) || 1;
+    } catch {
+      break;
+    }
+    page++;
+  } while (page <= totalPages);
+  return out;
 }
 
 /**
@@ -1537,6 +1617,78 @@ async function persistMetricsToRow(
 }
 
 /**
+ * GET /api/analytics/prefs — read per-user analytics preferences.
+ */
+async function handleGetAnalyticsPrefs(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  return json(await getAnalyticsPrefs(env, user.sub), 200, headers);
+}
+
+/**
+ * POST /api/analytics/prefs — persist per-user analytics preferences.
+ * Body: { skipXAnalytics?: boolean }
+ */
+async function handleSetAnalyticsPrefs(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { skipXAnalytics?: boolean };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  const skipXAnalytics = Boolean(body.skipXAnalytics);
+
+  const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
+  try {
+    const existingRes = await fetch(
+      `${supabaseUrl}/rest/v1/post_content?user_id=eq.${user.sub}&type=eq.analytics_pref&select=id&limit=1`,
+      { headers: authHeaders }
+    );
+    const rows = existingRes.ok ? ((await existingRes.json()) as any[]) : [];
+    const payload = JSON.stringify({ data: { skip_x_analytics: skipXAnalytics } });
+    if (rows?.[0]?.id) {
+      await fetch(`${supabaseUrl}/rest/v1/post_content?id=eq.${rows[0].id}&user_id=eq.${user.sub}`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: payload,
+      });
+    } else {
+      await fetch(`${supabaseUrl}/rest/v1/post_content`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user.sub, type: "analytics_pref", data: { skip_x_analytics: skipXAnalytics } }),
+      });
+    }
+    return json({ skipXAnalytics }, 200, headers);
+  } catch (e) {
+    console.error("Save analytics prefs failed:", e instanceof Error ? e.message : String(e));
+    return errorResponse("Failed to save preferences", 500, origin);
+  }
+}
+
+/** Read the user's analytics preferences (defaults to not skipping anything). */
+async function getAnalyticsPrefs(env: Env, userId: string): Promise<{ skipXAnalytics: boolean }> {
+  if (!env.SUPABASE_SECRET_KEY) return { skipXAnalytics: false };
+  try {
+    const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_content?user_id=eq.${userId}&type=eq.analytics_pref&select=data&limit=1`,
+      { headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }
+    );
+    if (!res.ok) return { skipXAnalytics: false };
+    const rows = (await res.json()) as any[];
+    return { skipXAnalytics: Boolean(rows?.[0]?.data?.skip_x_analytics) };
+  } catch {
+    return { skipXAnalytics: false };
+  }
+}
+
+/**
  * POST /api/analytics/refresh — Pull post analytics from Bundle for the user's
  * posted posts and cache them into post_posts.metrics so the aggregate
  * /api/analytics has real numbers.
@@ -1550,6 +1702,11 @@ async function handleAnalyticsRefresh(
 
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
+
+  // Users can opt out of pulling X in the bulk refresh (X reads are metered at
+  // $0.005/post). The deliberate per-post "Refresh" action still works.
+  const prefs = await getAnalyticsPrefs(env, user.sub);
+  const skipX = prefs.skipXAnalytics;
 
   // Bundle meters X reads: TWITTER_POST_READ $0.005 per per-post analytics fetch
   // (confirmed via /billing/billable-usage/quote → "X post read", 5000 micros).
@@ -1579,6 +1736,30 @@ async function handleAnalyticsRefresh(
     let budget = 40;
     const out = () => budget <= 0;
 
+    // Group Bundle-published results by platform so we can bulk-pull analytics
+    // (one passive call per platform instead of one force per post). X is left
+    // on the metered per-post force path (and skipped entirely when opted out).
+    const bundleByPlatform = new Map<string, { bs: string; ids: string[] }>();
+    for (const post of posts) {
+      for (const r of (post.results || []) as any[]) {
+        if (!r?.success || !r?.postId || r.via === "direct") continue;
+        if (r.platform === "x") continue;
+        const bs = bundlePlatform(r.platform);
+        if (!bs) continue;
+        let g = bundleByPlatform.get(r.platform);
+        if (!g) { g = { bs, ids: [] }; bundleByPlatform.set(r.platform, g); }
+        if (!g.ids.includes(r.postId)) g.ids.push(r.postId);
+      }
+    }
+
+    const bulk = new Map<string, Record<string, number>>(); // key: `${platform}::${postId}`
+    for (const [platform, g] of bundleByPlatform) {
+      if (out()) break;
+      budget--;
+      const m = await fetchBulkPostAnalytics(env, g.bs, g.ids);
+      for (const [postId, metrics] of m) bulk.set(`${platform}::${postId}`, metrics);
+    }
+
     const refreshed: string[] = [];
     for (const post of posts) {
       if (out()) break;
@@ -1586,8 +1767,7 @@ async function handleAnalyticsRefresh(
       let changed = false;
       for (const r of (post.results || []) as any[]) {
         if (!r?.success || !r?.postId) continue;
-        const bs = bundlePlatform(r.platform);
-        if (!bs) continue;
+        if (skipX && r.platform === "x") continue;
         if (out()) break;
         try {
           let normalized: Record<string, number> | null = null;
@@ -1595,9 +1775,12 @@ async function handleAnalyticsRefresh(
           if (r.via === "direct") {
             // We published this ourselves, so Bundle can't read it back.
             normalized = await normDirectMetrics(env, r.platform, r.postId);
+          } else if (r.platform !== "x") {
+            // Bulk (passive) read — no per-post force, no fee.
+            normalized = bulk.get(`${r.platform}::${r.postId}`) || null;
           } else if (env.SOCIAL_API_PROVIDER_KEY) {
-            // Force a live fetch (Bundle POST /analytics/post/force) instead of the
-            // passive GET, which only returns the publish-time snapshot (zeros).
+            // X is metered: force a live fetch and tabulate the read fee.
+            const bs = bundlePlatform(r.platform);
             const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
@@ -1607,16 +1790,12 @@ async function handleAnalyticsRefresh(
             if (res.ok) {
               normalized = normBundleMetrics(await res.json());
               metered = true;
+            } else if (res.status === 401 || res.status === 403 || res.status === 404) {
+              // Directly-published posts aren't known to Bundle — read directly.
+              normalized = await normDirectMetrics(env, r.platform, r.postId);
             } else {
-              // Posts published through our direct adapter aren't known to Bundle
-              // and come back 401/403/404 — retry against the platform directly.
-              if (res.status === 401 || res.status === 403 || res.status === 404) {
-                normalized = await normDirectMetrics(env, r.platform, r.postId);
-              }
-              if (!normalized) {
-                const t = await res.text();
-                console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
-              }
+              const t = await res.text();
+              console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
             }
           }
           if (!normalized) continue;
@@ -1624,7 +1803,6 @@ async function handleAnalyticsRefresh(
           changed = true;
           // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
           // Tabulate them in the X-fee ledger so refreshes show up on the fees page.
-          // Direct reads bypass Bundle and cost nothing.
           if (metered && r.platform === "x") {
             if (out()) break;
             try {
@@ -1786,7 +1964,9 @@ async function handleCommentImport(
   const bsPlatform = bundlePlatform(body.platform);
   if (!bsPlatform) return errorResponse("Unknown platform", 400, origin);
 
-  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  // Prefer the team the post was actually published under (a switched active
+  // team makes the post "belong" to a different team from Bundle's view).
+  const teamId = (await findPostTeamId(env, user.sub, body.postId)) || (await getOrCreateBundleTeam(user.sub, env));
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
   try {
@@ -1835,7 +2015,7 @@ async function handleComments(
   if (!postId) return errorResponse("postId required", 400, origin);
   const platform = url.searchParams.get("platform") || "";
 
-  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  const teamId = (await findPostTeamId(env, user.sub, postId)) || (await getOrCreateBundleTeam(user.sub, env));
   if (!teamId) return errorResponse("Could not provision a team", 502, origin);
 
   try {
@@ -2506,6 +2686,18 @@ function extractBundlePostUrl(data: any, bsPlatform: string): string | undefined
 }
 
 /**
+ * Extract the platform's native post id from Bundle's externalData, so we can
+ * correlate our stored post with the platform (and pull deeper analytics later).
+ */
+function extractBundleExternalId(data: any, bsPlatform: string): string | undefined {
+  const ext = data?.externalData?.[bsPlatform] || data?.externalData || {};
+  if (!ext || typeof ext !== "object") return undefined;
+  const candidates = [ext.externalId, ext.external_id, ext.id, ext.postId, ext.tweetId, ext.nativeId];
+  for (const c of candidates) if (typeof c === "string" && c) return c;
+  return undefined;
+}
+
+/**
  * Post via Bundle.social as fallback when direct platform keys aren't available.
  * Maps our platform names to Bundle.social's platform format.
  */
@@ -2650,9 +2842,11 @@ async function postViaProvider(
 
     // Extract a permalink from externalData (often empty right after create)
     let postUrl = extractBundlePostUrl(data, bsPlatform);
+    // Capture the platform's native post id too (may be empty right after create).
+    let externalId = extractBundleExternalId(data, bsPlatform);
 
     // Best-effort: fetch the full post to get the published permalink.
-    if (!postUrl) {
+    if (!postUrl || !externalId) {
       try {
         const detailRes = await fetch(`https://api.bundle.social/api/v1/post/${data.id}`, {
           headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
@@ -2660,7 +2854,8 @@ async function postViaProvider(
         if (detailRes.ok) {
           const detail = (await detailRes.json()) as any;
           console.log(`Bundle post detail (${platform}):`, JSON.stringify({ id: data.id, externalData: detail.externalData }));
-          postUrl = extractBundlePostUrl(detail, bsPlatform);
+          postUrl = postUrl || extractBundlePostUrl(detail, bsPlatform);
+          externalId = externalId || extractBundleExternalId(detail, bsPlatform);
         } else {
           console.error(`Bundle post detail failed (${platform}):`, detailRes.status);
         }
@@ -2673,6 +2868,7 @@ async function postViaProvider(
       platform,
       success: true,
       postId: data.id,
+      externalId,
       postUrl,
     };
   } catch (e) {
@@ -3291,12 +3487,15 @@ async function handleMetrics(
         postId,
         impressions: num(data.impressions ?? data.impression_count),
         views: num(data.views ?? data.view_count ?? data.impressions),
+        reach: num(data.impressionsUnique ?? data.impressions_unique),
+        viewsUnique: num(data.viewsUnique ?? data.views_unique),
         likes: num(data.likes ?? data.likeCount ?? data.like_count),
+        dislikes: num(data.dislikes ?? data.dislike_count),
         comments: num(data.comments ?? data.commentCount ?? data.comment_count),
         shares: num(
           data.shares ?? data.shareCount ?? data.share_count ?? data.reposts ?? data.retweet_count ?? data.retweets
         ),
-        clicks: num(data.clicks ?? data.click_count),
+        saves: num(data.saves ?? data.save_count ?? data.saved),
       },
       200,
       headers
@@ -4274,16 +4473,28 @@ async function handleGetAnalyticsTrends(
 
     const posts = await historyRes.json() as any[];
 
-    // Group by day
-    const trends: Record<string, { posts: number; likes: number; comments: number; shares: number }> = {};
+    // Group by day. Engagement is the *current* per-platform metric snapshot
+    // bucketed by the post's publication day — a useful "which days did my
+    // posts perform" view without a full per-day history table.
+    const trends: Record<string, { posts: number; impressions: number; likes: number; comments: number; shares: number }> = {};
+
+    const num = (n: unknown): number => {
+      const v = Number(n);
+      return Number.isFinite(v) ? v : 0;
+    };
 
     posts.forEach((post: any) => {
       const day = new Date(post.created_at).toISOString().split("T")[0];
       if (!trends[day]) {
-        trends[day] = { posts: 0, likes: 0, comments: 0, shares: 0 };
+        trends[day] = { posts: 0, impressions: 0, likes: 0, comments: 0, shares: 0 };
       }
       trends[day].posts++;
-      // Note: We'd need to fetch engagement logs for each post to get accurate trends
+      for (const m of Object.values(post.metrics || {}) as any[]) {
+        trends[day].impressions += num(m?.impressions ?? m?.views);
+        trends[day].likes += num(m?.likes);
+        trends[day].comments += num(m?.comments);
+        trends[day].shares += num(m?.shares);
+      }
     });
 
     return json(
@@ -4485,7 +4696,11 @@ async function handleRecentPosts(
       const results = (Array.isArray(p.results) ? p.results : []).map((r: any) => {
         const bp = r?.postId ? bundleById.get(r.postId) : null;
         if (!bp) return r;
-        return { ...r, status: bp.status, error: deliveryReason(bp) || r.error || "" };
+        // Enrich with the platform's native id (isolated from Bundle externalData)
+        // when we don't already have it stored, plus delivery status.
+        const bs = bundlePlatform(r.platform);
+        const externalId = r.externalId || (bs ? extractBundleExternalId(bp, bs) : undefined) || undefined;
+        return { ...r, externalId, status: bp.status, error: deliveryReason(bp) || r.error || "" };
       });
       return {
         id: p.id,

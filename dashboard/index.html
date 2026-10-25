@@ -791,7 +791,28 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
                 <button class="btn btn-secondary" id="btn-toggle-import">Import past posts</button>
               </div>
               <p class="card-subtitle">Use <strong>Refresh</strong> on a single post by clicking the <strong>Refresh</strong> button next to the post. This can help avoid unnecessary analytics fees from X ($0.005 per X post analytics).</p>
+              <label class="analytics-pref-toggle">
+                <input type="checkbox" id="skip-x-analytics" />
+                <span>Skip X in bulk refresh</span>
+                <span class="form-helper">X analytics cost $0.005 per post read — turn this on to stop pulling X engagement during a bulk Refresh. You can still refresh individual X posts manually.</span>
+              </label>
             </div>
+          </div>
+
+          <div class="analytics-chart-card" id="analytics-chart-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Engagement over time</h2>
+                <p class="card-subtitle" id="analytics-chart-subtitle">Total impressions, likes, comments and shares across your posts.</p>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-sm btn-secondary active" data-chart-range="7">7d</button>
+                <button class="btn btn-sm btn-secondary" data-chart-range="30">30d</button>
+                <button class="btn btn-sm btn-secondary" data-chart-range="90">90d</button>
+              </div>
+            </div>
+            <div class="analytics-chart" id="analytics-chart"></div>
+            <div class="analytics-chart-legend" id="analytics-chart-legend"></div>
           </div>
 
           <div class="import-history-panel hidden" id="import-history-panel">

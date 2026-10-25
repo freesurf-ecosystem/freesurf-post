@@ -88,6 +88,41 @@ SNAPCHAT	5	20	40
 - force-refresh profile/post analytics (consumes platform rate limits)
 - retention: 30 days
 
+#### Normalized post-analytics fields (confirmed from OpenAPI)
+
+`GET /api/v1/analytics/post`, `POST /api/v1/analytics/post/force`, and
+`GET /api/v1/analytics/post/bulk` all return the same normalized shape per post:
+
+| Field | Meaning |
+|---|---|
+| `id` | analytics entry id |
+| `profilePostId` | Bundle's internal "profile post" id (== `importedPostId`) |
+| `impressions` | impressions |
+| `impressionsUnique` | unique impressions (= reach) |
+| `views` | views (video views on video platforms) |
+| `viewsUnique` | unique views |
+| `likes` | likes |
+| `dislikes` | dislikes |
+| `comments` | comments |
+| `shares` | shares |
+| `saves` | saves / bookmarks |
+| `raw` | platform-native payload (nullable) |
+| `forced` | whether a force-refresh produced it |
+
+There is **no** normalized `clicks` field. "Reach" is `impressionsUnique`, not
+`reach`. The platform-native post id is NOT in the normalized payload — it lives
+in `raw` or on the post object's `externalData.<PLATFORM>.id`.
+
+#### Bulk endpoint (efficient deep pull)
+
+`GET /api/v1/analytics/post/bulk?postIds[]=<id>&platformType=<PT>&page=1&limit=20`
+— up to 60 `postIds[]` per request, 20 results per page, keyed by a single
+`platformType`. Returns `{ results: [{ postId, items: [<analytics>], error }], pagination }`.
+One bulk call replaces N per-post force calls (but is passive — no force refresh).
+
+Our `normBundleMetrics()` in `src/index.ts` maps these exact names into
+`post_posts.metrics[platform]`.
+
 ### Comments
 - import (async pull of existing comments), list fetched comments
 - create / reply / get / update / delete / retry

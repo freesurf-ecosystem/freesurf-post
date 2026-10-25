@@ -32,10 +32,39 @@ function platformName(key: string): string {
 }
 
 const STAT_KEYS: (keyof PostMetrics)[] = ["impressions", "likes", "comments", "shares"];
+const RICH_KEYS: { key: keyof PostMetrics; label: string }[] = [
+  { key: "reach", label: "reach" },
+  { key: "saves", label: "saves" },
+  { key: "dislikes", label: "dislikes" },
+  { key: "viewsUnique", label: "unique views" },
+];
 
 function statsFor(m: PostMetrics | undefined): { key: string; value: string }[] {
   if (!m) return [];
-  return STAT_KEYS.filter((k) => m[k] != null).map((k) => ({ key: k as string, value: fmtNum(m[k] as number) }));
+  const core = STAT_KEYS.filter((k) => m[k] != null).map((k) => ({ key: k as string, value: fmtNum(m[k] as number) }));
+  const rich = RICH_KEYS.filter((r) => Number(m[r.key]) > 0).map((r) => ({ key: r.label, value: fmtNum(m[r.key] as number) }));
+  return [...core, ...rich];
+}
+
+function aggregateStats(posts: RecentPost[]): { impressions: number; likes: number; comments: number; shares: number; byPlatform: Record<string, { impressions: number; likes: number; comments: number; shares: number }> } {
+  const totals = { impressions: 0, likes: 0, comments: 0, shares: 0 };
+  const byPlatform: Record<string, { impressions: number; likes: number; comments: number; shares: number }> = {};
+  for (const p of posts) {
+    for (const [platform, m] of Object.entries(p.metrics || {}) as [string, PostMetrics][]) {
+      const row = (byPlatform[platform] ||= { impressions: 0, likes: 0, comments: 0, shares: 0 });
+      row.impressions += Number(m?.impressions) || 0;
+      row.likes += Number(m?.likes) || 0;
+      row.comments += Number(m?.comments) || 0;
+      row.shares += Number(m?.shares) || 0;
+    }
+  }
+  for (const row of Object.values(byPlatform)) {
+    totals.impressions += row.impressions;
+    totals.likes += row.likes;
+    totals.comments += row.comments;
+    totals.shares += row.shares;
+  }
+  return { ...totals, byPlatform };
 }
 
 export default function AnalyticsScreen() {
@@ -58,7 +87,7 @@ export default function AnalyticsScreen() {
 
   async function fetchPosts() {
     try {
-      const p = await listRecentPosts(30).catch(() => [] as RecentPost[]);
+      const p = await listRecentPosts(50).catch(() => [] as RecentPost[]);
       setPosts(p);
     } catch {}
   }
@@ -330,6 +359,35 @@ export default function AnalyticsScreen() {
     return <View style={[styles.center, { backgroundColor: colors.bg }]}><ActivityIndicator color={colors.brand} /></View>;
   }
 
+  function renderSummary(colors: any) {
+    const totals = aggregateStats(posts);
+    const platforms = Object.entries(totals.byPlatform).sort((a, b) => b[1].impressions - a[1].impressions);
+    const max = Math.max(1, ...platforms.map(([, s]) => s.impressions));
+    return (
+      <View style={[styles.summary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.impressions)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).impressions || "Impressions"}</Text></View>
+          <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.likes)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).likes || "Likes"}</Text></View>
+          <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.comments)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).comments || "Comments"}</Text></View>
+          <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.shares)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).shares || "Shares"}</Text></View>
+        </View>
+        {platforms.length > 0 ? (
+          <View style={styles.summaryBars}>
+            {platforms.slice(0, 6).map(([platform, s]) => (
+              <View key={platform} style={styles.summaryBarRow}>
+                <Text style={[styles.summaryBarLabel, { color: colors.textSecondary }]}>{platformName(platform)}</Text>
+                <View style={[styles.summaryBarTrack, { backgroundColor: colors.bgAlt || colors.bg }]}>
+                  <View style={[styles.summaryBarFill, { backgroundColor: colors.brand, width: `${Math.max(4, Math.round((s.impressions / max) * 100))}%` }]} />
+                </View>
+                <Text style={[styles.summaryBarValue, { color: colors.textMuted }]}>{fmtNum(s.impressions)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
       <FlatList
@@ -342,6 +400,7 @@ export default function AnalyticsScreen() {
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>{T.posts}</Text>
             <Text style={[styles.subtitle, { color: colors.textMuted }]}>{T.analytics_subtitle}</Text>
+            {posts.length > 0 ? renderSummary(colors) : null}
           </View>
         }
         ListEmptyComponent={
@@ -370,6 +429,17 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, marginBottom: 12 },
   title: { fontSize: 24, fontWeight: "700", marginBottom: 4 },
   subtitle: { fontSize: 13, lineHeight: 18 },
+  summary: { borderRadius: 12, borderWidth: 1, padding: 12, marginTop: 12 },
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  summaryStat: { minWidth: 72 },
+  summaryValue: { fontSize: 18, fontWeight: "800" },
+  summaryLabel: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4, marginTop: 2 },
+  summaryBars: { marginTop: 12, gap: 6 },
+  summaryBarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  summaryBarLabel: { fontSize: 12, width: 72, fontWeight: "600" },
+  summaryBarTrack: { flex: 1, height: 8, borderRadius: 4, overflow: "hidden" },
+  summaryBarFill: { height: "100%", borderRadius: 4 },
+  summaryBarValue: { fontSize: 12, width: 44, textAlign: "right" },
   empty: { alignItems: "center", gap: 12, paddingHorizontal: 40, paddingVertical: 24 },
   emptyText: { fontSize: 15, textAlign: "center" },
   row: { borderRadius: 12, padding: 16, marginBottom: 8, marginHorizontal: 16, borderWidth: 1 },

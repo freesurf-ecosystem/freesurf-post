@@ -48,6 +48,10 @@ export interface PlatformPostResult {
   platform: Platform;
   success: boolean;
   postId?: string;
+  /** The platform's native post id (e.g. Facebook `pageId_postId`, X tweet id),
+   *  extracted from Bundle's `externalData` when we publish via Bundle. Enables
+   *  correlating our post with the platform for deeper analytics. */
+  externalId?: string;
   postUrl?: string;
   error?: string;
   /** Which path published this post — "direct" (our own platform adapter) or

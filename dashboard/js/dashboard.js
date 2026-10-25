@@ -1288,7 +1288,7 @@ let teams = [];
 let accountsTeamId = "";
 let analyticsTeamId = "";
 let recentPostsAll = [];
-let recentPostsShown = 6;
+let recentPostsShown = 12;
 
 async function fetchTeams() {
   if (!session?.access_token) { teams = []; renderTeams(); return; }
@@ -2759,7 +2759,97 @@ async function loadAnalyticsView() {
   populateImportPlatforms();
   updateImportEstimate();
   fetchRecentPosts();
+  loadAnalyticsPrefs();
+  loadAnalyticsChart();
 }
+
+// Per-user analytics preferences (the "skip X in bulk refresh" toggle).
+async function loadAnalyticsPrefs() {
+  const box = $("#skip-x-analytics");
+  if (!box) return;
+  try {
+    const res = await apiFetch(`/api/analytics/prefs`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    box.checked = Boolean(data?.skipXAnalytics);
+  } catch { /* leave unchecked */ }
+}
+
+$("#skip-x-analytics")?.addEventListener("change", async (e) => {
+  const box = e.target;
+  if (!box || !session?.access_token) return;
+  const original = box.disabled;
+  box.disabled = true;
+  try {
+    await apiFetch(`/api/analytics/prefs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ skipXAnalytics: box.checked }),
+    });
+  } catch {
+    box.checked = !box.checked;
+  }
+  box.disabled = original;
+});
+
+// Engagement-over-time bar chart (sums current metrics by publication day).
+let chartRange = 30;
+async function loadAnalyticsChart() {
+  const el = $("#analytics-chart");
+  if (!el) return;
+  try {
+    const res = await apiFetch(`/api/analytics/trends?days=${chartRange}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    const trends = data?.trends || {};
+    renderAnalyticsChart(el, trends);
+  } catch {
+    el.innerHTML = `<div class="chart-empty">Unable to load chart.</div>`;
+  }
+}
+
+function renderAnalyticsChart(el, trends) {
+  const legendEl = $("#analytics-chart-legend");
+  const days = Object.keys(trends).sort();
+  if (!days.length) {
+    el.innerHTML = `<div class="chart-empty">No published posts in this period yet.</div>`;
+    if (legendEl) legendEl.innerHTML = "";
+    return;
+  }
+  const series = [
+    { key: "impressions", label: "Impressions", color: "var(--brand)" },
+    { key: "likes", label: "Likes", color: "#e0245e" },
+    { key: "comments", label: "Comments", color: "#1d9bf0" },
+    { key: "shares", label: "Shares", color: "#00ba7c" },
+  ];
+  const totals = series.map((s) => days.reduce((sum, d) => sum + (Number(trends[d][s.key]) || 0), 0));
+  const max = Math.max(1, ...totals);
+  const cols = days.map((d) => {
+    const t = trends[d];
+    const total = series.reduce((sum, s) => sum + (Number(t[s.key]) || 0), 0);
+    const h = Math.max(0, Math.round((total / max) * 100));
+    return `<div class="chart-col" title="${d}: ${fmtNum(total)}">
+      <div class="chart-bar" style="height:${h}%"></div>
+      <div class="chart-label">${d.slice(5)}</div>
+    </div>`;
+  }).join("");
+  const legend = series
+    .map((s, i) => `<span style="--legend-color:${s.color}">${s.label} · ${fmtNum(totals[i])}</span>`)
+    .join("");
+  el.innerHTML = cols;
+  if (legendEl) legendEl.innerHTML = legend;
+}
+
+$$("[data-chart-range]")?.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    chartRange = Number(btn.dataset.chartRange) || 30;
+    $$("[data-chart-range]").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    loadAnalyticsChart();
+  });
+});
 
 // Manual refresh: pull live per-post engagement for the posts currently shown
 // (bounded so the X per-read cost reflects what the user is actually looking at).
@@ -2942,10 +3032,18 @@ function renderRecentPosts() {
     return;
   }
 
-  const statsFor = (m) => ["impressions", "likes", "comments", "shares"]
-    .filter((k) => m[k] != null)
-    .map((k) => `${k}: <strong>${fmtNum(m[k])}</strong>`)
-    .join(" · ");
+  const STAT_LABELS = {
+    impressions: "impressions", reach: "reach", likes: "likes", comments: "comments",
+    shares: "shares", saves: "saves", dislikes: "dislikes", viewsUnique: "unique views",
+  };
+  const CORE_STATS = ["impressions", "likes", "comments", "shares"];
+  const RICH_STATS = ["reach", "saves", "dislikes", "viewsUnique"];
+  const statsFor = (m) => {
+    const parts = [];
+    for (const k of CORE_STATS) if (m[k] != null) parts.push(`${STAT_LABELS[k]}: <strong>${fmtNum(m[k])}</strong>`);
+    for (const k of RICH_STATS) if (Number(m[k]) > 0) parts.push(`${STAT_LABELS[k]}: <strong>${fmtNum(m[k])}</strong>`);
+    return parts.join(" · ");
+  };
 
   const visible = posts.slice(0, recentPostsShown);
   container.innerHTML = visible.map((p) => {
@@ -3042,7 +3140,7 @@ function renderRecentPosts() {
 }
 
 $("#btn-load-more-posts")?.addEventListener("click", () => {
-  recentPostsShown += 6;
+  recentPostsShown += 12;
   renderRecentPosts();
 });
 
