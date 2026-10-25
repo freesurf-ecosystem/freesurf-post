@@ -787,10 +787,14 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             <div>
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <h2 class="card-title">Posts</h2>
+                <select id="refresh-count" class="form-input" style="max-width:120px;" title="How many recent posts to pull analytics for">
+                  <option value="10">Last 10</option>
+                  <option value="50" selected>Last 50</option>
+                  <option value="100">Last 100</option>
+                </select>
                 <button class="btn btn-primary" id="btn-refresh-analytics">Refresh</button>
-                <button class="btn btn-secondary" id="btn-toggle-import">Import past posts</button>
               </div>
-              <p class="card-subtitle">Use <strong>Refresh</strong> on a single post by clicking the <strong>Refresh</strong> button next to the post. This can help avoid unnecessary analytics fees from X ($0.005 per X post analytics).</p>
+              <p class="card-subtitle">Use <strong>Refresh</strong> to pull engagement for your recent posts, or the per-post <strong>Refresh</strong> button to force fresh numbers for one post. X analytics cost $0.005 per post read.</p>
               <label class="analytics-pref-toggle">
                 <input type="checkbox" id="skip-x-analytics" />
                 <span>Skip X in bulk refresh</span>
@@ -813,20 +817,6 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             </div>
             <div class="analytics-chart" id="analytics-chart"></div>
             <div class="analytics-chart-legend" id="analytics-chart-legend"></div>
-          </div>
-
-          <div class="import-history-panel hidden" id="import-history-panel">
-            <div class="import-history-header">
-              <span class="card-subtitle" style="margin:0;">Import past posts</span>
-              <span class="form-helper">Backfills posts from before this app — shows their real analytics per post.</span>
-            </div>
-            <div class="import-history-controls">
-              <select class="form-input" id="import-platform" style="max-width:150px;"></select>
-              <input type="number" class="form-input" id="import-count" min="1" max="200" step="1" value="20" style="max-width:90px;" title="Number of recent posts to import" />
-              <span class="form-helper" id="import-cost-estimate"></span>
-              <button class="btn btn-primary btn-sm" id="btn-import-history">Import</button>
-              <span class="form-helper" id="import-status"></span>
-            </div>
           </div>
 
           <div class="account-list" id="recent-posts-list"></div>

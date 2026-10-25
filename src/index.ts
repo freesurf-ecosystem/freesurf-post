@@ -1720,16 +1720,25 @@ async function handleAnalyticsRefresh(
   // (confirmed via /billing/billable-usage/quote → "X post read", 5000 micros).
   const X_POST_READ_FEE_MICROS = 5_000;
 
+  // X credit guard: if the user hasn't opted out of X, only force X reads while
+  // they actually have credit — otherwise skip X (and report how many we skipped)
+  // rather than silently running their balance negative / failing on Bundle.
+  let xBalanceMicros = 0;
+  if (!skipX) {
+    try { xBalanceMicros = await getUserBalanceMicros(user.sub, env); } catch { xBalanceMicros = 0; }
+  }
+  let skippedX = 0;
+
   // Optional limit scopes the refresh to the N most recent posted posts so a
   // click only pulls (and bills for) what the user is currently looking at.
   // Accepted via ?limit= (preferred) or { limit } body. Default 10 (bounded);
   // the free-plan 50-subrequest cap is enforced by budget.
   let limit = 10;
   const qLimit = Number(new URL(request.url).searchParams.get("limit"));
-  if (Number.isFinite(qLimit) && qLimit > 0) limit = Math.min(Math.max(Math.floor(qLimit), 1), 50);
+  if (Number.isFinite(qLimit) && qLimit > 0) limit = Math.min(Math.max(Math.floor(qLimit), 1), 100);
   try {
     const body = (await request.json().catch(() => null)) as { limit?: number } | null;
-    if (typeof body?.limit === "number") limit = Math.min(Math.max(Math.floor(body.limit), 1), 50);
+    if (typeof body?.limit === "number") limit = Math.min(Math.max(Math.floor(body.limit), 1), 100);
   } catch { /* ignore malformed body */ }
 
   try {
@@ -1787,7 +1796,11 @@ async function handleAnalyticsRefresh(
             // Bulk (passive) read — no per-post force, no fee.
             normalized = bulk.get(`${r.platform}::${r.postId}`) || null;
           } else if (env.SOCIAL_API_PROVIDER_KEY) {
-            // X is metered: force a live fetch and tabulate the read fee.
+            // X is metered: only force if the user has credit, otherwise skip.
+            if (xBalanceMicros < X_POST_READ_FEE_MICROS) {
+              skippedX++;
+              continue;
+            }
             const bs = bundlePlatform(r.platform);
             const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
               method: "POST",
@@ -1798,6 +1811,7 @@ async function handleAnalyticsRefresh(
             if (res.ok) {
               normalized = normBundleMetrics(await res.json());
               metered = true;
+              xBalanceMicros -= X_POST_READ_FEE_MICROS;
             } else if (res.status === 401 || res.status === 403 || res.status === 404) {
               // Directly-published posts aren't known to Bundle — read directly.
               normalized = await normDirectMetrics(env, r.platform, r.postId);
@@ -1843,7 +1857,7 @@ async function handleAnalyticsRefresh(
         refreshed.push(post.id);
       }
     }
-    return json({ refreshed: refreshed.length, posts: refreshed, limit: limit, postsLoaded: posts.length }, 200, headers);
+    return json({ refreshed: refreshed.length, posts: refreshed, limit: limit, postsLoaded: posts.length, skippedX }, 200, headers);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Analytics refresh exception:", msg);

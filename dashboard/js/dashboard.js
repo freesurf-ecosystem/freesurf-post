@@ -2858,7 +2858,7 @@ async function refreshAnalytics() {
   if (!btn || btn.disabled) return;
   btn.disabled = true;
   const original = btn.textContent;
-  const pulling = Math.max(recentPostsShown, 6);
+  const pulling = Math.min(Math.max(Number($("#refresh-count")?.value) || 50, 1), 100);
   btn.textContent = `Pulling ${pulling} posts…`;
   try {
     const res = await apiFetch(`/api/analytics/refresh?limit=${pulling}`, {
@@ -2871,10 +2871,10 @@ async function refreshAnalytics() {
       showFeedback(data?.error || data?.detail || `Refresh failed (${res.status}).`, "error");
     } else {
       const n = Number(data?.refreshed) || 0;
-      showFeedback(
-        n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet — the platform may still be reporting zeros.",
-        n ? "success" : "warning"
-      );
+      const skippedX = Number(data?.skippedX) || 0;
+      let msg = n ? `Refreshed ${n} post${n === 1 ? "" : "s"}.` : "No fresh metrics available yet — the platform may still be reporting zeros.";
+      if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"} (no X credit — enable "Skip X" or top up).`;
+      showFeedback(msg, n ? "success" : "warning");
     }
   } catch (e) {
     showFeedback("Refresh failed — " + (e?.message || "network error"), "error");
@@ -2885,18 +2885,6 @@ async function refreshAnalytics() {
 }
 
 $("#btn-refresh-analytics")?.addEventListener("click", refreshAnalytics);
-$("#btn-import-history")?.addEventListener("click", startHistoryImport);
-$("#import-platform")?.addEventListener("change", updateImportEstimate);
-$("#import-count")?.addEventListener("input", updateImportEstimate);
-$("#btn-toggle-import")?.addEventListener("click", () => {
-  const panel = $("#import-history-panel");
-  if (!panel) return;
-  panel.classList.toggle("hidden");
-  if (!panel.classList.contains("hidden")) {
-    populateImportPlatforms();
-    updateImportEstimate();
-  }
-});
 
 async function startHistoryImport() {
   const btn = $("#btn-import-history");
