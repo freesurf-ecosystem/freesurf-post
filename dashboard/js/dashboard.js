@@ -1128,6 +1128,13 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
 function showFeedback(msg, type) { feedback.className = `feedback ${type} visible`; feedback.textContent = msg; }
 function clearFeedback() { feedback.className = "feedback"; feedback.innerHTML = ""; }
 
+// Analytics view has its own feedback element (the global #post-feedback lives in
+// the compose view), so refresh results show where the user is looking.
+const analyticsFeedback = $("#analytics-feedback");
+function showAnalyticsFeedback(msg, type) {
+  if (analyticsFeedback) { analyticsFeedback.className = `feedback ${type} visible`; analyticsFeedback.textContent = msg; }
+}
+
 const TIMEZONES = [
   "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
   "America/Anchorage", "America/Phoenix", "Pacific/Honolulu", "Europe/London", "Europe/Paris",
@@ -2897,17 +2904,19 @@ async function refreshAnalytics() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      showFeedback(data?.error || data?.detail || `Refresh failed (${res.status}).`, "error");
+      showAnalyticsFeedback(data?.error || data?.detail || `Refresh failed (${res.status}).`, "error");
     } else {
       const n = Number(data?.refreshed) || 0;
       const loaded = Number(data?.postsLoaded) || 0;
       const skippedX = Number(data?.skippedX) || 0;
-      let msg = n ? `Refreshed ${n} of ${loaded} posts.` : `Loaded ${loaded} posts — no fresh metrics yet (the platform may still be reporting zeros).`;
+      let msg = n
+        ? `Refreshed ${loaded} posts (${n} with new engagement).`
+        : `Checked ${loaded} posts — no fresh metrics yet (the platform may still be reporting zeros).`;
       if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"} (no X credit — enable "Skip X" or top up).`;
-      showFeedback(msg, n ? "success" : "warning");
+      showAnalyticsFeedback(msg, n ? "success" : "warning");
     }
   } catch (e) {
-    showFeedback("Refresh failed — " + (e?.message || "network error"), "error");
+    showAnalyticsFeedback("Refresh failed — " + (e?.message || "network error"), "error");
   }
   btn.textContent = original;
   btn.disabled = false;
