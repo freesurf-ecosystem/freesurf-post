@@ -3088,13 +3088,18 @@ function renderRecentPosts() {
           : `<span style="font-size:0.8rem;color:var(--text-muted);">no metrics yet</span>`;
       const commentCount = Number(m.comments) || 0;
       const canComments = r.postId;
+      const pill = (label, bg) => `<span style="font-size:0.7rem;font-weight:600;padding:1px 8px;border-radius:999px;color:#fff;background:${bg};white-space:nowrap;">${label}</span>`;
       const delivery = r.status === "ERROR"
-        ? `<span style="font-size:0.8rem;color:var(--error);">failed${r.error ? `: ${escapeHtml(r.error)}` : ""}</span>`
+        ? pill(`Failed${r.error ? `: ${escapeHtml(r.error)}` : ""}`, "var(--error)")
         : r.status === "POSTED"
-          ? `<span style="font-size:0.8rem;color:var(--success);">posted</span>`
-          : r.status
-            ? `<span style="font-size:0.8rem;color:var(--text-muted);">${escapeHtml(String(r.status).toLowerCase())}</span>`
-            : "";
+          ? pill("Live", "var(--success)")
+          : r.status === "PROCESSING" || r.status === "REVIEW"
+            ? pill(r.status === "REVIEW" ? "Review" : "Processing", "#d97706")
+            : r.status === "SCHEDULED"
+              ? pill("Scheduled", "#2563eb")
+              : r.status
+                ? pill(escapeHtml(String(r.status).toLowerCase()), "var(--text-muted)")
+                : "";
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>

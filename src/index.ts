@@ -4710,6 +4710,30 @@ async function handleRecentPosts(
         }
       } catch { /* best-effort */ }
     }
+
+    // The team-scoped list can miss posts (published under a now-inactive team,
+    // or beyond the page). Fetch detail for any result the list didn't cover so
+    // delivery status still surfaces (bounded).
+    const knownIds = new Set(bundleById.keys());
+    const missingIds: string[] = [];
+    for (const p of posts) {
+      for (const r of (p.results || []) as any[]) {
+        if (r?.postId && !knownIds.has(r.postId) && !missingIds.includes(r.postId)) {
+          missingIds.push(r.postId);
+        }
+      }
+    }
+    for (const id of missingIds.slice(0, 12)) {
+      try {
+        const dr = await fetch(`https://api.bundle.social/api/v1/post/${id}`, {
+          headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+        });
+        if (dr.ok) {
+          const detail = (await dr.json()) as any;
+          bundleById.set(id, detail);
+        }
+      } catch { /* best-effort */ }
+    }
     }
 
     const deliveryReason = (bp: any): string => {
