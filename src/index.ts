@@ -4454,11 +4454,13 @@ async function handleGetAnalyticsTrends(
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
-    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).getTime();
 
-    // Get posted posts grouped by day
+    // Pull recent posted posts. Key on the publication date (posted_at) — not the
+    // row's created_at — so scheduled/older drafts count on the day they actually
+    // went out, matching the Analytics list.
     const historyRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&created_at=gte.${startDate}&order=created_at.desc&select=*`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=500&select=posted_at,created_at,metrics`,
       {
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
@@ -4484,7 +4486,9 @@ async function handleGetAnalyticsTrends(
     };
 
     posts.forEach((post: any) => {
-      const day = new Date(post.created_at).toISOString().split("T")[0];
+      const published = new Date(post.posted_at || post.created_at);
+      if (Number.isNaN(published.getTime()) || published.getTime() < startDate) return;
+      const day = published.toISOString().split("T")[0];
       if (!trends[day]) {
         trends[day] = { posts: 0, impressions: 0, likes: 0, comments: 0, shares: 0 };
       }
@@ -4500,7 +4504,7 @@ async function handleGetAnalyticsTrends(
     return json(
       {
         trends,
-        period: { start: startDate, end: new Date().toISOString(), days },
+        period: { start: new Date(startDate).toISOString(), end: new Date().toISOString(), days },
       },
       200,
       headers
