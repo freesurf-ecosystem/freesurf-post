@@ -1857,6 +1857,7 @@ async function handleAnalyticsRefresh(
         refreshed.push(post.id);
       }
     }
+    console.log(`[analytics-refresh] limit=${limit} postsLoaded=${posts.length} refreshed=${refreshed.length} skippedX=${skippedX}`);
     return json({ refreshed: refreshed.length, posts: refreshed, limit: limit, postsLoaded: posts.length, skippedX }, 200, headers);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
