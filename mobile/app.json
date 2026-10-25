@@ -2,7 +2,7 @@
   "expo": {
     "name": "FreeSurf Post",
     "slug": "freesurf-post-mobile",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon-windmill-white.png",
     "userInterfaceStyle": "light",
@@ -12,7 +12,7 @@
     ],
     "android": {
       "package": "tools.freesurf.post",
-      "versionCode": 1
+      "versionCode": 2
     },
     "ios": {
       "bundleIdentifier": "tools.freesurf.post",
