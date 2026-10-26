@@ -2,7 +2,7 @@
   "expo": {
     "name": "Disc",
     "slug": "freesurf-post-mobile",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "orientation": "portrait",
     "icon": "./assets/icon-windmill-white.png",
     "userInterfaceStyle": "light",
@@ -12,7 +12,7 @@
     ],
     "android": {
       "package": "tools.freesurf.post",
-      "versionCode": 3
+      "versionCode": 4
     },
     "ios": {
       "bundleIdentifier": "tools.freesurf.post",
