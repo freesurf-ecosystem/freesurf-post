@@ -1566,41 +1566,45 @@ async function fetchBulkPostAnalytics(
   postIds: string[]
 ): Promise<Map<string, Record<string, number>>> {
   const out = new Map<string, Record<string, number>>();
-  const ids = postIds.slice(0, 60);
-  if (!ids.length || !env.SOCIAL_API_PROVIDER_KEY) return out;
-  let page = 1;
-  let totalPages = 1;
-  do {
-    const qs = new URLSearchParams();
-    for (const id of ids) qs.append("postIds", id);
-    qs.set("platformType", bsPlatform);
-    qs.set("page", String(page));
-    qs.set("limit", "20");
-    try {
-      const res = await fetch(`https://api.bundle.social/api/v1/analytics/post/bulk?${qs.toString()}`, {
-        headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        console.error(`[bulk-analytics] platform=${bsPlatform} status=${res.status} body=${body.slice(0, 300)}`);
+  if (!postIds.length || !env.SOCIAL_API_PROVIDER_KEY) return out;
+  // The endpoint accepts at most 60 post ids per request, so chunk larger
+  // windows ("Last 100") instead of silently dropping the overflow.
+  for (let start = 0; start < postIds.length; start += 60) {
+    const ids = postIds.slice(start, start + 60);
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const qs = new URLSearchParams();
+      for (const id of ids) qs.append("postIds", id);
+      qs.set("platformType", bsPlatform);
+      qs.set("page", String(page));
+      qs.set("limit", "20");
+      try {
+        const res = await fetch(`https://api.bundle.social/api/v1/analytics/post/bulk?${qs.toString()}`, {
+          headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+        });
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          console.error(`[bulk-analytics] platform=${bsPlatform} status=${res.status} body=${body.slice(0, 300)}`);
+          break;
+        }
+        const data = (await res.json()) as any;
+        const results = Array.isArray(data?.results) ? data.results : [];
+        for (const r of results) {
+          const items = Array.isArray(r.items) ? r.items : [r.items].filter(Boolean);
+          // Prefer the most-recent snapshot (Bundle may return several).
+          const item = items[items.length - 1];
+          if (r.postId && item) out.set(r.postId, normBundleMetrics(item));
+        }
+        totalPages = Number(data?.pagination?.totalPages) || 1;
+        console.log(`[bulk-analytics] platform=${bsPlatform} chunk=${start}-${start + ids.length} page=${page} got=${results.length} totalPages=${totalPages}`);
+      } catch (e) {
+        console.error(`[bulk-analytics] platform=${bsPlatform} exception:`, e instanceof Error ? e.message : String(e));
         break;
       }
-      const data = (await res.json()) as any;
-      const results = Array.isArray(data?.results) ? data.results : [];
-      for (const r of results) {
-        const items = Array.isArray(r.items) ? r.items : [r.items].filter(Boolean);
-        // Prefer the most-recent snapshot (Bundle may return several).
-        const item = items[items.length - 1];
-        if (r.postId && item) out.set(r.postId, normBundleMetrics(item));
-      }
-      totalPages = Number(data?.pagination?.totalPages) || 1;
-      console.log(`[bulk-analytics] platform=${bsPlatform} page=${page} got=${results.length} totalPages=${totalPages}`);
-    } catch (e) {
-      console.error(`[bulk-analytics] platform=${bsPlatform} exception:`, e instanceof Error ? e.message : String(e));
-      break;
-    }
-    page++;
-  } while (page <= totalPages);
+      page++;
+    } while (page <= totalPages);
+  }
   return out;
 }
 
@@ -1720,9 +1724,20 @@ async function getAnalyticsPrefs(env: Env, userId: string): Promise<{ skipXAnaly
 }
 
 /**
- * POST /api/analytics/refresh — Pull post analytics from Bundle for the user's
- * posted posts and cache them into post_posts.metrics so the aggregate
+ * POST /api/analytics/refresh — Pull live post analytics from Bundle for the
+ * user's posted posts and cache them into post_posts.metrics so the aggregate
  * /api/analytics has real numbers.
+ *
+ * Bundle's bulk endpoint is passive: it only returns snapshots from its ~24h
+ * sweep, so fresh posts show no engagement until someone forces a per-post
+ * read. We therefore force a live read per result (same call the per-post
+ * Refresh button uses) and fall back to the passive snapshot if the platform
+ * rate-limits us.
+ *
+ * The refresh is cursor-based: `limit` is the total window ("Last 50"), and
+ * each invocation handles at most BATCH_POSTS posts starting at `offset`.
+ * The dashboard advances `offset` until `done`, which keeps every invocation
+ * under Cloudflare's 50-subrequest cap instead of silently stopping at ~35.
  */
 async function handleAnalyticsRefresh(
   request: Request, env: Env, origin: string, headers: Record<string, string>
@@ -1751,34 +1766,50 @@ async function handleAnalyticsRefresh(
     try { xBalanceMicros = await getUserBalanceMicros(user.sub, env); } catch { xBalanceMicros = 0; }
   }
   let skippedX = 0;
+  let rateLimited = 0;
 
-  // Optional limit scopes the refresh to the N most recent posted posts so a
-  // click only pulls (and bills for) what the user is currently looking at.
-  // Accepted via ?limit= (preferred) or { limit } body. Default 10 (bounded);
-  // the free-plan 50-subrequest cap is enforced by budget.
+  // `limit` scopes the refresh to the N most recent posted posts so a click only
+  // pulls (and bills for) what the user is currently looking at. `offset` is the
+  // cursor the dashboard advances across invocations. Both are accepted via
+  // query string (preferred) or JSON body.
   let limit = 10;
-  const qLimit = Number(new URL(request.url).searchParams.get("limit"));
+  let offset = 0;
+  const url = new URL(request.url);
+  const qLimit = Number(url.searchParams.get("limit"));
   if (Number.isFinite(qLimit) && qLimit > 0) limit = Math.min(Math.max(Math.floor(qLimit), 1), 100);
+  const qOffset = Number(url.searchParams.get("offset"));
+  if (Number.isFinite(qOffset) && qOffset > 0) offset = Math.max(Math.floor(qOffset), 0);
   try {
-    const body = (await request.json().catch(() => null)) as { limit?: number } | null;
+    const body = (await request.json().catch(() => null)) as { limit?: number; offset?: number } | null;
     if (typeof body?.limit === "number") limit = Math.min(Math.max(Math.floor(body.limit), 1), 100);
+    if (typeof body?.offset === "number") offset = Math.max(Math.floor(body.offset), 0);
   } catch { /* ignore malformed body */ }
+
+  const BATCH_POSTS = 10;
+  const take = Math.min(BATCH_POSTS, Math.max(limit - offset, 0));
+  if (take <= 0) {
+    return json(
+      { refreshed: 0, posts: [], postsLoaded: 0, processed: 0, limit, offset, nextOffset: offset, done: true, skippedX, rateLimited },
+      200, headers
+    );
+  }
 
   try {
     const postsRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast&limit=${limit}`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&select=id,results,metrics&order=posted_at.desc.nullslast&limit=${take}&offset=${offset}`,
       { headers: authHeaders }
     );
     if (!postsRes.ok) return errorResponse("Failed to load posts", 500, origin);
     const posts = (await postsRes.json()) as any[];
 
-    // Cloudflare free-plan default is 50 subrequests per invocation; leave headroom.
-    let budget = 40;
+    // Cloudflare free-plan default is 50 subrequests per invocation. The
+    // auth/prefs/balance/posts calls above already used a few; leave headroom.
+    let budget = 44;
     const out = () => budget <= 0;
 
-    // Group Bundle-published results by platform so we can bulk-pull analytics
-    // (one passive call per platform instead of one force per post). X is left
-    // on the metered per-post force path (and skipped entirely when opted out).
+    // Passive bulk snapshots for non-X Bundle posts. The live per-post force is
+    // the primary path below; this is a fallback for posts the platform
+    // rate-limits (6 forced reads/post/24h) or has no insight snapshot for.
     const bundleByPlatform = new Map<string, { bs: string; ids: string[] }>();
     for (const post of posts) {
       for (const r of (post.results || []) as any[]) {
@@ -1801,46 +1832,73 @@ async function handleAnalyticsRefresh(
     }
 
     const refreshed: string[] = [];
+    let processed = 0;
     for (const post of posts) {
-      if (out()) break;
+      const results = ((post.results || []) as any[]).filter((r) => r?.success && r?.postId);
+      if (!results.length) { processed++; continue; }
+      // Keep one subrequest in reserve so merged metrics can be persisted.
+      if (budget <= 1) break;
+
       const metrics: Record<string, any> = post.metrics || {};
       let changed = false;
-      for (const r of (post.results || []) as any[]) {
-        if (!r?.success || !r?.postId) continue;
+      for (const r of results) {
         if (skipX && r.platform === "x") continue;
-        if (out()) break;
+        if (budget <= 1) break;
         try {
           let normalized: Record<string, number> | null = null;
           let metered = false;
           if (r.via === "direct") {
             // We published this ourselves, so Bundle can't read it back.
+            budget--;
             normalized = await normDirectMetrics(env, r.platform, r.postId);
-          } else if (r.platform !== "x") {
-            // Bulk (passive) read — no per-post force, no fee.
-            normalized = bulk.get(`${r.platform}::${r.postId}`) || null;
-          } else if (env.SOCIAL_API_PROVIDER_KEY) {
+          } else if (r.platform === "x") {
             // X is metered: only force if the user has credit, otherwise skip.
-            if (xBalanceMicros < X_POST_READ_FEE_MICROS) {
-              skippedX++;
-              continue;
-            }
+            if (!env.SOCIAL_API_PROVIDER_KEY) continue;
+            if (xBalanceMicros < X_POST_READ_FEE_MICROS) { skippedX++; continue; }
+            if (budget < 3) break; // force + fee ledger + patch
             const bs = bundlePlatform(r.platform);
+            budget--;
             const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
               body: JSON.stringify({ postId: r.postId, platformType: bs }),
             });
-            budget--;
             if (res.ok) {
               normalized = normBundleMetrics(await res.json());
               metered = true;
               xBalanceMicros -= X_POST_READ_FEE_MICROS;
+            } else if (res.status === 429) {
+              rateLimited++;
             } else if (res.status === 401 || res.status === 403 || res.status === 404) {
               // Directly-published posts aren't known to Bundle — read directly.
+              budget--;
               normalized = await normDirectMetrics(env, r.platform, r.postId);
             } else {
               const t = await res.text();
               console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
+            }
+          } else if (env.SOCIAL_API_PROVIDER_KEY) {
+            // Force a live read for non-X posts too. The passive bulk snapshot is
+            // only refreshed by Bundle every ~24h, so without this a newly
+            // published post shows "no metrics yet" until its per-post Refresh
+            // is clicked. Fall back to the snapshot if the force fails.
+            const bs = bundlePlatform(r.platform);
+            if (!bs) continue;
+            budget--;
+            const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+              body: JSON.stringify({ postId: r.postId, platformType: bs }),
+            });
+            if (res.ok) {
+              normalized = normBundleMetrics(await res.json());
+            } else {
+              if (res.status === 429) rateLimited++;
+              const t = await res.text();
+              if (res.status !== 429) {
+                console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
+              }
+              normalized = bulk.get(`${r.platform}::${r.postId}`) || null;
             }
           }
           if (!normalized) continue;
@@ -1849,7 +1907,8 @@ async function handleAnalyticsRefresh(
           // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
           // Tabulate them in the X-fee ledger so refreshes show up on the fees page.
           if (metered && r.platform === "x") {
-            if (out()) break;
+            if (budget <= 1) break;
+            budget--;
             try {
               await fetch(`${supabaseUrl}/rest/v1/post_credits`, {
                 method: "POST",
@@ -1863,14 +1922,15 @@ async function handleAnalyticsRefresh(
                   note: "X analytics read (per post)",
                 }),
               });
-              budget--;
             } catch (e) {
               console.error("record X analytics read fee failed:", e instanceof Error ? e.message : String(e));
             }
           }
-        } catch {}
+        } catch { /* best-effort per result */ }
       }
-      if (changed && !out()) {
+
+      if (changed) {
+        if (budget <= 0) break; // retry this post on the next cursor call
         await fetch(`${supabaseUrl}/rest/v1/post_posts?id=eq.${post.id}`, {
           method: "PATCH",
           headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -1879,9 +1939,16 @@ async function handleAnalyticsRefresh(
         budget--;
         refreshed.push(post.id);
       }
+      processed++;
     }
-    console.log(`[analytics-refresh] limit=${limit} postsLoaded=${posts.length} refreshed=${refreshed.length} skippedX=${skippedX}`);
-    return json({ refreshed: refreshed.length, posts: refreshed, limit: limit, postsLoaded: posts.length, skippedX }, 200, headers);
+
+    const nextOffset = offset + processed;
+    const done = nextOffset >= limit || posts.length < take;
+    console.log(`[analytics-refresh] limit=${limit} offset=${offset} processed=${processed} postsLoaded=${posts.length} refreshed=${refreshed.length} skippedX=${skippedX} rateLimited=${rateLimited} nextOffset=${nextOffset} done=${done}`);
+    return json(
+      { refreshed: refreshed.length, posts: refreshed, postsLoaded: posts.length, processed, limit, offset, nextOffset, done, skippedX, rateLimited },
+      200, headers
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Analytics refresh exception:", msg);

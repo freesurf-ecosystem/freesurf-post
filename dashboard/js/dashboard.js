@@ -2887,8 +2887,9 @@ $$("[data-chart-range]")?.forEach((btn) => {
   });
 });
 
-// Manual refresh: pull live per-post engagement for the posts currently shown
-// (bounded so the X per-read cost reflects what the user is actually looking at).
+// Manual refresh: pull live per-post engagement for the posts currently shown.
+// The server processes a bounded batch per request (to stay inside Cloudflare's
+// subrequest cap), so advance its cursor until every selected post is covered.
 async function refreshAnalytics() {
   const btn = $("#btn-refresh-analytics");
   if (!btn || btn.disabled) return;
@@ -2896,24 +2897,42 @@ async function refreshAnalytics() {
   const original = btn.textContent;
   const pulling = Math.min(Math.max(Number($("#refresh-count")?.value) || 50, 1), 100);
   btn.textContent = `Pulling ${pulling} posts…`;
+  let refreshed = 0;
+  let processed = 0;
+  let skippedX = 0;
+  let rateLimited = 0;
+  let failed = false;
   try {
-    const res = await apiFetch(`/api/analytics/refresh?limit=${pulling}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: "{}",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      showAnalyticsFeedback(data?.error || data?.detail || `Refresh failed (${res.status}).`, "error");
-    } else {
-      const n = Number(data?.refreshed) || 0;
-      const loaded = Number(data?.postsLoaded) || 0;
-      const skippedX = Number(data?.skippedX) || 0;
-      let msg = n
-        ? `Refreshed ${loaded} posts (${n} with new engagement).`
-        : `Checked ${loaded} posts — no fresh metrics yet (the platform may still be reporting zeros).`;
+    let offset = 0;
+    let guard = 0;
+    while (offset < pulling && guard++ < 100) {
+      const res = await apiFetch(`/api/analytics/refresh?limit=${pulling}&offset=${offset}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: "{}",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showAnalyticsFeedback(data?.error || data?.detail || `Refresh failed (${res.status}).`, "error");
+        failed = true;
+        break;
+      }
+      refreshed += Number(data?.refreshed) || 0;
+      processed += Number(data?.processed) || 0;
+      skippedX += Number(data?.skippedX) || 0;
+      rateLimited += Number(data?.rateLimited) || 0;
+      const next = Number(data?.nextOffset);
+      if (data?.done || !Number.isFinite(next) || next <= offset) break;
+      offset = next;
+      btn.textContent = `Pulling ${Math.min(offset, pulling)}/${pulling}…`;
+    }
+    if (!failed) {
+      let msg = refreshed
+        ? `Refreshed ${processed} posts (${refreshed} with new engagement).`
+        : `Checked ${processed} posts — no fresh metrics yet (the platform may still be reporting zeros).`;
       if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"} (no X credit — enable "Skip X" or top up).`;
-      showAnalyticsFeedback(msg, n ? "success" : "warning");
+      if (rateLimited) msg += ` ${rateLimited} live read${rateLimited === 1 ? "" : "s"} hit the platform's 6-refresh/day limit — showing cached numbers for those.`;
+      showAnalyticsFeedback(msg, refreshed ? "success" : "warning");
     }
   } catch (e) {
     showAnalyticsFeedback("Refresh failed — " + (e?.message || "network error"), "error");

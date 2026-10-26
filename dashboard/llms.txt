@@ -156,14 +156,14 @@ Raw Bundle analytics plus refresh/aggregate helpers. Auth: API key or JWT.
 
 - `GET /api/analytics/:platform?type=profile` — profile metrics (followers, reach, …). Default `type=profile`.
 - `GET /api/analytics/:platform?type=post&postId=<postId>` — raw Bundle post analytics (includes `externalData` with the native post id/permalink).
-- `POST /api/analytics/refresh?limit=10` — pull fresh analytics for the caller's recent posted posts and cache them into `post_posts.metrics`. Returns `{ refreshed, posts }`.
+- `POST /api/analytics/refresh?limit=10&offset=0` — pull fresh analytics for the caller's recent posted posts and cache them into `post_posts.metrics`. Live per-post reads are forced (falling back to Bundle's passive snapshot when rate-limited). `limit` is the window size; each call handles a bounded batch and returns `{ refreshed, posts, processed, nextOffset, done, skippedX, rateLimited }` — advance `offset` to `nextOffset` until `done` for windows larger than one batch.
 - `POST /api/analytics/force` — force a single live fetch. Body `{ "platform": "x", "postId": "..." }` for app posts, or `{ "platform": "x", "importedPostId": "..." }` for imported posts.
 - `GET /api/analytics` — aggregate totals per platform for the last 30 days: `{ analytics, totals, period }`.
 
 ```
 GET /api/analytics/x?type=profile
 GET /api/analytics/instagram?type=post&postId=xxx
-POST /api/analytics/refresh?limit=10
+POST /api/analytics/refresh?limit=10&offset=0
 ```
 
 ## Media
