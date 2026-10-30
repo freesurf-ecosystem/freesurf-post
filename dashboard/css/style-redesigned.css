@@ -2176,7 +2176,7 @@ a:hover { text-decoration: underline; }
   flex-wrap: wrap;
 }
 
-.freesurf-footer-brand { max-width: 300px; }
+.freesurf-footer-brand { max-width: 280px; }
 
 .freesurf-footer-logo {
   font-size: 1.1rem;
@@ -2195,7 +2195,7 @@ a:hover { text-decoration: underline; }
 
 .freesurf-footer-links {
   display: flex;
-  gap: 48px;
+  gap: 32px;
   flex-wrap: wrap;
 }
 
