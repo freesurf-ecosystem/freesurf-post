@@ -576,47 +576,15 @@ a:hover { text-decoration: underline; }
 }
 
 /* ── HERO SECTION ── */
-.landing-header {
+.hero-logo {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px 24px 0;
-  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 20px;
 }
 
-.landing-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text);
-  text-decoration: none;
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.landing-brand .logo-mark {
-  width: 28px;
-  height: 28px;
-}
-
-.landing-nav {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  font-size: 0.9rem;
-}
-
-.landing-nav a {
-  color: var(--text-secondary);
-  text-decoration: none;
-}
-
-.landing-nav a:hover {
-  color: var(--text);
+.hero-logo .logo-mark {
+  width: 64px;
+  height: 64px;
 }
 
 .hero {
@@ -1454,10 +1422,6 @@ a:hover { text-decoration: underline; }
   
   .mobile-header {
     display: flex;
-  }
-
-  .landing-header {
-    display: none;
   }
   
   .hero {
