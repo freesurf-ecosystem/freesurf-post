@@ -1,46 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <clipPath id="ball">
-      <circle cx="50" cy="50" r="45"/>
-    </clipPath>
-    <path id="htop" d="M 0 0 C 30 -8, 70 -8, 100 0" fill="none"/>
-    <path id="hcenter" d="M 0 0 C 30 -3, 70 -3, 100 0" fill="none"/>
-    <path id="hbottom" d="M 0 0 C 30 8, 70 8, 100 0" fill="none"/>
-    <path id="vleft" d="M 0 0 C -8 30, -8 70, 0 100" fill="none"/>
-    <path id="vcenter" d="M 0 0 L 0 100" fill="none"/>
-    <path id="vright" d="M 0 0 C 8 30, 8 70, 0 100" fill="none"/>
-    <g id="h" fill="none" stroke-linecap="round">
-      <use href="#htop" y="11"/><use href="#htop" y="14"/><use href="#htop" y="17"/>
-      <use href="#htop" y="20"/><use href="#htop" y="23"/><use href="#htop" y="26"/>
-      <use href="#htop" y="29"/><use href="#htop" y="32"/><use href="#htop" y="35"/>
-      <use href="#htop" y="38"/><use href="#htop" y="41"/><use href="#htop" y="44"/>
-      <use href="#htop" y="47"/><use href="#hcenter" y="50"/>
-      <use href="#hbottom" y="53"/><use href="#hbottom" y="56"/><use href="#hbottom" y="59"/>
-      <use href="#hbottom" y="62"/><use href="#hbottom" y="65"/><use href="#hbottom" y="68"/>
-      <use href="#hbottom" y="71"/><use href="#hbottom" y="74"/><use href="#hbottom" y="77"/>
-      <use href="#hbottom" y="80"/><use href="#hbottom" y="83"/><use href="#hbottom" y="86"/>
-      <use href="#hbottom" y="89"/>
-    </g>
-    <g id="v" fill="none" stroke-linecap="round">
-      <use href="#vleft" x="11"/><use href="#vleft" x="14"/><use href="#vleft" x="17"/>
-      <use href="#vleft" x="20"/><use href="#vleft" x="23"/><use href="#vleft" x="26"/>
-      <use href="#vleft" x="29"/><use href="#vleft" x="32"/><use href="#vleft" x="35"/>
-      <use href="#vleft" x="38"/><use href="#vleft" x="41"/><use href="#vleft" x="44"/>
-      <use href="#vleft" x="47"/><use href="#vcenter" x="50"/>
-      <use href="#vright" x="53"/><use href="#vright" x="56"/><use href="#vright" x="59"/>
-      <use href="#vright" x="62"/><use href="#vright" x="65"/><use href="#vright" x="68"/>
-      <use href="#vright" x="71"/><use href="#vright" x="74"/><use href="#vright" x="77"/>
-      <use href="#vright" x="80"/><use href="#vright" x="83"/><use href="#vright" x="86"/>
-      <use href="#vright" x="89"/>
-    </g>
-    <mask id="under" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
-      <rect x="0" y="0" width="100" height="100" fill="#ffffff"/>
-      <use href="#h" stroke="#000000" stroke-width="3.2"/>
-    </mask>
-  </defs>
-  <g clip-path="url(#ball)">
-    <use href="#v" stroke="#000000" stroke-width="1.5" mask="url(#under)"/>
-    <use href="#h" stroke="#000000" stroke-width="1.5"/>
+  <g fill="none" stroke="#000000" stroke-width="5" stroke-linejoin="round">
+    <rect x="20" y="15" width="34" height="60" rx="7" transform="rotate(-12 37 45)" opacity="0.55"/>
+    <rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/>
   </g>
-  <path d="M 92 50 C 98 52, 100 62, 95 74" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round"/>
 </svg>
