@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Buffer Alternative - Catpix</title>
+  <meta name="description" content="Compare Buffer and Catpix: per-channel pricing, channels, scheduling, API access, analytics, and who each scheduler is best for." />
+  <link rel="canonical" href="https://catpix.app/comparisons/free-buffer-alternative/" />
+  <meta name="robots" content="index,follow" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
+  <link rel="mask-icon" href="/favicon.svg" color="#000000" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style-redesigned.css?v=20261030" />
+  <style>
+    .post-page { position: relative; z-index: 1; }
+    .post-header-wrap { background: var(--surface); border-bottom: 1px solid var(--border); }
+    .post-topbar { max-width: 1100px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .post-nav { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 0.9rem; }
+    .post-nav a { color: var(--text-secondary); text-decoration: none; }
+    .post-nav a:hover { color: var(--text); }
+    .post-nav .btn-primary { color: #fff; }
+    .post { max-width: 820px; margin: 0 auto; padding: 56px 24px 80px; }
+    .post-kicker { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 12px; }
+    .post h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); line-height: 1.08; letter-spacing: -0.04em; margin-bottom: 16px; }
+    .post-deck { font-size: 1.15rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px; }
+    .post-meta { font-size: 0.85rem; color: var(--text-muted); padding-bottom: 28px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+    .post-body { font-size: 1.02rem; color: var(--text-secondary); line-height: 1.75; }
+    .post-body p { margin: 0 0 18px; }
+    .post-body h2 { font-size: 1.45rem; color: var(--text); margin: 36px 0 12px; }
+    .post-body h3 { font-size: 1.1rem; color: var(--text); margin: 24px 0 8px; }
+    .post-body ul { margin: 0 0 18px 22px; }
+    .post-body li { margin: 6px 0; }
+    .post-body a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+    .post-body strong { color: var(--text); }
+    .verdict { background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; margin: 28px 0; }
+    .verdict h2 { margin: 0 0 8px; font-size: 1.1rem; }
+    .verdict p { margin: 0; }
+    .table-wrap { overflow-x: auto; margin: 20px 0 28px; border: 1px solid var(--border); border-radius: var(--radius); }
+    .compare-table { width: 100%; border-collapse: collapse; min-width: 620px; background: var(--surface); font-size: 0.9rem; }
+    .compare-table th, .compare-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .compare-table thead th { background: var(--bg-alt); color: var(--text); font-weight: 700; }
+    .compare-table tbody tr:last-child td { border-bottom: none; }
+    .compare-table td:first-child { color: var(--text); font-weight: 600; }
+    .callout { border-left: 3px solid var(--text); padding: 4px 0 4px 16px; margin: 24px 0; color: var(--text-secondary); }
+    .post-cta { background: var(--text); color: #fff; border-radius: var(--radius-lg); padding: 28px; margin-top: 40px; }
+    .post-cta h2 { color: #fff; margin: 0 0 8px; font-size: 1.3rem; }
+    .post-cta p { color: rgba(255,255,255,0.8); margin: 0 0 16px; }
+    .post-cta a { background: #fff; color: var(--text); padding: 10px 16px; border-radius: 9px; text-decoration: none; font-weight: 700; display: inline-block; }
+    .faq q { quotes: none; }
+    @media (max-width: 640px) {
+      .post { padding: 40px 18px 64px; }
+      .post-topbar { padding: 12px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="post-page">
+    <header class="post-header-wrap">
+      <div class="post-topbar">
+        <a href="/" class="mobile-logo">
+          <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask-post" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask-post)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>
+          Catpix
+        </a>
+        <nav class="post-nav">
+          <a href="/resources/">Resources</a>
+          <a href="/resources/#comparisons">Comparisons</a>
+          <a href="https://post.freesurf.tools/llms.txt">API</a>
+          <a class="btn btn-primary btn-sm" href="/">Open Catpix</a>
+        </nav>
+      </div>
+    </header>
+
+    <article class="post">
+      <p class="post-kicker">Comparisons</p>
+      <h1>Free Buffer Alternative</h1>
+      <p class="post-deck">Buffer is polished and simple, but its paid plans are priced per channel. If you post to several networks, the bill climbs quickly. Here is how Catpix compares, where Buffer still wins, and how to decide.</p>
+      <p class="post-meta">Updated October 30, 2026 · 8 min read</p>
+
+      <div class="post-body">
+        <p><strong>Short version:</strong> Buffer is a good scheduler with a useful free plan. Catpix is a free, open-source alternative with no per-channel fee and an API included. Buffer is still the better choice if you need a mature inbox, deeper reporting, AI assistance, or approval workflows.</p>
+
+        <div class="verdict">
+          <h2>Quick verdict</h2>
+          <p><strong>Choose Catpix</strong> if you post to several networks, want a free API, or do not want to pay per channel. <strong>Choose Buffer</strong> if you need a polished community inbox, advanced reporting, AI tools, approvals, or a large integration library.</p>
+        </div>
+
+        <h2>What Buffer does well</h2>
+        <p>Buffer has earned its reputation. The composer is clean, the queue is easy to understand, and the free plan is genuinely usable: three channels and up to 10 scheduled posts per channel. It supports 11 platforms, including Bluesky, Facebook, Instagram, LinkedIn, Mastodon, Pinterest, Threads, TikTok, X, YouTube, and Google Business.</p>
+        <p>Paid plans add unlimited scheduled posts, a hashtag manager, first-comment scheduling, a community inbox, follower growth tracking, advanced analytics, and a Start Page for link-in-bio. The Team plan adds approvals and collaboration. Buffer also exposes an API, even on the free plan, with rate limits that scale by tier.</p>
+
+        <h2>Buffer pricing in plain English</h2>
+        <p>Buffer prices per connected channel, not per user or per account. The free plan covers three channels. Essentials is $5 per channel per month on annual billing. Team is $10 per channel per month on annual billing.</p>
+        <p>That sounds cheap at first. It adds up when you post to several networks: five channels on Essentials is about $25/month; ten channels is about $50/month. If you manage multiple brands or clients, the per-channel model becomes the main cost driver.</p>
+
+        <h2>What Catpix costs</h2>
+        <p>Catpix is free. There is no per-channel fee, no per-seat fee, and the API is included with an account. X is the exception: X charges per post through its API, and Catpix passes those costs through at cost ($0.015 for a plain post, $0.20 for a post with a link).</p>
+        <p>Catpix supports 13 integrations: Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube, Reddit, Pinterest, Slack, Discord, and Google Business. It includes scheduling, drafts, queues, hashtag groups, saved replies, post metrics, comment import and replies, teams, a web app, an Android app, and an open-source codebase.</p>
+
+        <h2>Feature comparison</h2>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr><th>Feature</th><th>Buffer Free</th><th>Buffer Essentials</th><th>Buffer Team</th><th>Catpix</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Price</td><td>$0</td><td>$5/channel/mo annual</td><td>$10/channel/mo annual</td><td>Free</td></tr>
+              <tr><td>Channels / platforms</td><td>3 channels</td><td>Per channel</td><td>Per channel</td><td>13 platforms</td></tr>
+              <tr><td>Scheduled posts</td><td>10 per channel</td><td>Unlimited</td><td>Unlimited</td><td>Yes</td></tr>
+              <tr><td>Queue and drafts</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+              <tr><td>First comment</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+              <tr><td>Analytics</td><td>Basic</td><td>Advanced</td><td>Advanced</td><td>Post metrics and trends</td></tr>
+              <tr><td>Community inbox</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Comments and replies (expanding)</td></tr>
+              <tr><td>Approvals</td><td>No</td><td>No</td><td>Yes</td><td>No</td></tr>
+              <tr><td>API</td><td>1 key, limited requests</td><td>3 keys, higher limits</td><td>5 keys, highest limits</td><td>Free API keys</td></tr>
+              <tr><td>Mobile app</td><td>iOS and Android</td><td>iOS and Android</td><td>iOS and Android</td><td>Android (iOS in progress)</td></tr>
+              <tr><td>Open source</td><td>No</td><td>No</td><td>No</td><td>Yes</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Where Catpix wins</h2>
+        <ul>
+          <li><strong>No per-channel math.</strong> Adding a platform does not add a line item to your bill.</li>
+          <li><strong>Free API.</strong> Buffer includes API access, but with request limits by plan. Catpix includes API keys with an account.</li>
+          <li><strong>Open source.</strong> You can inspect the code, self-host later, or contribute.</li>
+          <li><strong>Android app.</strong> Catpix has a live Android app; Buffer also has mobile apps, so this is not a unique advantage.</li>
+          <li><strong>X costs at cost.</strong> Catpix passes X API fees through instead of bundling them into a subscription.</li>
+        </ul>
+
+        <h2>Where Buffer still wins</h2>
+        <ul>
+          <li><strong>Community inbox.</strong> Buffer's inbox is more mature, with filters, saved replies, comment scores, and notifications.</li>
+          <li><strong>Reporting.</strong> Buffer has deeper analytics, audience demographics, reports, and benchmarks.</li>
+          <li><strong>AI assistance.</strong> Buffer includes AI writing and repurposing tools.</li>
+          <li><strong>Approvals and collaboration.</strong> Buffer Team has approval workflows and access levels.</li>
+          <li><strong>Integrations and polish.</strong> Buffer integrates with Canva, Google Drive, Dropbox, Unsplash, Zapier, and more, and the UI is very refined.</li>
+        </ul>
+
+        <div class="callout">
+          <strong>Be honest about the trade-off:</strong> Catpix is not a feature-for-feature Buffer replacement. It is a free cross-poster for people who already know what they want to post and do not need an agency-grade inbox, reporting suite, or approval workflow.
+        </div>
+
+        <h2>Who should choose which</h2>
+        <p><strong>Choose Catpix if</strong> you are a solo creator, freelancer, or small business posting to several networks, you want a free API, and you care more about scheduling than deep reporting or approvals.</p>
+        <p><strong>Choose Buffer if</strong> you need a polished community inbox, advanced analytics, AI assistance, approvals, or a large integration ecosystem. Buffer is also the safer choice if you want a mature product with a long track record.</p>
+
+        <h2>How to switch from Buffer to Catpix</h2>
+        <ol>
+          <li>Export or copy your queued posts and drafts from Buffer. There is no automatic importer yet, so keep the originals until you have recreated them.</li>
+          <li>Create a Catpix account and connect the same social accounts. Reconnect pages/channels where the platform requires it.</li>
+          <li>Recreate your queue and scheduled posts. Use Catpix drafts and queue/refill to rebuild a week of content.</li>
+          <li>Recreate hashtag groups and saved replies if you use them.</li>
+          <li>If you post to X, add credits for X API fees. Plain posts cost $0.015; link posts cost $0.20.</li>
+          <li>Keep Buffer active for a few days if you want a safety net, then disconnect the channels you no longer need.</li>
+        </ol>
+
+        <h2>FAQ</h2>
+        <div class="faq">
+          <h3>Is Buffer free?</h3>
+          <p>Yes. Buffer's free plan includes three channels and up to 10 scheduled posts per channel. Paid plans remove the post cap and add analytics, inbox features, hashtag tools, and approvals.</p>
+
+          <h3>Is Catpix really free?</h3>
+          <p>Yes. Catpix does not charge a subscription or per-channel fee. X API costs are passed through at cost because X charges per post.</p>
+
+          <h3>Does Catpix have an API?</h3>
+          <p>Yes. Catpix includes API keys with an account. The API supports posting, scheduling, media uploads, analytics, comments, teams, and credits.</p>
+
+          <h3>Can I use Buffer and Catpix at the same time?</h3>
+          <p>Yes, but avoid scheduling the same post twice. A common approach is to run Buffer for the platforms or workflows it handles better and use Catpix for free cross-posting and API access.</p>
+
+          <h3>Which is better for agencies?</h3>
+          <p>Buffer Team is usually the better fit for agencies that need approvals, access levels, and deeper reporting. Catpix is aimed more at solo users and small teams that want free scheduling.</p>
+
+          <h3>Does Catpix support the same platforms as Buffer?</h3>
+          <p>Catpix supports 13 integrations. Both tools cover the major networks, but the exact platform lists differ. Check the <a href="/resources/#platform-schedulers">platform API and scheduler guides</a> for details.</p>
+        </div>
+
+        <div class="post-cta">
+          <h2>Try Catpix free</h2>
+          <p>Schedule across 13 platforms, use the API, and keep your budget for content instead of per-channel fees.</p>
+          <a href="/">Open Catpix</a>
+        </div>
+      </div>
+    </article>
+
+    <footer class="freesurf-footer">
+      <div class="freesurf-footer-inner">
+        <div class="freesurf-footer-brand">
+          <a href="https://catpix.app" class="freesurf-footer-logo">Catpix</a>
+          <p class="freesurf-footer-tagline">Catpix is a social media scheduler developed by FreeSurf. We create free tools for freelancers, small businesses, and independent workers.</p>
+        </div>
+        <div class="freesurf-footer-links">
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">Resources</span>
+            <a href="/resources/">All resources</a>
+            <a href="/resources/#comparisons">Comparisons</a>
+            <a href="/resources/#platform-schedulers">Platform API &amp; schedulers</a>
+          </div>
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">Newsletter</span>
+            <a href="https://feedfree.tech" target="_blank" rel="noopener">Feedfree Digest</a>
+          </div>
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">FreeSurf tools</span>
+            <a href="https://invoices.freesurf.tools">Invoices</a>
+            <a href="https://links.freesurf.tools">Link-in-bio</a>
+            <a href="https://transcribe.freesurf.tools">Meeting Transcriber</a>
+            <a href="https://calories.freesurf.tools">Calorie Tracker</a>
+          </div>
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">Platform</span>
+            <a href="https://catpix.app">Home</a>
+            <a href="https://github.com/freesurf-ecosystem/catpix">GitHub</a>
+            <a href="https://post.freesurf.tools/llms.txt">API reference</a>
+          </div>
+          <div class="freesurf-footer-col">
+            <span class="freesurf-footer-heading">Legal</span>
+            <a href="https://freesurf.tools/privacy.html">Privacy</a>
+            <a href="https://freesurf.tools/terms.html">Terms</a>
+            <a href="mailto:hello@freesurf.tools">Contact</a>
+          </div>
+        </div>
+      </div>
+      <div class="freesurf-footer-bottom">
+        <span>&copy; <span class="freesurf-footer-year"></span> Catpix by FreeSurf. Built for independent workers.</span>
+      </div>
+    </footer>
+  </div>
+  <script>document.querySelector('.freesurf-footer-year').textContent = new Date().getFullYear();</script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Free Buffer Alternative",
+    "description": "Compare Buffer and Catpix: per-channel pricing, channels, scheduling, API access, analytics, and who each scheduler is best for.",
+    "datePublished": "2026-10-30",
+    "dateModified": "2026-10-30",
+    "author": { "@type": "Organization", "name": "Catpix by FreeSurf" },
+    "publisher": { "@type": "Organization", "name": "Catpix by FreeSurf" },
+    "mainEntityOfPage": "https://catpix.app/comparisons/free-buffer-alternative/"
+  }
+  </script>
+</body>
+</html>
