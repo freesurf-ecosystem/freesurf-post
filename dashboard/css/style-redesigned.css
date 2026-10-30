@@ -270,7 +270,7 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: 6px;
+  padding-left: 8px;
 }
 
 .logo-mark {
@@ -347,7 +347,7 @@ a:hover { text-decoration: underline; }
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
-  padding-left: 6px;
+  padding-left: 10px;
 }
 
 .sidebar-logo:hover { text-decoration: none; }
