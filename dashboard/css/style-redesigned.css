@@ -274,8 +274,8 @@ a:hover { text-decoration: underline; }
 }
 
 .logo-mark {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
   color: var(--text);
 }
