@@ -274,10 +274,15 @@ a:hover { text-decoration: underline; }
 }
 
 .logo-mark {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   color: var(--text);
+}
+
+.freesurf-footer-logo .logo-mark {
+  width: 24px;
+  height: 24px;
 }
 
 .mobile-logo:hover { text-decoration: none; }
@@ -2179,6 +2184,9 @@ a:hover { text-decoration: underline; }
 .freesurf-footer-brand { max-width: 260px; }
 
 .freesurf-footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--brand);
