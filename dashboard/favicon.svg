@@ -4,28 +4,43 @@
       <circle cx="50" cy="50" r="45"/>
     </clipPath>
   </defs>
-  <g clip-path="url(#ball)" fill="none" stroke="#000000" stroke-width="2.2" stroke-linecap="round">
+  <g clip-path="url(#ball)" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round">
     <path d="M 0 18 C 30 8, 70 8, 100 18"/>
+    <path d="M 0 21 C 30 11, 70 11, 100 21"/>
     <path d="M 0 25 C 30 15, 70 15, 100 25"/>
+    <path d="M 0 28 C 30 18, 70 18, 100 28"/>
     <path d="M 0 32 C 30 22, 70 22, 100 32"/>
+    <path d="M 0 35 C 30 25, 70 25, 100 35"/>
     <path d="M 0 39 C 30 29, 70 29, 100 39"/>
+    <path d="M 0 42 C 30 32, 70 32, 100 42"/>
     <path d="M 0 46 C 30 36, 70 36, 100 46"/>
     <path d="M 0 54 C 30 64, 70 64, 100 54"/>
+    <path d="M 0 57 C 30 67, 70 67, 100 57"/>
     <path d="M 0 61 C 30 71, 70 71, 100 61"/>
+    <path d="M 0 64 C 30 74, 70 74, 100 64"/>
     <path d="M 0 68 C 30 78, 70 78, 100 68"/>
+    <path d="M 0 71 C 30 81, 70 81, 100 71"/>
     <path d="M 0 75 C 30 85, 70 85, 100 75"/>
+    <path d="M 0 78 C 30 88, 70 88, 100 78"/>
     <path d="M 0 82 C 30 92, 70 92, 100 82"/>
     <path d="M 18 0 C 8 30, 8 70, 18 100"/>
+    <path d="M 21 0 C 11 30, 11 70, 21 100"/>
     <path d="M 25 0 C 15 30, 15 70, 25 100"/>
+    <path d="M 28 0 C 18 30, 18 70, 28 100"/>
     <path d="M 32 0 C 22 30, 22 70, 32 100"/>
+    <path d="M 35 0 C 25 30, 25 70, 35 100"/>
     <path d="M 39 0 C 29 30, 29 70, 39 100"/>
+    <path d="M 42 0 C 32 30, 32 70, 42 100"/>
     <path d="M 46 0 C 36 30, 36 70, 46 100"/>
     <path d="M 54 0 C 64 30, 64 70, 54 100"/>
+    <path d="M 57 0 C 67 30, 67 70, 57 100"/>
     <path d="M 61 0 C 71 30, 71 70, 61 100"/>
+    <path d="M 64 0 C 74 30, 74 70, 64 100"/>
     <path d="M 68 0 C 78 30, 78 70, 68 100"/>
+    <path d="M 71 0 C 81 30, 81 70, 71 100"/>
     <path d="M 75 0 C 85 30, 85 70, 75 100"/>
+    <path d="M 78 0 C 88 30, 88 70, 78 100"/>
     <path d="M 82 0 C 92 30, 92 70, 82 100"/>
   </g>
-  <circle cx="50" cy="50" r="45" fill="none" stroke="#000000" stroke-width="5"/>
   <path d="M 50 5 C 55 0.5, 63 1, 69 8" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
 </svg>
