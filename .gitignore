@@ -10,6 +10,9 @@ mobile/android/
 # Local X search output
 /out/
 
+# Internal research / competitor analysis (not published)
+docs/
+
 # EAS / store signing credentials (secret - never commit)
 credentials.json
 credentials/

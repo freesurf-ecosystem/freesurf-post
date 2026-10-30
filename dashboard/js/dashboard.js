@@ -2,7 +2,7 @@
 import { getSharedSession, clearSharedSession, getSupabase } from "./freesurf-auth.js";
 import config from "./freesurf.config.js";
 
-const API_BASE = config.URLS.post;
+const API_BASE = location.port === "8080" ? config.URLS.post : "";
 const CHAR_SOFT_LIMIT = 300;
 const CHAR_HARD_LIMIT = 5000;
 const SUPABASE_URL = config.AUTH.SUPABASE_URL;
@@ -555,7 +555,11 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       if (error) throw error;
       await refreshAuth();
     } else {
-      const { data: signUpData, error } = await supabase.auth.signUp({ email, password });
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
       if (error) throw error;
 
       // Terms consent and the marketing opt-ins (FeedFree Digest, FreeSurf
@@ -619,7 +623,7 @@ function renderOnboarding() {
   const termsDone = onboarding.terms;
   const errEl = $("#onboarding-error");
   if (errEl) { errEl.className = "feedback"; errEl.textContent = ""; }
-  $("#onboarding-title").textContent = termsDone ? "Almost there" : "Welcome to Disc";
+  $("#onboarding-title").textContent = termsDone ? "Almost there" : "Welcome to Catpix";
   $("#onboarding-subtitle").textContent = termsDone ? "Step 2 of 2" : "Step 1 of 2";
   $("#onboarding-step-1").classList.toggle("hidden", termsDone);
   $("#onboarding-step-2").classList.toggle("hidden", !termsDone);

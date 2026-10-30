@@ -11,6 +11,11 @@ const config = {
   COOKIE_DOMAIN: `.${ROOT_DOMAIN}`,
   BRAND_NAME: "FreeSurf",
   BRAND_TAGLINE: "Free tools for freelancers & small businesses",
+  APP: {
+    NAME: "Catpix",
+    URL: "https://catpix.app",
+    COOKIE_DOMAIN: ".catpix.app",
+  },
   URLS: {
     home: `https://${ROOT_DOMAIN}`,
     auth: `https://auth.${ROOT_DOMAIN}`,
@@ -40,6 +45,7 @@ const config = {
 };
 
 Object.freeze(config);
+Object.freeze(config.APP);
 Object.freeze(config.URLS);
 Object.freeze(config.AUTH);
 Object.freeze(config.TOOLS);

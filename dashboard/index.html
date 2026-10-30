@@ -3,18 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Disc by FreeSurf — Free social media cross-poster</title>
+  <title>Catpix by FreeSurf — Free social media scheduler</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="description" content="Post to everywhere. From one place. Free social media poster powered by FreeSurf — Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube. Free web &amp; API with mobile app coming soon." />
+  <meta name="description" content="Schedule and cross-post to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube. Free, open source, with an API and Android app." />
+  <link rel="canonical" href="https://catpix.app/" />
+  <meta name="robots" content="index,follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Catpix" />
+  <meta property="og:title" content="Catpix by FreeSurf — Free social media scheduler" />
+  <meta property="og:description" content="Schedule once and publish everywhere. Free, open-source cross-posting to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube." />
+  <meta property="og:url" content="https://catpix.app/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Catpix by FreeSurf — Free social media scheduler" />
+  <meta name="twitter:description" content="Schedule once and publish everywhere. Free, open-source cross-posting to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style-redesigned.css" />
+  <link rel="stylesheet" href="./css/style-redesigned.css?v=20261030" />
 </head>
 <body>
   <div class="app-shell">
     <!-- Mobile Header -->
     <header class="mobile-header">
-      <a href="/" class="mobile-logo"><svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"><circle cx="50" cy="50" r="46.5"/><path d="M 50.00 50.00 C 32.70 63.50 28.50 87.20 50.00 96.50"/><path d="M 50.00 50.00 C 46.90 28.20 28.50 12.80 9.70 26.75"/><path d="M 50.00 50.00 C 70.40 58.25 93.00 50.00 90.30 26.75"/></g></svg>Disc</a>
+      <a href="/" class="mobile-logo"><svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"><circle cx="50" cy="50" r="46.5"/><path d="M 50.00 50.00 C 32.70 63.50 28.50 87.20 50.00 96.50"/><path d="M 50.00 50.00 C 46.90 28.20 28.50 12.80 9.70 26.75"/><path d="M 50.00 50.00 C 70.40 58.25 93.00 50.00 90.30 26.75"/></g></svg>Catpix</a>
       <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
@@ -25,7 +35,7 @@
       <div class="sidebar-header">
         <a href="/" class="sidebar-logo">
           <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"><circle cx="50" cy="50" r="46.5"/><path d="M 50.00 50.00 C 32.70 63.50 28.50 87.20 50.00 96.50"/><path d="M 50.00 50.00 C 46.90 28.20 28.50 12.80 9.70 26.75"/><path d="M 50.00 50.00 C 70.40 58.25 93.00 50.00 90.30 26.75"/></g></svg>
-          <span>Disc</span>
+          <span>Catpix</span>
         </a>
         <button class="sidebar-close" id="sidebar-close" aria-label="Close sidebar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -103,7 +113,7 @@
       <section id="view-welcome" class="view">
         <div class="hero">
           <div class="hero-content">
-            <h1 class="hero-title"><span id="hero-line0" class="hero-brand-name"></span><span class="hero-cursor">|</span><br><br><span id="hero-line1"></span><br><span id="hero-line2"></span></h1>
+            <h1 class="hero-title"><span id="hero-line0" class="hero-brand-name"></span><span class="hero-cursor">|</span><br><span id="hero-line1" class="hero-parent-brand"></span><br><span id="hero-line2"></span></h1>
             <p class="hero-asterisk" id="hero-asterisk"></p>
             <p class="hero-description" id="hero-desc"></p>
             <p class="hero-tagline" id="hero-tagline1"></p>
@@ -236,7 +246,7 @@
           <div class="card auth-card">
             <div class="card-header">
               <div>
-                <h2 class="card-title" id="onboarding-title">Welcome to Disc</h2>
+                <h2 class="card-title" id="onboarding-title">Welcome to Catpix</h2>
                 <p class="card-subtitle" id="onboarding-subtitle">Step 1 of 2</p>
               </div>
             </div>
@@ -902,7 +912,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             <span class="freesurf-footer-heading">Free tools</span>
             <a href="https://invoices.freesurf.tools">Invoices</a>
             <a href="https://links.freesurf.tools">Links</a>
-            <a href="https://post.freesurf.tools">Social Media Poster</a>
+            <a href="https://catpix.app">Social Media Poster</a>
             <a href="https://transcribe.freesurf.tools">Meeting Transcriber</a>
             <a href="https://calories.freesurf.tools">Calorie Tracker</a>
           </div>
@@ -926,7 +936,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
     </footer>
   </div>
 
-  <script type="module" src="./js/dashboard.js?v=20261023k"></script>
+  <script type="module" src="./js/dashboard.js?v=20261030"></script>
   <script>document.querySelector('.freesurf-footer-year').textContent = new Date().getFullYear();</script>
 <script>document.getElementById("btn-theme-toggle").addEventListener("click",()=>{const t=document.documentElement.dataset.theme==="dark"?"":"dark";document.documentElement.dataset.theme=t;localStorage.setItem("freesurf-theme",t)});(function(){const t=localStorage.getItem("freesurf-theme");if(t)document.documentElement.dataset.theme=t})();
 // Typing animation
@@ -934,15 +944,15 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
   const cur = document.querySelector(".hero-cursor");
   const subline = document.getElementById("hero-subline");
   const targets = [
-    [document.getElementById("hero-line0"),    "Disc by FreeSurf"],
-    [document.getElementById("hero-line1"),    "Post everywhere,"],
-    [document.getElementById("hero-line2"),    "from one place"],
+    [document.getElementById("hero-line0"),    "Catpix"],
+    [document.getElementById("hero-line1"),    "A FreeSurf tool"],
+    [document.getElementById("hero-line2"),    "Post everywhere, from one place"],
     [document.getElementById("hero-asterisk"), "Free except for X API fees passed through at cost"],
     [document.getElementById("hero-desc"),     "Open source social media poster"],
     [document.getElementById("hero-tagline1"), "Powered by FreeSurf:"],
     [document.getElementById("hero-tagline2"), "a developing ecosystem of free tools"],
     [document.getElementById("hero-tagline3"), "for contractors, small businesses and everyday people"],
-    [subline, "Web app included (mobile app and API coming soon)"],
+    [subline, "Web app, mobile app (on Google Play, Apple coming soon) and API included"],
   ];
   let seg = 0, idx = 0;
 

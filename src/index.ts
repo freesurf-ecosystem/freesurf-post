@@ -60,6 +60,11 @@ export interface Env {
 }
 
 const ALLOWED_ORIGINS: string[] = [...FREESURF.CORS_ORIGINS.post];
+const LEGACY_REDIRECT_HOSTS = new Set([
+  "post.freesurf.tools",
+  "catpix.freesurf.tools",
+  "www.catpix.app",
+]);
 const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
 
 function isAllowedOrigin(origin: string): boolean {
@@ -278,6 +283,15 @@ export default {
         console.error("[api] unhandled error", url.pathname, e?.stack || e);
         return errorResponse("Internal server error", 500, origin);
       }
+    }
+
+    // --- Canonical UI host: legacy page URLs redirect to Catpix ---
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      LEGACY_REDIRECT_HOSTS.has(url.hostname)
+    ) {
+      const target = new URL(url.pathname + url.search, FREESURF.APP.URL);
+      return new Response(null, { status: 301, headers: { Location: target.toString() } });
     }
 
     // --- Static dashboard (Workers Assets) ---
@@ -908,11 +922,11 @@ async function handleConnect(
   const requestedRedirect = url?.searchParams.get("redirectUrl") || "";
   let redirectUrl: string;
   if (/^freesurf-post:\/\//.test(requestedRedirect)) {
-    redirectUrl = `${FREESURF.URLS.post}/api/connect/callback?to=${encodeURIComponent(requestedRedirect)}`;
+    redirectUrl = `${FREESURF.APP.URL}/api/connect/callback?to=${encodeURIComponent(requestedRedirect)}`;
   } else if (/^https?:\/\//.test(requestedRedirect)) {
     redirectUrl = requestedRedirect;
   } else {
-    redirectUrl = `${FREESURF.URLS.post}/`;
+    redirectUrl = `${FREESURF.APP.URL}/`;
   }
 
   try {
@@ -949,8 +963,8 @@ function handleConnectCallback(url: URL): Response {
   const to = url.searchParams.get("to") || "";
   const allowed =
     /^freesurf-post:\/\/connected/.test(to) ||
-    /^https?:\/\/post\.freesurf\.tools(\/|$)/.test(to);
-  const target = allowed ? to : `${FREESURF.URLS.post}/`;
+    /^https?:\/\/(?:catpix\.app|www\.catpix\.app|post\.freesurf\.tools)(\/|$)/.test(to);
+  const target = allowed ? to : `${FREESURF.APP.URL}/`;
   return new Response(null, { status: 302, headers: { Location: target } });
 }
 
@@ -3261,7 +3275,7 @@ async function handleTopUp(
 
   // Stripe needs absolute return URLs; fall back to the app origin for API-key calls
   // that don't send an Origin header.
-  const appBase = /^https?:\/\//.test(origin) ? origin : "https://post.freesurf.tools";
+  const appBase = /^https?:\/\//.test(origin) ? origin : FREESURF.APP.URL;
 
   try {
     const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {

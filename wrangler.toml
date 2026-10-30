@@ -5,14 +5,19 @@ compatibility_date = "2024-12-01"
 # NOTE: this account is on the Cloudflare Free plan (no [limits] overrides —
 # subrequests stay at the 50 default; the analytics refresh enforces its own budget).
 
-# Routing is via the custom domain post.freesurf.tools (set in the Cloudflare
-# dashboard → Workers → Domains & Routes), so no `routes` block is needed here.
+# Custom domains. post.freesurf.tools keeps serving the API and legacy callbacks;
+# catpix.app is the canonical UI. Both are attached to this Worker.
+routes = [
+  { pattern = "post.freesurf.tools", custom_domain = true },
+  { pattern = "catpix.app", custom_domain = true },
+]
 
 # Static dashboard (landing + compose UI) served from ./dashboard
 [assets]
 directory = "./dashboard"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = true
 
 # KV for rate limiting counters
 [[kv_namespaces]]
@@ -25,6 +30,11 @@ crons = ["*/5 * * * *"]
 
 [vars]
 ENVIRONMENT = "production"
+FACEBOOK_CLIENT_ID = "1013002711832420"
+FACEBOOK_REDIRECT_URI = "https://post.freesurf.tools/api/oauth/meta/callback"
+META_CONFIG_ID = "1471152441532955"
+THREADS_CLIENT_ID = "995653886194880"
+THREADS_REDIRECT_URI = "https://post.freesurf.tools/api/oauth/threads/callback"
 
 # Observability — capture Worker logs (console.*) so proxy errors are visible.
 # Mirrors the Cloudflare dashboard settings so deployments stay consistent.

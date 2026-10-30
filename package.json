@@ -2,7 +2,8 @@
   "name": "freesurf-to-post",
   "version": "0.1.0",
   "private": true,
-  "description": "Cross-posting API — compose once, publish everywhere",
+  "description": "Catpix — free, open-source social media scheduler and cross-posting API",
+  "license": "MIT",
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",

@@ -6,9 +6,20 @@
 import config from "./freesurf.config.js";
 
 const { SUPABASE_URL, SUPABASE_ANON_KEY, COOKIE_NAME, COOKIE_MAX_AGE } = config.AUTH;
-const COOKIE_DOMAIN = config.COOKIE_DOMAIN;
 
 let _supabasePromise = null;
+
+function cookieDomain() {
+  const host = location.hostname;
+  if (host === "catpix.app" || host.endsWith(".catpix.app")) return config.APP.COOKIE_DOMAIN;
+  if (host === config.ROOT_DOMAIN || host.endsWith(`.${config.ROOT_DOMAIN}`)) return config.COOKIE_DOMAIN;
+  return "";
+}
+
+function cookieDomainAttr() {
+  const domain = cookieDomain();
+  return domain ? `;domain=${domain}` : "";
+}
 
 export function getSupabase() {
   if (!_supabasePromise) {
@@ -25,7 +36,7 @@ export function getSupabase() {
 function setCookie(name, value, days) {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};domain=${COOKIE_DOMAIN};path=/;SameSite=Lax`;
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()}${cookieDomainAttr()};path=/;SameSite=Lax`;
 }
 
 function getCookie(name) {
@@ -38,7 +49,7 @@ function getCookie(name) {
 }
 
 function deleteCookie(name) {
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;domain=${COOKIE_DOMAIN};path=/;SameSite=Lax`;
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC${cookieDomainAttr()};path=/;SameSite=Lax`;
 }
 
 export async function getSharedSession() {

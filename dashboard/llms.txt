@@ -1,6 +1,7 @@
 # FreeSurf Post — API Reference
 
 Base URL: https://post.freesurf.tools
+Web app: https://catpix.app
 
 Free, open-source cross-posting API. Publish to X, LinkedIn, Facebook, Instagram,
 Threads, TikTok, YouTube, and Bluesky from your own apps. Posting and analytics

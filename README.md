@@ -1,15 +1,20 @@
-# FreeSurf Post
+# Catpix
 
-**Write once, publish everywhere.** A free cross-posting tool for freelancers and small
-businesses — compose a post once and send it to X, Bluesky, LinkedIn, Facebook, Instagram,
-Threads, TikTok, and YouTube from a single dashboard or API.
+**Schedule once, publish everywhere.** A free, open-source social media scheduler for
+freelancers, creators, and small businesses — compose a post once and send it to X, Bluesky,
+LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube, and more from one dashboard or API.
 
-Built by [FreeSurf](https://freesurf.tools), for people who post the same update to many
-platforms and don't want to pay $6–$99/month for tools like Buffer or Hootsuite.
+Catpix is built by [FreeSurf](https://freesurf.tools) for people who post the same update to
+many platforms and don't want to pay $6–$99/month for tools like Buffer or Hootsuite.
 
-> **Open source — with a note on self-hosting.** FreeSurf Post is open source (GPL-3.0) and
-> the code is public, so you can read it, contribute, or deploy it to your own Cloudflare and
-> Supabase accounts. It isn't yet a turnkey self-hosted package: publishing depends on hosted
+- Web app: [catpix.app](https://catpix.app)
+- API base: [post.freesurf.tools](https://post.freesurf.tools)
+- Android: [Google Play](https://play.google.com/store/apps/details?id=tools.freesurf.post)
+- License: MIT
+
+> **Open source — with a note on self-hosting.** Catpix is MIT-licensed and the code is public,
+> so you can read it, modify it, contribute, or deploy it to your own Cloudflare and Supabase
+> accounts. It isn't yet a turnkey self-hosted package: publishing depends on hosted
 > integrations — [bundle.social](https://bundle.social) holds the platform tokens today, and
 > the platform/API calls are paid services — so a fully independent self-host needs those same
 > accounts and keys. We're open-sourcing the stack first and plan to add self-host packaging as
@@ -17,57 +22,51 @@ platforms and don't want to pay $6–$99/month for tools like Buffer or Hootsuit
 
 ## What it does
 
-- **One dashboard** — compose, add media, pick platforms and teams, and post or schedule.
-- **One API** — `POST /api/post` and `POST /api/schedule` from your own apps with a simple
-  API key.
-- **Multi-team** — keep accounts separate (e.g. personal vs. a client/brand) and always post
-  to the right team.
-- **Scheduling** — pick a time and timezone; posts go out automatically.
+- **Schedule and cross-post** — compose once, choose platforms, then publish now or schedule.
+- **One API** — `POST /api/post` and `POST /api/schedule` from your own apps with a simple API key.
+- **Multi-team** — keep accounts separate (e.g. personal vs. a client/brand) and post to the right team.
+- **Drafts, queues, hashtags, saved replies** — reusable content workflows in the dashboard.
+- **Analytics and replies** — post metrics, per-platform trends, comment import and replies.
 - **X fees** — prepaid credits cover X's per-post API cost ($0.015 plain, $0.20 with a link).
+- **Mobile** — the Android app is live; iOS is in progress.
 
 ## Try it
 
-Visit [post.freesurf.tools](https://post.freesurf.tools), sign in, connect your accounts, and
-start posting. The full API reference lives at
-[post.freesurf.tools/llms.txt](https://post.freesurf.tools/llms.txt).
+Visit [catpix.app](https://catpix.app), sign in, connect your accounts, and start posting.
 
-## Researching X
-
-For topic research there's a small CLI that uses X's recent-search API:
-
-```bash
-npm run x:search -- --query-file path/to/query.txt --max 50
-```
-
-See [docs/X_SEARCH.md](./docs/X_SEARCH.md) for query syntax and output options.
+The API reference lives at [post.freesurf.tools/llms.txt](https://post.freesurf.tools/llms.txt).
+The old `post.freesurf.tools` UI redirects to Catpix; the API stays on that host for existing
+integrations and the mobile app.
 
 ## Supported platforms
 
-X (Twitter), Bluesky, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube — all wired up.
-Reddit, Pinterest, Slack, Discord, and Google Business are connectable but not yet enabled for
-posting.
+Bluesky, X (Twitter), LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube, Reddit,
+Pinterest, Slack, Discord, and Google Business — 13 integrations via Bundle.social, with
+direct platform adapters being built over time. Some platforms require a selected
+page/channel or provider approval before publishing.
 
 ## Project structure
 
 ```
-freesurf-post/
+catpix/
 ├── src/                  # Cloudflare Worker (TypeScript)
 │   ├── index.ts          # Router, auth, posting, scheduling, teams, credits
 │   ├── auth.ts           # Supabase JWT validation
 │   ├── types.ts          # Shared types
 │   └── platforms/        # Direct adapters (used as we move off Bundle)
 ├── dashboard/            # Web UI (landing + app)
+├── mobile/               # React Native / Expo app
 ├── supabase/             # Database schema (setup, api_keys, credits)
-├── docs/                 # Architecture + Bundle dependency notes
+├── docs/                 # Local research / architecture notes (not published)
 └── wrangler.toml         # Cloudflare Worker config
 ```
 
 ## Architecture (short version)
 
-The dashboard is a static site; the Cloudflare Worker is the API. It talks to Supabase for
-storage and to [bundle.social](https://bundle.social) to actually publish to the platforms
-(they hold the platform OAuth tokens today). We're gradually building our own platform
-adapters so we can move off bundle.social over time — see `docs/BUNDLE_DEPENDENCIES.md` for
+The dashboard is a static site served by Cloudflare Workers Assets; the Worker is the API. It
+talks to Supabase for storage and to [bundle.social](https://bundle.social) to publish to the
+platforms (Bundle holds the platform OAuth tokens today). We're gradually building our own
+platform adapters so we can move off Bundle over time — see `docs/BUNDLE_DEPENDENCIES.md` for
 that roadmap.
 
 ## Local development
@@ -80,7 +79,7 @@ npx wrangler deploy     # deploy to Cloudflare
 
 ## License
 
-GNU General Public License v3.0 — see [LICENSE](./LICENSE).
+MIT — see [LICENSE](./LICENSE).
 
 ---
 

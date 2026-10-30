@@ -624,6 +624,15 @@ a:hover { text-decoration: underline; }
   color: var(--text);
 }
 
+.hero-parent-brand {
+  font-size: 0.5em;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
 .hero-title-gradient {
   background: linear-gradient(135deg, var(--brand, #6366f1) 0%, #a855f7 100%);
   -webkit-background-clip: text;
