@@ -3,54 +3,44 @@
     <clipPath id="ball">
       <circle cx="50" cy="50" r="45"/>
     </clipPath>
+    <path id="htop" d="M 0 0 C 30 -8, 70 -8, 100 0" fill="none"/>
+    <path id="hcenter" d="M 0 0 C 30 -3, 70 -3, 100 0" fill="none"/>
+    <path id="hbottom" d="M 0 0 C 30 8, 70 8, 100 0" fill="none"/>
+    <path id="vleft" d="M 0 0 C -8 30, -8 70, 0 100" fill="none"/>
+    <path id="vcenter" d="M 0 0 L 0 100" fill="none"/>
+    <path id="vright" d="M 0 0 C 8 30, 8 70, 0 100" fill="none"/>
+    <g id="h" fill="none" stroke-linecap="round">
+      <use href="#htop" y="11"/><use href="#htop" y="14"/><use href="#htop" y="17"/>
+      <use href="#htop" y="20"/><use href="#htop" y="23"/><use href="#htop" y="26"/>
+      <use href="#htop" y="29"/><use href="#htop" y="32"/><use href="#htop" y="35"/>
+      <use href="#htop" y="38"/><use href="#htop" y="41"/><use href="#htop" y="44"/>
+      <use href="#htop" y="47"/><use href="#hcenter" y="50"/>
+      <use href="#hbottom" y="53"/><use href="#hbottom" y="56"/><use href="#hbottom" y="59"/>
+      <use href="#hbottom" y="62"/><use href="#hbottom" y="65"/><use href="#hbottom" y="68"/>
+      <use href="#hbottom" y="71"/><use href="#hbottom" y="74"/><use href="#hbottom" y="77"/>
+      <use href="#hbottom" y="80"/><use href="#hbottom" y="83"/><use href="#hbottom" y="86"/>
+      <use href="#hbottom" y="89"/>
+    </g>
+    <g id="v" fill="none" stroke-linecap="round">
+      <use href="#vleft" x="11"/><use href="#vleft" x="14"/><use href="#vleft" x="17"/>
+      <use href="#vleft" x="20"/><use href="#vleft" x="23"/><use href="#vleft" x="26"/>
+      <use href="#vleft" x="29"/><use href="#vleft" x="32"/><use href="#vleft" x="35"/>
+      <use href="#vleft" x="38"/><use href="#vleft" x="41"/><use href="#vleft" x="44"/>
+      <use href="#vleft" x="47"/><use href="#vcenter" x="50"/>
+      <use href="#vright" x="53"/><use href="#vright" x="56"/><use href="#vright" x="59"/>
+      <use href="#vright" x="62"/><use href="#vright" x="65"/><use href="#vright" x="68"/>
+      <use href="#vright" x="71"/><use href="#vright" x="74"/><use href="#vright" x="77"/>
+      <use href="#vright" x="80"/><use href="#vright" x="83"/><use href="#vright" x="86"/>
+      <use href="#vright" x="89"/>
+    </g>
     <mask id="under" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
       <rect x="0" y="0" width="100" height="100" fill="#ffffff"/>
-      <use href="#h" stroke="#000000" stroke-width="3.4"/>
+      <use href="#h" stroke="#000000" stroke-width="3.2"/>
     </mask>
-    <g id="h" fill="none" stroke-linecap="round">
-      <path d="M 0 14 C 30 4, 70 4, 100 14"/>
-      <path d="M 0 18 C 30 8, 70 8, 100 18"/>
-      <path d="M 0 22 C 30 12, 70 12, 100 22"/>
-      <path d="M 0 26 C 30 16, 70 16, 100 26"/>
-      <path d="M 0 30 C 30 20, 70 20, 100 30"/>
-      <path d="M 0 34 C 30 24, 70 24, 100 34"/>
-      <path d="M 0 38 C 30 28, 70 28, 100 38"/>
-      <path d="M 0 42 C 30 32, 70 32, 100 42"/>
-      <path d="M 0 46 C 30 36, 70 36, 100 46"/>
-      <path d="M 0 50 C 30 45, 70 45, 100 50"/>
-      <path d="M 0 54 C 30 64, 70 64, 100 54"/>
-      <path d="M 0 58 C 30 68, 70 68, 100 58"/>
-      <path d="M 0 62 C 30 72, 70 72, 100 62"/>
-      <path d="M 0 66 C 30 76, 70 76, 100 66"/>
-      <path d="M 0 70 C 30 80, 70 80, 100 70"/>
-      <path d="M 0 74 C 30 84, 70 84, 100 74"/>
-      <path d="M 0 78 C 30 88, 70 88, 100 78"/>
-      <path d="M 0 82 C 30 92, 70 92, 100 82"/>
-      <path d="M 0 86 C 30 96, 70 96, 100 86"/>
-    </g>
   </defs>
   <g clip-path="url(#ball)">
-    <g fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" mask="url(#under)">
-      <path d="M 14 0 C 4 30, 4 70, 14 100"/>
-      <path d="M 18 0 C 8 30, 8 70, 18 100"/>
-      <path d="M 22 0 C 12 30, 12 70, 22 100"/>
-      <path d="M 26 0 C 16 30, 16 70, 26 100"/>
-      <path d="M 30 0 C 20 30, 20 70, 30 100"/>
-      <path d="M 34 0 C 24 30, 24 70, 34 100"/>
-      <path d="M 38 0 C 28 30, 28 70, 38 100"/>
-      <path d="M 42 0 C 32 30, 32 70, 42 100"/>
-      <path d="M 46 0 C 36 30, 36 70, 46 100"/>
-      <path d="M 50 0 C 50 30, 50 70, 50 100"/>
-      <path d="M 54 0 C 64 30, 64 70, 54 100"/>
-      <path d="M 58 0 C 68 30, 68 70, 58 100"/>
-      <path d="M 62 0 C 72 30, 72 70, 62 100"/>
-      <path d="M 66 0 C 76 30, 76 70, 66 100"/>
-      <path d="M 70 0 C 80 30, 80 70, 70 100"/>
-      <path d="M 74 0 C 84 30, 84 70, 74 100"/>
-      <path d="M 78 0 C 88 30, 88 70, 78 100"/>
-      <path d="M 82 0 C 92 30, 92 70, 82 100"/>
-      <path d="M 86 0 C 96 30, 96 70, 86 100"/>
-    </g>
-    <use href="#h" stroke="#000000" stroke-width="1.8"/>
+    <use href="#v" stroke="#000000" stroke-width="1.5" mask="url(#under)"/>
+    <use href="#h" stroke="#000000" stroke-width="1.5"/>
   </g>
+  <path d="M 92 50 C 98 52, 100 62, 95 74" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round"/>
 </svg>
