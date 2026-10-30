@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catpix Resources — Social media scheduler comparisons and guides</title>
+  <meta name="description" content="Comparisons, platform scheduling guides, and API explainers for social media schedulers. Free resources from Catpix by FreeSurf." />
+  <link rel="canonical" href="https://catpix.app/resources/" />
+  <meta name="robots" content="index,follow" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --brand: #6366f1;
+      --text: #1a1d23;
+      --text-secondary: #5f6b7a;
+      --text-muted: #8f99a8;
+      --border: #e2e6ed;
+      --surface: #ffffff;
+      --bg: #f7f8fb;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+    a { color: var(--brand); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 0;
+      flex-wrap: wrap;
+    }
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .logo span { color: var(--text-muted); font-size: 0.8rem; font-weight: 500; }
+    .nav { display: flex; gap: 18px; align-items: center; font-size: 0.9rem; flex-wrap: wrap; }
+    .nav a { color: var(--text-secondary); text-decoration: none; }
+    .nav a:hover { color: var(--brand); }
+    .btn {
+      display: inline-block;
+      background: var(--brand);
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 9px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    main { padding: 56px 0 72px; }
+    h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.1; margin: 0 0 16px; letter-spacing: -0.03em; }
+    .lede { font-size: 1.15rem; color: var(--text-secondary); max-width: 720px; margin: 0 0 40px; }
+    .section { margin-top: 48px; }
+    .section h2 { font-size: 1.5rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+    .section-intro { color: var(--text-secondary); max-width: 760px; margin: 0 0 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+    }
+    .card h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    .card p { margin: 0 0 14px; color: var(--text-secondary); font-size: 0.92rem; }
+    .card ul { margin: 0; padding-left: 18px; color: var(--text-secondary); font-size: 0.92rem; }
+    .card li { margin: 5px 0; }
+    .pill { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brand); background: #eef0ff; padding: 4px 8px; border-radius: 999px; margin-bottom: 10px; }
+    .note { border-left: 3px solid var(--brand); padding: 4px 0 4px 16px; color: var(--text-secondary); font-size: 0.92rem; margin-top: 28px; }
+    footer { border-top: 1px solid var(--border); background: var(--surface); padding: 36px 0 28px; margin-top: 64px; }
+    .foot { display: flex; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+    .foot h4 { margin: 0 0 10px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .foot a { display: block; color: var(--text-secondary); text-decoration: none; font-size: 0.88rem; margin: 5px 0; }
+    .foot a:hover { color: var(--brand); }
+    .foot-brand { max-width: 300px; }
+    .foot-brand p { color: var(--text-muted); font-size: 0.84rem; margin: 8px 0 0; }
+    .foot-bottom { border-top: 1px solid var(--border); margin-top: 26px; padding-top: 16px; color: var(--text-muted); font-size: 0.78rem; }
+    @media (max-width: 640px) { main { padding: 36px 0 56px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <a href="/" class="logo">Catpix <span>by FreeSurf</span></a>
+      <nav class="nav">
+        <a href="/resources/#comparisons">Comparisons</a>
+        <a href="/resources/#platform-schedulers">Platform schedulers</a>
+        <a href="/resources/#api">API guides</a>
+        <a href="https://post.freesurf.tools/llms.txt">API reference</a>
+        <a class="btn" href="/">Open Catpix</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <h1>Resources</h1>
+    <p class="lede">Comparisons, platform guides, and API explainers for people choosing a social media scheduler. We publish when a page adds something useful — not to hit a content quota.</p>
+
+    <section class="section" id="comparisons">
+      <span class="pill">Comparisons</span>
+      <h2>Free alternatives and honest head-to-heads</h2>
+      <p class="section-intro">Pricing, platform coverage, API access, and the cases where the other tool is still the better choice. Each page compares Catpix against a specific scheduler, not a generic “best tools” list.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Free Buffer alternative</h3>
+          <p>Per-channel pricing vs free, 3-channel free cap, and when Buffer’s simplicity still wins.</p>
+        </div>
+        <div class="card">
+          <h3>Free Hootsuite alternative</h3>
+          <p>The $99/user floor, account caps, enterprise features, and API access.</p>
+        </div>
+        <div class="card">
+          <h3>Free Later alternative</h3>
+          <p>No free tier, post caps, visual planning, and creator workflows.</p>
+        </div>
+        <div class="card">
+          <h3>Free Sprout Social alternative</h3>
+          <p>Per-seat pricing, reporting depth, and why solo users may not need it.</p>
+        </div>
+        <div class="card">
+          <h3>Open-source schedulers</h3>
+          <p>Catpix vs Postiz, Mixpost, and TryPost — hosted vs self-hosted trade-offs.</p>
+        </div>
+      </div>
+      <p class="note">Full comparison pages are publishing first. Until then, the competitor audit and pricing notes live in the project docs.</p>
+    </section>
+
+    <section class="section" id="platform-schedulers">
+      <span class="pill">Platform schedulers</span>
+      <h2>Free scheduling for each network</h2>
+      <p class="section-intro">Platform-specific guides for the networks Catpix supports: native limits, media specs, API requirements, and how to schedule without switching apps.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>TikTok, Instagram, YouTube</h3>
+          <ul>
+            <li>Video specs and posting limits</li>
+            <li>Reels, Stories, Shorts, and carousels</li>
+            <li>Business Suite vs third-party schedulers</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>LinkedIn, Facebook, Threads</h3>
+          <ul>
+            <li>Profiles vs pages</li>
+            <li>Document and carousel posts</li>
+            <li>Meta Business Suite boundaries</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>X, Bluesky, Pinterest</h3>
+          <ul>
+            <li>Character limits and link treatment</li>
+            <li>X API costs passed through at cost</li>
+            <li>Pins, boards, and visual specs</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="api">
+      <span class="pill">API guides</span>
+      <h2>Posting APIs and business suites</h2>
+      <p class="section-intro">What each platform’s API actually allows, who needs approval, and when a unified API is cheaper than maintaining 10 integrations.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Platform APIs</h3>
+          <ul>
+            <li>TikTok Content Posting API</li>
+            <li>Meta Graph API</li>
+            <li>X API pricing and limits</li>
+            <li>LinkedIn, YouTube, Pinterest, Reddit, Bluesky</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Unified APIs</h3>
+          <ul>
+            <li>Ayrshare, Zernio, Upload-Post</li>
+            <li>Postiz and TryPost</li>
+            <li>Catpix’s free API</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Business suites</h3>
+          <ul>
+            <li>Meta Business Suite</li>
+            <li>TikTok Business Suite</li>
+            <li>YouTube Studio</li>
+            <li>LinkedIn Pages</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="blog">
+      <span class="pill">Blog</span>
+      <h2>Experiments and case studies</h2>
+      <p class="section-intro">We’re holding general social media blogging until there are real Catpix users and data to share. When that changes, this is where experiments, migration stories, and posting data will live.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot">
+        <div class="foot-brand">
+          <a href="https://catpix.app" class="logo">Catpix <span>by FreeSurf</span></a>
+          <p>FreeSurf is a suite of free tools for freelancers & small businesses. No commissions, no lock-in, open source.</p>
+        </div>
+        <div>
+          <h4>Resources</h4>
+          <a href="/resources/">All resources</a>
+          <a href="/resources/#comparisons">Comparisons</a>
+          <a href="/resources/#platform-schedulers">Platform schedulers</a>
+          <a href="/resources/#api">API & business suites</a>
+        </div>
+        <div>
+          <h4>Other free tools</h4>
+          <a href="https://invoices.freesurf.tools">Invoices</a>
+          <a href="https://links.freesurf.tools">Links</a>
+          <a href="https://transcribe.freesurf.tools">Meeting Transcriber</a>
+          <a href="https://calories.freesurf.tools">Calorie Tracker</a>
+        </div>
+        <div>
+          <h4>Platform</h4>
+          <a href="https://catpix.app">Home</a>
+          <a href="https://github.com/freesurf-ecosystem/catpix">GitHub</a>
+          <a href="https://post.freesurf.tools/llms.txt">API reference</a>
+        </div>
+        <div>
+          <h4>Legal</h4>
+          <a href="https://freesurf.tools/privacy.html">Privacy</a>
+          <a href="https://freesurf.tools/terms.html">Terms</a>
+          <a href="mailto:hello@freesurf.tools">Contact</a>
+        </div>
+      </div>
+      <div class="foot-bottom">&copy; Catpix by FreeSurf. Built for independent workers.</div>
+    </div>
+  </footer>
+</body>
+</html>
