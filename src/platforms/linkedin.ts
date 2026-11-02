@@ -9,9 +9,67 @@ const API_BASE = "https://api.linkedin.com/rest";
 export async function postToLinkedIn(
   text: string,
   accessToken: string,
-  author: string
+  author: string,
+  mediaUrl?: string
 ): Promise<PlatformPostResult> {
   try {
+    let mediaUrn = "";
+    if (mediaUrl) {
+      if (/\.(mp4|mov|m4v)(\?|#|$)/i.test(mediaUrl)) {
+        return {
+          platform: "linkedin",
+          success: false,
+          error: "LinkedIn direct media currently supports images only.",
+        };
+      }
+
+      const initRes = await fetch(`${API_BASE}/images?action=initializeUpload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Linkedin-Version": "202607",
+          "X-Restli-Protocol-Version": "2.0.0",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
+      });
+      const init = (await initRes.json()) as {
+        value?: { uploadUrl?: string; image?: string };
+        message?: string;
+      };
+      if (!initRes.ok || !init.value?.uploadUrl || !init.value?.image) {
+        return {
+          platform: "linkedin",
+          success: false,
+          error: `LinkedIn image init failed ${initRes.status}: ${JSON.stringify(init)}`,
+        };
+      }
+
+      const mediaRes = await fetch(mediaUrl);
+      if (!mediaRes.ok) {
+        return {
+          platform: "linkedin",
+          success: false,
+          error: `LinkedIn media fetch failed (${mediaRes.status}).`,
+        };
+      }
+      const putRes = await fetch(init.value.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": mediaRes.headers.get("content-type") || "image/jpeg",
+        },
+        body: await mediaRes.arrayBuffer(),
+      });
+      if (!putRes.ok) {
+        return {
+          platform: "linkedin",
+          success: false,
+          error: `LinkedIn image upload failed (${putRes.status}).`,
+        };
+      }
+      mediaUrn = init.value.image;
+    }
+
     const body: Record<string, unknown> = {
       author,
       commentary: text,
@@ -24,6 +82,7 @@ export async function postToLinkedIn(
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     };
+    if (mediaUrn) body.content = { media: { id: mediaUrn } };
 
     const res = await fetch(`${API_BASE}/posts`, {
       method: "POST",
@@ -36,7 +95,7 @@ export async function postToLinkedIn(
       body: JSON.stringify(body),
     });
 
-    const data = (await res.json()) as { id?: string; message?: string };
+    const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
 
     if (!res.ok) {
       return {
@@ -46,15 +105,14 @@ export async function postToLinkedIn(
       };
     }
 
-    // LinkedIn returns a URN like "urn:li:share:123456"
-    const postId = data.id ?? "";
-    const numericId = postId.split(":").pop() ?? postId;
+    // /rest/posts returns the URN in the x-restli-id header, not the body.
+    const urn = res.headers.get("x-restli-id") || data.id || "";
 
     return {
       platform: "linkedin",
       success: true,
-      postId: numericId,
-      postUrl: `https://www.linkedin.com/feed/update/${postId}`,
+      postId: urn,
+      postUrl: urn ? `https://www.linkedin.com/feed/update/${urn}/` : undefined,
     };
   } catch (e) {
     return {

@@ -24,7 +24,7 @@
 
 **Goal:** Users connect their social accounts through the shared cnxt auth system.
 
-- [ ] Centralized login via shared Supabase auth (auth.cnxt.to)
+- [ ] Centralized login via shared Supabase auth (auth.freesurf.tools)
 - [ ] OAuth flow per platform surfaced through the API
 - [ ] Token refresh handling (Meta tokens expire every 60 days, etc.)
 - [ ] Platform connection status in user profile

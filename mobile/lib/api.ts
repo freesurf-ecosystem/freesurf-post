@@ -33,6 +33,8 @@ export async function api(path: string, opts: RequestInit = {}): Promise<any> {
   return data;
 }
 
+export const getReviewerStatus = () => api("/api/reviewer").then((d) => Boolean(d?.reviewer));
+
 export const listTeams = () => api("/api/teams").then((d) => (d?.teams || []) as Team[]);
 export const createTeam = (label: string) => api("/api/teams", { method: "POST", body: JSON.stringify({ label }) });
 export const activateTeam = (id: string) => api(`/api/teams/${id}/activate`, { method: "POST" });

@@ -12,9 +12,9 @@ const config = {
   BRAND_NAME: "FreeSurf",
   BRAND_TAGLINE: "Free tools for freelancers & small businesses",
   APP: {
-    NAME: "Catpix",
-    URL: "https://catpix.app",
-    COOKIE_DOMAIN: ".catpix.app",
+    NAME: "CatVideo",
+    URL: "https://catvideo.app",
+    COOKIE_DOMAIN: ".catvideo.app",
   },
   URLS: {
     home: `https://${ROOT_DOMAIN}`,

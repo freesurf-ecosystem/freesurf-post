@@ -1,13 +1,19 @@
 import { validateSupabaseJWT } from "./auth";
-import type { PostRequest, PostResponse, PlatformPostResult, Platform, MediaRef } from "./types";
+import type { PostRequest, PostResponse, PlatformPostResult, Platform, PlatformMetrics, MediaRef } from "./types";
 import { postToBluesky, getBlueskyMetrics } from "./platforms/bluesky";
 import { postToLinkedIn, getLinkedInMetrics } from "./platforms/linkedin";
+import { buildAuthorizeUrl, completeLinkedInOAuth, LINKEDIN_MEMBER_SCOPE } from "./platforms/linkedin-oauth";
 import { postToFacebook, getFacebookMetrics } from "./platforms/facebook";
 import { postToInstagram, getInstagramMetrics } from "./platforms/instagram";
 import { postToTikTok, getTikTokMetrics } from "./platforms/tiktok";
 import { postToX, deleteFromX, getXMetrics, fetchXMetrics } from "./platforms/x";
 import { postToThreads, getThreadsMetrics } from "./platforms/threads";
+import { postToPinterest } from "./platforms/pinterest";
+import { postToYouTube } from "./platforms/youtube";
 import { fetchUserTokens, findToken, listConnectedProfiles, type PlatformToken } from "./tokens";
+import { validateMediaFile, storeMedia, getMedia, deleteMedia, mediaResponse } from "./media/pipeline";
+import { startStandardOAuth, completeStandardOAuth, type StandardProvider } from "./oauth/standard";
+import { startXAuth, completeXAuth } from "./oauth/x";
 import { encryptAccountRow } from "./crypto";
 import { FREESURF } from "./freesurf.config";
 
@@ -30,6 +36,25 @@ export interface Env {
   // Environment name
   ENVIRONMENT?: string;
 
+  // Reviewer/demo allowlist (comma-separated). Emails and/or Supabase user IDs.
+  REVIEWER_EMAILS?: string;
+  REVIEWER_USER_IDS?: string;
+  /** Platforms allowed to use the reviewer-only direct OAuth flow on web. */
+  DIRECT_CONNECT_PLATFORMS?: string;
+  /** Per-user daily post cap (default 300). */
+  POST_DAILY_PER_USER?: string;
+  /** Per-connected-account monthly post cap (default 500). */
+  POST_MONTHLY_PER_ACCOUNT?: string;
+  /** Per-user monthly post cap (default 500). */
+  POST_MONTHLY_PER_USER?: string;
+  /** Org-wide monthly post cap; keep below the Bundle plan allowance. */
+  POST_MONTHLY_GLOBAL?: string;
+
+  // Direct media (reviewer/sandbox scaffold; disabled by default)
+  MEDIA_DIRECT_ENABLED?: string;
+  MEDIA_PUBLIC_BASE?: string;
+  MEDIA_BUCKET?: R2Bucket;
+
   // OAuth client credentials
   BLUESKY_CLIENT_ID?: string;  BLUESKY_CLIENT_SECRET?: string;
   BLUESKY_REDIRECT_URI?: string;
@@ -43,6 +68,10 @@ export interface Env {
   THREADS_REDIRECT_URI?: string;
   TIKTOK_CLIENT_ID?: string;  TIKTOK_CLIENT_SECRET?: string;
   TIKTOK_REDIRECT_URI?: string;
+  PINTEREST_CLIENT_ID?: string; PINTEREST_CLIENT_SECRET?: string;
+  PINTEREST_REDIRECT_URI?: string;
+  YOUTUBE_CLIENT_ID?: string; YOUTUBE_CLIENT_SECRET?: string;
+  YOUTUBE_REDIRECT_URI?: string;
 
   // Fallback env vars (used when SUPABASE_SECRET_KEY is not set — single-user mode)
   BLUESKY_HANDLE?: string;  BLUESKY_PASSWORD?: string;
@@ -62,8 +91,7 @@ export interface Env {
 const ALLOWED_ORIGINS: string[] = [...FREESURF.CORS_ORIGINS.post];
 const LEGACY_REDIRECT_HOSTS = new Set([
   "post.freesurf.tools",
-  "catpix.freesurf.tools",
-  "www.catpix.app",
+  "www.catvideo.app",
 ]);
 const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
 
@@ -98,6 +126,60 @@ function json(data: unknown, status = 200, extraHeaders: Record<string, string> 
 
 function errorResponse(message: string, status: number, origin: string) {
   return json({ error: message }, status, corsHeaders(origin));
+}
+
+function postingLimits(env: Env) {
+  return {
+    perMinutePerUser: 30,
+    perDayPerUser: Math.max(1, Number(env.POST_DAILY_PER_USER || 300) || 300),
+    perMonthPerUser: Math.max(1, Number(env.POST_MONTHLY_PER_USER || 500) || 500),
+    perMonthPerAccount: Math.max(1, Number(env.POST_MONTHLY_PER_ACCOUNT || 500) || 500),
+    perMonthPerPlatformPerUser: 300,
+    perMonthOrg: Math.max(1, Number(env.POST_MONTHLY_GLOBAL || 9000) || 9000),
+  };
+}
+
+function resetAtFor(window: "minute" | "day" | "month"): string {
+  const now = new Date();
+  if (window === "minute") {
+    now.setUTCSeconds(0, 0);
+    now.setUTCMinutes(now.getUTCMinutes() + 1);
+  } else if (window === "day") {
+    now.setUTCHours(24, 0, 0, 0);
+  } else {
+    now.setUTCDate(1);
+    now.setUTCHours(0, 0, 0, 0);
+    now.setUTCMonth(now.getUTCMonth() + 1);
+  }
+  return now.toISOString();
+}
+
+function rateLimitResponse(
+  message: string,
+  details: {
+    kind: string;
+    scope: string;
+    value: number;
+    window: "minute" | "day" | "month";
+    platform?: string;
+  },
+  origin: string
+): Response {
+  const resetAt = resetAtFor(details.window);
+  const retryAfter = Math.max(
+    1,
+    Math.ceil((new Date(resetAt).getTime() - Date.now()) / 1000)
+  );
+  return json(
+    {
+      error: message,
+      code: "rate_limit_exceeded",
+      limit: { ...details, resetAt },
+      docs: `${FREESURF.APP.URL}/llms.txt#rate-limits`,
+    },
+    429,
+    { ...corsHeaders(origin), "Retry-After": String(retryAfter) }
+  );
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -217,7 +299,10 @@ function validateMediaForPlatform(platform: Platform, media: MediaRef[]): string
  * Authenticate a request as either a JWT (dashboard) or an API key (fsp_...).
  * Returns { sub } or null.
  */
-async function authenticateRequest(request: Request, env: Env): Promise<{ sub: string } | null> {
+async function authenticateRequest(
+  request: Request,
+  env: Env
+): Promise<{ sub: string; email: string } | null> {
   const authHeader = request.headers.get("Authorization") || "";
   const apiKeyHeader = request.headers.get("FSP-API-KEY") || "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
@@ -251,12 +336,46 @@ async function authenticateRequest(request: Request, env: Env): Promise<{ sub: s
         body: JSON.stringify({ last_used_at: new Date().toISOString() }),
       });
     } catch { /* best-effort */ }
-    return { sub: key.user_id };
+    return { sub: key.user_id, email: "" };
   }
 
   // JWT path (dashboard)
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, authHeader);
-  return user ? { sub: user.sub } : null;
+  return user ? { sub: user.sub, email: user.email } : null;
+}
+
+/**
+ * Reviewer/demo allowlist. Kept server-side so demo-only routes can require a
+ * real signed-in reviewer account rather than trusting a client flag.
+ *
+ * Prefer REVIEWER_USER_IDS (Supabase user IDs) in production: they are
+ * unguessable and do not depend on email confirmation being enabled.
+ */
+function isReviewerUser(user: { sub: string; email?: string }, env: Env): boolean {
+  const ids = commaSeparated(env.REVIEWER_USER_IDS);
+  if (user.sub && ids.includes(user.sub.toLowerCase())) return true;
+  const emails = commaSeparated(env.REVIEWER_EMAILS || "reviewer@freesurf.tools");
+  return Boolean(user.email && emails.includes(user.email.trim().toLowerCase()));
+}
+
+function commaSeparated(value: string | undefined): string[] {
+  return (value || "")
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function directConnectEnabled(platform: string, env: Env): boolean {
+  return commaSeparated(env.DIRECT_CONNECT_PLATFORMS).includes(platform.toLowerCase());
+}
+
+function linkedInDirectConfig(env: Env) {
+  return {
+    clientId: env.LINKEDIN_CLIENT_ID || "",
+    clientSecret: env.LINKEDIN_CLIENT_SECRET || "",
+    redirectUri: env.LINKEDIN_REDIRECT_URI || `${FREESURF.APP.URL}/api/oauth/linkedin/callback`,
+    scope: LINKEDIN_MEMBER_SCOPE,
+  };
 }
 
 export default {
@@ -285,7 +404,7 @@ export default {
       }
     }
 
-    // --- Canonical UI host: legacy page URLs redirect to Catpix ---
+    // --- Canonical UI host: legacy page URLs redirect to CatVideo ---
     if (
       (request.method === "GET" || request.method === "HEAD") &&
       LEGACY_REDIRECT_HOSTS.has(url.hostname)
@@ -299,7 +418,7 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    return new Response("FreeSurf Post — API", {
+    return new Response("CatVideo — API", {
       status: 200,
       headers: { "Content-Type": "text/plain" },
     });
@@ -317,6 +436,46 @@ async function handleApi(
   origin: string
 ): Promise<Response> {
   const h = corsHeaders(origin);
+
+  if (url.pathname === "/api/oauth/x/callback" && request.method === "GET") {
+    return handleXCallback(env, url);
+  }
+
+  const standardOAuthCallback = url.pathname.match(
+    /^\/api\/oauth\/(meta|threads|tiktok|pinterest|youtube)\/callback$/
+  );
+  if (standardOAuthCallback && request.method === "GET") {
+    return handleStandardOAuthCallback(
+      env,
+      standardOAuthCallback[1] as StandardProvider,
+      url
+    );
+  }
+
+  // --- GET /api/limits — public posting limits ---
+  if (url.pathname === "/api/limits" && request.method === "GET") {
+    return json(
+      {
+        posting: postingLimits(env),
+        note: "Provider-side per-account daily caps and the Bundle monthly allowance also apply.",
+        docs: `${FREESURF.APP.URL}/llms.txt#rate-limits`,
+      },
+      200,
+      h
+    );
+  }
+
+  // --- GET /api/oauth/linkedin/callback — reviewer-only direct OAuth ---
+  if (url.pathname === "/api/oauth/linkedin/callback" && request.method === "GET") {
+    return handleLinkedInCallback(env, url);
+  }
+
+  // --- GET /api/reviewer — reviewer/demo allowlist status ---
+  if (url.pathname === "/api/reviewer" && request.method === "GET") {
+    const user = await authenticateRequest(request, env);
+    if (!user) return errorResponse("Unauthorized", 401, origin);
+    return json({ reviewer: isReviewerUser(user, env) }, 200, h);
+  }
 
   // --- GET /api/profiles — list connected platform profiles ---
   if (url.pathname === "/api/profiles" && request.method === "GET") {
@@ -431,6 +590,54 @@ async function handleApi(
   }
 
   // --- POST /api/media — proxy Bundle media upload ---
+  // --- Direct media (reviewer/sandbox scaffold; disabled by default) ---
+  const directMediaFile = url.pathname.match(
+    /^\/api\/media\/direct\/file\/([a-f0-9]{32}\.[a-z0-9]+)$/
+  );
+  if (directMediaFile && request.method === "GET") {
+    const object = await getMedia(env, directMediaFile[1]);
+    if (!object) return new Response("Not found", { status: 404 });
+    return mediaResponse(object);
+  }
+  if (directMediaFile && request.method === "DELETE") {
+    const user = await authenticateRequest(request, env);
+    if (!user) return errorResponse("Unauthorized", 401, origin);
+    if (!isReviewerUser(user, env)) {
+      return errorResponse("Direct media is not enabled for this account", 403, origin);
+    }
+    await deleteMedia(env, directMediaFile[1]);
+    return json({ deleted: true }, 200, h);
+  }
+  if (url.pathname === "/api/media/direct/upload" && request.method === "POST") {
+    const user = await authenticateRequest(request, env);
+    if (!user) return errorResponse("Unauthorized", 401, origin);
+    if (!isReviewerUser(user, env)) {
+      return errorResponse("Direct media is not enabled for this account", 403, origin);
+    }
+    if (env.MEDIA_DIRECT_ENABLED !== "1") {
+      return errorResponse("Direct media upload is not enabled", 501, origin);
+    }
+    if (!env.MEDIA_BUCKET) {
+      return errorResponse("Media storage is not configured", 501, origin);
+    }
+    try {
+      const form = await request.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) {
+        return errorResponse("file field is required", 400, origin);
+      }
+      const validation = await validateMediaFile(file);
+      if (!validation.ok) {
+        return errorResponse(validation.error, 400, origin);
+      }
+      const media = await storeMedia(env, file, validation);
+      return json(media, 201, h);
+    } catch (e) {
+      console.error("[direct-media] upload failed", e instanceof Error ? e.message : String(e));
+      return errorResponse("Upload failed", 500, origin);
+    }
+  }
+
   if (url.pathname === "/api/media" && request.method === "POST") {
     return handleMediaUpload(request, env, origin, h);
   }
@@ -905,6 +1112,53 @@ async function handleConnect(
   const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
   if (!user) return errorResponse("Unauthorized", 401, origin);
 
+  // Reviewer-only direct OAuth path for the web app. This is intentionally
+  // allowlisted and disabled for mobile (which never sends direct=1), so the
+  // public Bundle flow stays the default for everyone else.
+  const wantsDirect = url?.searchParams.get("direct") === "1";
+  if (wantsDirect) {
+    if (!isReviewerUser(user, env) || !directConnectEnabled(platform, env)) {
+      return errorResponse("Direct connect is not enabled for this account", 403, origin);
+    }
+    if (platform === "linkedin") {
+      const config = linkedInDirectConfig(env);
+      if (!config.clientId || !config.clientSecret) {
+        return errorResponse("LinkedIn direct OAuth is not configured", 501, origin);
+      }
+      if (!env.RATE_LIMITS) return errorResponse("OAuth state store is not configured", 501, origin);
+      const state = crypto.randomUUID().replace(/-/g, "");
+      await env.RATE_LIMITS.put(
+        `oauth:linkedin:${state}`,
+        JSON.stringify({ userId: user.sub, mode: "member", createdAt: Date.now() }),
+        { expirationTtl: 600 }
+      );
+      return json({ url: buildAuthorizeUrl(config, state, config.scope) }, 200, headers);
+    }
+    if (platform === "x") {
+      try {
+        const url = await startXAuth(user.sub, env);
+        if (!url) return errorResponse("X direct OAuth is not configured", 501, origin);
+        return json({ url }, 200, headers);
+      } catch (e) {
+        console.error("[direct-connect:x] start failed", e instanceof Error ? e.message : String(e));
+        return errorResponse("Could not start X OAuth", 500, origin);
+      }
+    }
+    try {
+      const standardUrl = await startStandardOAuth(platform, user.sub, env);
+      if (!standardUrl) {
+        return errorResponse(`Direct connect not implemented for ${platform}`, 501, origin);
+      }
+      return json({ url: standardUrl }, 200, headers);
+    } catch (e) {
+      console.error(
+        `[direct-connect:${platform}] start failed`,
+        e instanceof Error ? e.message : String(e)
+      );
+      return errorResponse("Could not start direct connect", 500, origin);
+    }
+  }
+
   if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
     return errorResponse("Not configured", 501, origin);
   }
@@ -954,6 +1208,154 @@ async function handleConnect(
 }
 
 /**
+ * GET /api/oauth/linkedin/callback — reviewer-only direct LinkedIn OAuth.
+ * State is stored in KV because this is a top-level browser redirect and has
+ * no Authorization header of its own.
+ */
+async function handleLinkedInCallback(env: Env, url: URL): Promise<Response> {
+  const redirectBase = `${FREESURF.APP.URL}/?connected=linkedin`;
+  const fail = (reason: string) =>
+    Response.redirect(`${redirectBase}&error=${encodeURIComponent(reason)}`, 302);
+
+  try {
+    const error = url.searchParams.get("error");
+    if (error) return fail(error);
+
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    if (!code || !state) return fail("missing_code");
+    if (!env.RATE_LIMITS) return fail("state_store_unavailable");
+
+    const stateKey = `oauth:linkedin:${state}`;
+    const rawState = await env.RATE_LIMITS.get(stateKey);
+    await env.RATE_LIMITS.delete(stateKey);
+    if (!rawState) return fail("state_expired");
+
+    const pending = JSON.parse(rawState) as { userId?: string };
+    if (!pending.userId) return fail("state_invalid");
+
+    const config = linkedInDirectConfig(env);
+    if (!config.clientId || !config.clientSecret) return fail("not_configured");
+
+    const session = await completeLinkedInOAuth(config, code);
+    if (!env.SUPABASE_SECRET_KEY) return fail("storage_not_configured");
+
+    // Replace the reviewer's existing direct LinkedIn connection.
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/post_accounts?user_id=eq.${encodeURIComponent(pending.userId)}&platform=eq.linkedin`,
+      {
+        method: "DELETE",
+        headers: {
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const record = await encryptAccountRow(
+      {
+        user_id: pending.userId,
+        platform: "linkedin",
+        profile_label: "Default",
+        platform_handle: session.name || session.email || "LinkedIn",
+        platform_user_id: session.personUrn,
+        access_token: session.accessToken,
+        ...(session.refreshToken ? { refresh_token: session.refreshToken } : {}),
+        metadata: {
+          expires_at: session.expiresAt,
+          scope: session.scope,
+          mode: "member",
+          connection: "direct",
+        },
+      },
+      env.TOKEN_ENCRYPTION_KEY
+    );
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/post_accounts`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(record),
+    });
+    if (!res.ok) {
+      console.error("[linkedin-direct] save failed", res.status, await res.text());
+      return fail("save_failed");
+    }
+
+    return Response.redirect(`${redirectBase}&via=direct`, 302);
+  } catch (e) {
+    console.error("[linkedin-direct] callback failed", e instanceof Error ? e.message : String(e));
+    return fail("callback_failed");
+  }
+}
+
+async function handleXCallback(env: Env, url: URL): Promise<Response> {
+  const base = `${FREESURF.APP.URL}/?connected=x`;
+  try {
+    if (url.searchParams.get("denied")) {
+      return Response.redirect(`${base}&error=denied`, 302);
+    }
+    const token = url.searchParams.get("oauth_token");
+    const verifier = url.searchParams.get("oauth_verifier");
+    if (!token || !verifier) {
+      return Response.redirect(`${base}&error=missing_code`, 302);
+    }
+    await completeXAuth(env, token, verifier);
+    return Response.redirect(`${base}&via=direct`, 302);
+  } catch (e) {
+    console.error("[oauth:x] callback failed", e instanceof Error ? e.message : String(e));
+    return Response.redirect(
+      `${base}&error=${encodeURIComponent(e instanceof Error ? e.message : "callback_failed")}`,
+      302
+    );
+  }
+}
+
+/**
+ * GET /api/oauth/:provider/callback — reviewer-only standard OAuth providers.
+ * Like the LinkedIn callback, this is a top-level browser redirect, so the
+ * pending user/platform is carried in KV keyed by `state`.
+ */
+async function handleStandardOAuthCallback(
+  env: Env,
+  provider: StandardProvider,
+  url: URL
+): Promise<Response> {
+  const base = `${FREESURF.APP.URL}/?connected=`;
+  try {
+    const error =
+      url.searchParams.get("error") || url.searchParams.get("error_description");
+    if (error) {
+      return Response.redirect(`${base}${provider}&error=${encodeURIComponent(error)}`, 302);
+    }
+
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    if (!code || !state) {
+      return Response.redirect(`${base}${provider}&error=missing_code`, 302);
+    }
+
+    const result = await completeStandardOAuth(provider, env, code, state);
+    return Response.redirect(`${base}${result.platform}&via=direct`, 302);
+  } catch (e) {
+    console.error(
+      `[oauth:${provider}] callback failed`,
+      e instanceof Error ? e.message : String(e)
+    );
+    return Response.redirect(
+      `${base}${provider}&error=${encodeURIComponent(
+        e instanceof Error ? e.message : "callback_failed"
+      )}`,
+      302
+    );
+  }
+}
+
+/**
  * GET /api/connect/callback — bounce the OAuth browser back into the mobile
  * app's deep link. Stateless: the app's target rides in `to`. Restricted to the
  * app scheme (freesurf-post://connected) or our own web origin, so this can't
@@ -963,7 +1365,7 @@ function handleConnectCallback(url: URL): Response {
   const to = url.searchParams.get("to") || "";
   const allowed =
     /^freesurf-post:\/\/connected/.test(to) ||
-    /^https?:\/\/(?:catpix\.app|www\.catpix\.app|post\.freesurf\.tools)(\/|$)/.test(to);
+    /^https?:\/\/(?:catvideo\.app|www\.catvideo\.app|post\.freesurf\.tools)(\/|$)/.test(to);
   const target = allowed ? to : `${FREESURF.APP.URL}/`;
   return new Response(null, { status: 302, headers: { Location: target } });
 }
@@ -1627,7 +2029,27 @@ async function fetchBulkPostAnalytics(
  * Returns null when no direct reader is configured or the read fails (callers
  * then fall back to surfacing an error). Only X is wired up today.
  */
-async function normDirectMetrics(env: Env, platform: Platform, postId: string): Promise<Record<string, number> | null> {
+async function normDirectMetrics(
+  env: Env,
+  platform: Platform,
+  postId: string,
+  userTokens: PlatformToken[] = []
+): Promise<Record<string, number> | null> {
+  // Reviewer direct connections read through their own OAuth token first.
+  if (userTokens.length) {
+    const token = findToken(userTokens, platform);
+    if (token?.access_token && (token.metadata as any)?.connection === "direct") {
+      const direct = await getDirectMetrics(platform, postId, token);
+      if (direct) {
+        const metrics: Record<string, number> = {};
+        for (const [key, value] of Object.entries(direct)) {
+          if (key !== "platform" && typeof value === "number") metrics[key] = value;
+        }
+        return metrics;
+      }
+    }
+  }
+
   if (platform === "x") {
     if (!env.X_BEARER_TOKEN) return null;
     try {
@@ -1763,6 +2185,18 @@ async function handleAnalyticsRefresh(
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
   const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
 
+  // Reviewer direct connections read through their own tokens.
+  let reviewerTokens: PlatformToken[] = [];
+  if (isReviewerUser(user, env)) {
+    try {
+      reviewerTokens = await fetchUserTokens(
+        user.sub,
+        env.SUPABASE_SECRET_KEY,
+        env.TOKEN_ENCRYPTION_KEY
+      );
+    } catch { /* fall back to Bundle */ }
+  }
+
   // Users can opt out of pulling X in the bulk refresh (X reads are metered at
   // $0.005/post). The deliberate per-post "Refresh" action still works.
   const prefs = await getAnalyticsPrefs(env, user.sub);
@@ -1864,7 +2298,7 @@ async function handleAnalyticsRefresh(
           if (r.via === "direct") {
             // We published this ourselves, so Bundle can't read it back.
             budget--;
-            normalized = await normDirectMetrics(env, r.platform, r.postId);
+            normalized = await normDirectMetrics(env, r.platform, r.postId, reviewerTokens);
           } else if (r.platform === "x") {
             // X is metered: only force if the user has credit, otherwise skip.
             if (!env.SOCIAL_API_PROVIDER_KEY) continue;
@@ -1886,7 +2320,7 @@ async function handleAnalyticsRefresh(
             } else if (res.status === 401 || res.status === 403 || res.status === 404) {
               // Directly-published posts aren't known to Bundle — read directly.
               budget--;
-              normalized = await normDirectMetrics(env, r.platform, r.postId);
+              normalized = await normDirectMetrics(env, r.platform, r.postId, reviewerTokens);
             } else {
               const t = await res.text();
               console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
@@ -1985,6 +2419,17 @@ async function handleForceAnalytics(
   if (!user) return errorResponse("Unauthorized", 401, origin);
   const apiKey = env.SOCIAL_API_PROVIDER_KEY;
 
+  let reviewerTokens: PlatformToken[] = [];
+  if (isReviewerUser(user, env) && env.SUPABASE_SECRET_KEY) {
+    try {
+      reviewerTokens = await fetchUserTokens(
+        user.sub,
+        env.SUPABASE_SECRET_KEY,
+        env.TOKEN_ENCRYPTION_KEY
+      );
+    } catch { /* fall back to Bundle */ }
+  }
+
   let body: { platform?: string; postId?: string; importedPostId?: string; postRowId?: string; via?: "direct" | "bundle" };
   try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
   if (!body?.platform) return errorResponse("platform required", 400, origin);
@@ -2004,7 +2449,7 @@ async function handleForceAnalytics(
     let metered = false;
 
     if (preferDirect) {
-      metrics = await normDirectMetrics(env, platform, targetId);
+      metrics = await normDirectMetrics(env, platform, targetId, reviewerTokens);
       if (!metrics) {
         return errorResponse(
           platform === "x" && !env.X_BEARER_TOKEN
@@ -2031,7 +2476,7 @@ async function handleForceAnalytics(
         // 401/403/404. Don't leak that as an auth failure (the dashboard signs
         // the user out on 401) — retry against the platform directly.
         if (!imported && (res.status === 401 || res.status === 403 || res.status === 404)) {
-          metrics = await normDirectMetrics(env, platform, targetId);
+          metrics = await normDirectMetrics(env, platform, targetId, reviewerTokens);
         }
         if (!metrics) {
           console.error(`Bundle force analytics failed (${bs}):`, res.status, JSON.stringify(data));
@@ -2516,8 +2961,194 @@ function hasDirectCreds(platform: Platform, env: Env, userTokens: PlatformToken[
       return Boolean((token?.access_token && token?.platform_user_id) || (env.TIKTOK_ACCESS_TOKEN && env.TIKTOK_OPEN_ID));
     case "threads":
       return Boolean((token?.access_token && token?.platform_user_id) || (env.THREADS_ACCESS_TOKEN && env.THREADS_USER_ID));
+    case "pinterest":
+      return Boolean(token?.access_token && (token?.metadata as any)?.board_id);
+    case "youtube":
+      return Boolean(token?.access_token && token?.platform_user_id);
     default:
       return false;
+  }
+}
+
+function monthStamp(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function dayStamp(): string {
+  const now = new Date();
+  return `${monthStamp()}-${String(now.getUTCDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Shared quota gate for immediate posts and scheduled posts. Bundle counts its
+ * monthly allowance at scheduling/creation time, so both endpoints must check.
+ */
+async function enforcePostQuota(
+  user: { sub: string },
+  env: Env,
+  platforms: Platform[],
+  teamId: string | undefined,
+  team: string | undefined,
+  userTokens: PlatformToken[],
+  origin: string
+): Promise<Response | null> {
+  if (!env.RATE_LIMITS) return null;
+  const kv = env.RATE_LIMITS;
+  const month = monthStamp();
+  const day = dayStamp();
+  const limits = postingLimits(env);
+
+  // 1. Per-minute
+  const minKey = `rate:min:${user.sub}`;
+  const minCount = parseInt((await kv.get(minKey)) ?? "0");
+  if (minCount >= limits.perMinutePerUser) {
+    return rateLimitResponse(
+      `Rate limit exceeded. Max ${limits.perMinutePerUser} posts per minute.`,
+      {
+        kind: "per_minute",
+        scope: "user",
+        value: limits.perMinutePerUser,
+        window: "minute",
+      },
+      origin
+    );
+  }
+  await kv.put(minKey, String(minCount + 1), { expirationTtl: 60 });
+
+  // 2. Per-day
+  const dayKey = `rate:day:${day}:${user.sub}`;
+  const dayCount = parseInt((await kv.get(dayKey)) ?? "0");
+  if (dayCount >= limits.perDayPerUser) {
+    return rateLimitResponse(
+      `Daily post limit reached (${limits.perDayPerUser}/day). Try again tomorrow.`,
+      {
+        kind: "per_day",
+        scope: "user",
+        value: limits.perDayPerUser,
+        window: "day",
+      },
+      origin
+    );
+  }
+
+  // 3. Per-user monthly
+  const userMonthKey = `rate:user:${month}:${user.sub}`;
+  const userMonthCount = parseInt((await kv.get(userMonthKey)) ?? "0");
+  if (userMonthCount >= limits.perMonthPerUser) {
+    return rateLimitResponse(
+      `Monthly post limit reached (${limits.perMonthPerUser}/mo). Contact support if you need more.`,
+      {
+        kind: "per_month_user",
+        scope: "user",
+        value: limits.perMonthPerUser,
+        window: "month",
+      },
+      origin
+    );
+  }
+
+  // 4. Org-wide soft cap
+  const globalKey = `rate:global:${month}`;
+  const globalCount = parseInt((await kv.get(globalKey)) ?? "0");
+  if (globalCount >= limits.perMonthOrg) {
+    return rateLimitResponse(
+      "Monthly posting capacity reached. Please try again next month or contact support.",
+      {
+        kind: "per_month_org",
+        scope: "org",
+        value: limits.perMonthOrg,
+        window: "month",
+      },
+      origin
+    );
+  }
+
+  // 5. Per-platform + per-account monthly
+  const accountScope = encodeURIComponent(`${user.sub}:${teamId || team || "default"}`);
+  for (const platform of platforms) {
+    const directX = platform === "x" && hasDirectXCreds(env, userTokens);
+    if (!directX) {
+      const platKey = `rate:plat:${month}:${platform}:${user.sub}`;
+      const platCount = parseInt((await kv.get(platKey)) ?? "0");
+      if (platCount >= limits.perMonthPerPlatformPerUser) {
+        return rateLimitResponse(
+          `${platform} monthly limit reached (${limits.perMonthPerPlatformPerUser} posts/mo).`,
+          {
+            kind: "per_month_platform",
+            scope: "platform",
+            value: limits.perMonthPerPlatformPerUser,
+            window: "month",
+            platform,
+          },
+          origin
+        );
+      }
+    }
+
+    const acctKey = `rate:acct:${month}:${platform}:${accountScope}`;
+    const acctCount = parseInt((await kv.get(acctKey)) ?? "0");
+    if (acctCount >= limits.perMonthPerAccount) {
+      return rateLimitResponse(
+        `${platform} account monthly limit reached (${limits.perMonthPerAccount} posts/mo).`,
+        {
+          kind: "per_month_account",
+          scope: "account",
+          value: limits.perMonthPerAccount,
+          window: "month",
+          platform,
+        },
+        origin
+      );
+    }
+  }
+
+  return null;
+}
+
+/** Increment the daily/monthly/user/account/global counters after creation. */
+async function recordPostQuota(
+  user: { sub: string },
+  env: Env,
+  platforms: Platform[],
+  teamId: string | undefined,
+  team: string | undefined,
+  userTokens: PlatformToken[]
+): Promise<void> {
+  if (!env.RATE_LIMITS) return;
+  const kv = env.RATE_LIMITS;
+  const month = monthStamp();
+  const day = dayStamp();
+  const accountScope = encodeURIComponent(`${user.sub}:${teamId || team || "default"}`);
+
+  const dayKey = `rate:day:${day}:${user.sub}`;
+  await kv.put(dayKey, String(parseInt((await kv.get(dayKey)) ?? "0") + 1), {
+    expirationTtl: 86400,
+  });
+
+  for (const platform of platforms) {
+    const directX = platform === "x" && hasDirectXCreds(env, userTokens);
+    if (!directX) {
+      const platKey = `rate:plat:${month}:${platform}:${user.sub}`;
+      await kv.put(platKey, String(parseInt((await kv.get(platKey)) ?? "0") + 1), {
+        expirationTtl: 60 * 86400,
+      });
+    }
+
+    const acctKey = `rate:acct:${month}:${platform}:${accountScope}`;
+    await kv.put(acctKey, String(parseInt((await kv.get(acctKey)) ?? "0") + 1), {
+      expirationTtl: 60 * 86400,
+    });
+
+    const userKey = `rate:user:${month}:${user.sub}`;
+    await kv.put(userKey, String(parseInt((await kv.get(userKey)) ?? "0") + 1), {
+      expirationTtl: 60 * 86400,
+    });
+
+    const globalKey = `rate:global:${month}`;
+    await kv.put(globalKey, String(parseInt((await kv.get(globalKey)) ?? "0") + 1), {
+      expirationTtl: 60 * 86400,
+    });
   }
 }
 
@@ -2569,37 +3200,16 @@ async function handlePost(
     }
   }
 
-  if (env.RATE_LIMITS) {
-    const now = new Date();
-    const dateStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,"0")}-${String(now.getUTCDate()).padStart(2,"0")}`;
-    const monthStr = dateStr.slice(0, 7); // "YYYY-MM"
-
-    // 1. Per-minute: 30 posts/min
-    const minKey = `rate:min:${user.sub}`;
-    const minCount = parseInt((await env.RATE_LIMITS.get(minKey)) ?? "0");
-    if (minCount >= 30) {
-      return errorResponse("Rate limit exceeded. Max 30 posts per minute.", 429, origin);
-    }
-    await env.RATE_LIMITS.put(minKey, String(minCount + 1), { expirationTtl: 60 });
-
-    // 2. Per-day: 50 posts/day (prevents one user draining Bundle quota in a day)
-    const dayKey = `rate:day:${dateStr}:${user.sub}`;
-    const dayCount = parseInt((await env.RATE_LIMITS.get(dayKey)) ?? "0");
-    if (dayCount >= 50) {
-      return errorResponse("Daily post limit reached (50/day). Try again tomorrow.", 429, origin);
-    }
-
-    // 3. Per-platform monthly: 300 posts/platform/month (prevents bot attacks on one platform)
-    // Direct X credentials bypass the monthly cap (they don't consume Bundle quota).
-    for (const platform of body.platforms) {
-      if (platform === "x" && hasDirectXCreds(env, userTokens)) continue;
-      const platMonthKey = `rate:plat:${monthStr}:${platform}:${user.sub}`;
-      const platCount = parseInt((await env.RATE_LIMITS.get(platMonthKey)) ?? "0");
-      if (platCount >= 300) {
-        return errorResponse(`${platform} monthly limit reached (300 posts/mo).`, 429, origin);
-      }
-    }
-  }
+  const quotaError = await enforcePostQuota(
+    user,
+    env,
+    body.platforms,
+    body.teamId,
+    body.team,
+    userTokens,
+    origin
+  );
+  if (quotaError) return quotaError;
 
   // Post to each platform in parallel. Bundle-first (Bundle holds the platform
   // API keys), falling back to direct adapters when Bundle isn't configured or
@@ -2648,9 +3258,33 @@ async function handlePost(
       // Direct adapters currently publish one media item (except X, which will
       // get multi-image support with the X migration). Carousels/multi-photo go
       // through Bundle so every slide is included.
-      const directSupportsMedia = media.length <= 1;
+      // Direct adapters understand R2/public media URLs, not Bundle upload ids.
+      // LinkedIn supports one image; Pinterest one image; YouTube one video.
+      // X and Bluesky direct posting is text-only in this slice.
+      const directMediaOk =
+        media.length === 0 || mediaIds.every((id) => /^https?:\/\//.test(id));
+      const directSupportsMedia =
+        platform === "linkedin"
+          ? media.length === 0 ||
+            (media.length === 1 && mediaKind(media[0]) === "image")
+          : platform === "pinterest"
+            ? media.length === 1 && mediaKind(media[0]) === "image"
+            : platform === "youtube"
+              ? media.length === 1 && mediaKind(media[0]) === "video"
+              : platform === "x" || platform === "bluesky"
+                ? media.length === 0
+                : media.length <= 1;
+      const blueskyDirect =
+        platform === "bluesky" &&
+        isReviewerUser(user, env) &&
+        Boolean((findToken(userTokens, "bluesky")?.metadata as any)?.connection === "direct");
       const preferDirect =
-        !bundleConfigured || (platform === "bluesky" ? false : hasDirectCreds(platform, env, userTokens) && directSupportsMedia);
+        !bundleConfigured ||
+        (platform === "bluesky"
+          ? blueskyDirect && directSupportsMedia && directMediaOk
+          : hasDirectCreds(platform, env, userTokens) &&
+            directSupportsMedia &&
+            directMediaOk);
 
       if (preferDirect) {
         return { ...(await postToPlatform(platform, text, env, mediaIds, body.replyTo, userTokens)), via: "direct" as const };
@@ -2681,25 +3315,14 @@ async function handlePost(
     })
   );
 
-  // Increment daily + per-platform monthly counters
-  if (env.RATE_LIMITS) {
-    const now = new Date();
-    const dateStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,"0")}-${String(now.getUTCDate()).padStart(2,"0")}`;
-    const monthStr = dateStr.slice(0, 7);
-
-    // Daily counter
-    const dayKey = `rate:day:${dateStr}:${user.sub}`;
-    const dayCur = parseInt((await env.RATE_LIMITS.get(dayKey)) ?? "0");
-    await env.RATE_LIMITS.put(dayKey, String(dayCur + 1), { expirationTtl: 86400 });
-
-    // Per-platform monthly counters
-    for (const platform of body.platforms) {
-      if (platform === "x" && hasDirectXCreds(env, userTokens)) continue;
-      const platMonthKey = `rate:plat:${monthStr}:${platform}:${user.sub}`;
-      const platCur = parseInt((await env.RATE_LIMITS.get(platMonthKey)) ?? "0");
-      await env.RATE_LIMITS.put(platMonthKey, String(platCur + 1), { expirationTtl: 60 * 86400 });
-    }
-  }
+  await recordPostQuota(
+    user,
+    env,
+    body.platforms,
+    body.teamId,
+    body.team,
+    userTokens
+  );
 
   const postId = crypto.randomUUID();
   await persistPostHistory(env, user.sub, postId, text, mediaIds, results);
@@ -2784,13 +3407,13 @@ async function postToPlatform(
       const accessToken = token?.access_token || env.LINKEDIN_ACCESS_TOKEN;
       const author = token?.platform_user_id || env.LINKEDIN_AUTHOR;
       if (!accessToken || !author) return { platform, success: false, error: "LinkedIn not connected" };
-      return postToLinkedIn(text, accessToken, author);
+      return postToLinkedIn(text, accessToken, author, mediaUrls?.[0]);
     }
     case "facebook": {
       const accessToken = token?.access_token || env.FACEBOOK_ACCESS_TOKEN;
       const pageId = (token?.metadata as any)?.page_id || env.FACEBOOK_PAGE_ID;
       if (!accessToken || !pageId) return { platform, success: false, error: "Facebook not connected" };
-      return postToFacebook(text, accessToken, pageId);
+      return postToFacebook(text, accessToken, pageId, mediaUrls?.[0]);
     }
     case "instagram": {
       const accessToken = token?.access_token || env.INSTAGRAM_ACCESS_TOKEN;
@@ -2809,6 +3432,26 @@ async function postToPlatform(
       const userId = (token?.metadata as any)?.threads_user_id || env.THREADS_USER_ID;
       if (!accessToken || !userId) return { platform, success: false, error: "Threads not connected" };
       return postToThreads(text, accessToken, userId, mediaUrls);
+    }
+    case "pinterest": {
+      const accessToken = token?.access_token;
+      const boardId = (token?.metadata as any)?.board_id;
+      if (!accessToken || !boardId) {
+        return {
+          platform,
+          success: false,
+          error: "Pinterest not connected or no board selected",
+        };
+      }
+      return postToPinterest(text, accessToken, boardId, mediaUrls?.[0]);
+    }
+    case "youtube": {
+      const accessToken = token?.access_token;
+      const channelId = token?.platform_user_id;
+      if (!accessToken || !channelId) {
+        return { platform, success: false, error: "YouTube not connected" };
+      }
+      return postToYouTube(text, accessToken, channelId, mediaUrls?.[0]);
     }
     case "x": {
       // Direct X via own OAuth 1.0a keys (env vars or per-user BYOK metadata).
@@ -3073,6 +3716,29 @@ async function handleSchedule(
     return errorResponse("Scheduling requires SUPABASE_SECRET_KEY", 501, origin);
   }
 
+  // Bundle counts its monthly allowance at schedule time, so the same quota
+  // gate must run here as well as on immediate posts.
+  let scheduleTokens: PlatformToken[] = [];
+  try {
+    scheduleTokens = await fetchUserTokens(
+      user.sub,
+      env.SUPABASE_SECRET_KEY,
+      env.TOKEN_ENCRYPTION_KEY
+    );
+  } catch (e) {
+    console.error("[schedule] fetchUserTokens failed", e instanceof Error ? e.message : String(e));
+  }
+  const quotaError = await enforcePostQuota(
+    user,
+    env,
+    body.platforms,
+    body.teamId,
+    body.team,
+    scheduleTokens,
+    origin
+  );
+  if (quotaError) return quotaError;
+
   const bundleTeamId = env.SOCIAL_API_PROVIDER_KEY
     ? await resolveTeamId(user.sub, body.teamId, body.team, env)
     : null;
@@ -3089,6 +3755,14 @@ async function handleSchedule(
       return errorResponse(`Failed to schedule post: ${errText.slice(0, 200)}`, 500, origin);
     }
     const [scheduled] = (await res.json()) as any[];
+    await recordPostQuota(
+      user,
+      env,
+      body.platforms,
+      body.teamId,
+      body.team,
+      scheduleTokens
+    );
     return json({ id: scheduled.id, scheduledAt: scheduled.scheduled_at, platforms: scheduled.platforms }, 201, headers);
   } catch { return errorResponse("Scheduling failed", 500, origin); }
 }
@@ -3292,7 +3966,7 @@ async function handleTopUp(
         "metadata[user_id]": user.sub,
         "line_items[0][price_data][currency]": "usd",
         "line_items[0][price_data][unit_amount]": String(cents),
-        "line_items[0][price_data][product_data][name]": "FreeSurf Post credits",
+        "line_items[0][price_data][product_data][name]": "CatVideo credits",
         "line_items[0][price_data][product_data][tax_code]": "txcd_10000000",
         "line_items[0][price_data][tax_behavior]": "exclusive",
         "line_items[0][quantity]": "1",
@@ -3572,6 +4246,37 @@ function bundlePlatformToKey(platform: string): string {
 }
 
 /**
+ * Direct per-post metrics for a reviewer's own OAuth connection. Returns null
+ * when the platform has no direct adapter or the post id format is ambiguous,
+ * so the caller can fall back to Bundle.
+ */
+async function getDirectMetrics(
+  platform: Platform,
+  postId: string,
+  token: PlatformToken
+): Promise<PlatformMetrics | null> {
+  const accessToken = token.access_token;
+  switch (platform) {
+    case "linkedin": {
+      // Direct posts use the share/ugcPost URN from x-restli-id. Bundle post
+      // ids are not URNs, so leave those to the Bundle path.
+      if (!postId.startsWith("urn:")) return null;
+      return getLinkedInMetrics(postId, accessToken);
+    }
+    case "facebook":
+      return getFacebookMetrics(postId, accessToken);
+    case "instagram":
+      return getInstagramMetrics(postId, accessToken);
+    case "threads":
+      return getThreadsMetrics(postId, accessToken);
+    case "tiktok":
+      return getTikTokMetrics(postId, accessToken);
+    default:
+      return null;
+  }
+}
+
+/**
  * GET /api/metrics/:platform/:postId
  */
 async function handleMetrics(
@@ -3584,6 +4289,29 @@ async function handleMetrics(
 ): Promise<Response> {
   const user = await authenticateRequest(request, env);
   if (!user) return errorResponse("Unauthorized", 401, origin);
+
+  // Reviewer-only direct analytics: use the reviewer's own direct OAuth token
+  // when one exists. Everything else (and any failure) falls back to Bundle.
+  if (isReviewerUser(user, env) && env.SUPABASE_SECRET_KEY) {
+    try {
+      const tokens = await fetchUserTokens(
+        user.sub,
+        env.SUPABASE_SECRET_KEY,
+        env.TOKEN_ENCRYPTION_KEY
+      );
+      const token = findToken(tokens, platform);
+      if (token?.access_token && (token.metadata as any)?.connection === "direct") {
+        const direct = await getDirectMetrics(platform, postId, token);
+        if (direct) return json(direct, 200, headers);
+      }
+    } catch (e) {
+      console.error(
+        "[metrics] direct path failed",
+        platform,
+        e instanceof Error ? e.message : String(e)
+      );
+    }
+  }
 
   const apiKey = env.SOCIAL_API_PROVIDER_KEY;
   if (!apiKey) return errorResponse("Not configured", 501, origin);

@@ -475,6 +475,25 @@ a:hover { text-decoration: underline; }
   margin-top: 2px;
 }
 
+.reviewer-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Reviewer/demo-only UI: hidden until /api/reviewer confirms the account. */
+html:not([data-reviewer="true"]) .reviewer-only {
+  display: none !important;
+}
+
 .sidebar-actions {
   display: flex;
   flex-direction: column;
@@ -1064,6 +1083,13 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.compose-limits {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
 }
 
 .char-count {

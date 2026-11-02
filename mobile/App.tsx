@@ -94,7 +94,7 @@ function ThemedNavigator() {
     return (
       <OnboardingScreen
         initial={onboarding}
-        onDone={() => setOnboarding({ terms: true, digest: true, updates: true })}
+        onDone={() => setOnboarding({ terms: true, digest: true })}
       />
     );
   }

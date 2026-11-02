@@ -1,14 +1,54 @@
-# FreeSurf Post — API Reference
+# CatVideo — Free social media scheduler and API
+
+CatVideo (by FreeSurf) is a **free to use**, open-source social media scheduler
+and cross-posting service. There is no subscription, per-seat, or per-channel
+fee. X is the only metered network: its API costs are passed through at cost
+($0.015 per plain post, $0.20 for a post with a link) through optional credits.
+Everything else is free.
+
+Publish to X, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube, and
+Bluesky from the web app at https://catvideo.app, or from your own apps through
+the API below. Posting and analytics are proxied through Bundle.social, so you
+don't manage platform credentials.
 
 Base URL: https://post.freesurf.tools
-Web app: https://catpix.app
-
-Free, open-source cross-posting API. Publish to X, LinkedIn, Facebook, Instagram,
-Threads, TikTok, YouTube, and Bluesky from your own apps. Posting and analytics
-are proxied through Bundle.social, so you don't manage platform credentials.
+Web app: https://catvideo.app
 
 > This file and the in-app API tab (dashboard → API) are the source of truth.
 > `archive/API_REFERENCE.md` is the old, superseded doc.
+
+## Rate limits
+
+`GET /api/limits` returns the active posting limits. Defaults:
+
+- 30 posts/minute per user
+- 300 posts/day per user
+- 300 posts/month per platform per user
+- 500 posts/month per user
+- 500 posts/month per connected account (team + platform)
+- 9,000 posts/month org-wide
+
+Both `POST /api/post` and `POST /api/schedule` enforce these, because Bundle
+counts the monthly allowance when a post is scheduled. Exceeding a limit returns
+HTTP 429 with a structured body:
+
+```json
+{
+  "error": "Daily post limit reached (300/day). Try again tomorrow.",
+  "code": "rate_limit_exceeded",
+  "limit": {
+    "kind": "per_day",
+    "scope": "user",
+    "value": 300,
+    "window": "day",
+    "resetAt": "2026-11-02T00:00:00.000Z"
+  },
+  "docs": "https://catvideo.app/llms.txt#rate-limits"
+}
+```
+
+A `Retry-After` header is included. Provider-side per-account daily caps and the
+monthly plan allowance also apply.
 
 ## Authentication
 

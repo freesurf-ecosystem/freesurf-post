@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://catpix.app/sitemap.xml
+Sitemap: https://catvideo.app/sitemap.xml

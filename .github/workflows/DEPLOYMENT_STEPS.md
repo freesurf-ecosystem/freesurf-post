@@ -60,12 +60,12 @@ Register these apps with each platform:
 | Platform | Developer Portal | Callback URL |
 |----------|-----------------|--------------|
 | Bluesky | blueskyweb.dev | Not needed (uses app password) |
-| X (Twitter) | developer.twitter.com | `https://post.cnxt.to/api/auth/callback/x` |
-| LinkedIn | developer.linkedin.com | `https://post.cnxt.to/api/auth/callback/linkedin` |
-| Facebook | developers.facebook.com | `https://post.cnxt.to/api/auth/callback/facebook` |
-| Instagram | developers.facebook.com | `https://post.cnxt.to/api/auth/callback/instagram` |
-| Threads | developers.facebook.com | `https://post.cnxt.to/api/auth/callback/threads` |
-| TikTok | developers.tiktok.com | `https://post.cnxt.to/api/auth/callback/tiktok` |
+| X (Twitter) | developer.twitter.com | `https://post.freesurf.tools/api/auth/callback/x` |
+| LinkedIn | developer.linkedin.com | `https://post.freesurf.tools/api/auth/callback/linkedin` |
+| Facebook | developers.facebook.com | `https://post.freesurf.tools/api/auth/callback/facebook` |
+| Instagram | developers.facebook.com | `https://post.freesurf.tools/api/auth/callback/instagram` |
+| Threads | developers.facebook.com | `https://post.freesurf.tools/api/auth/callback/threads` |
+| TikTok | developers.tiktok.com | `https://post.freesurf.tools/api/auth/callback/tiktok` |
 
 ## Deployment Flow
 
@@ -96,7 +96,7 @@ npx wrangler deploy
 - [ ] Add environment variables to Cloudflare Pages (dashboard)
 - [ ] Add environment variables to Cloudflare Workers (API)
 - [ ] Register OAuth apps for all platforms
-- [ ] Test the dashboard at `https://post.cnxt.to/`
+- [ ] Test the dashboard at `https://post.freesurf.tools/`
 - [ ] Test OAuth flow for each platform
 - [ ] Test API endpoints
 

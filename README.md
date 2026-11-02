@@ -1,18 +1,18 @@
-# Catpix
+# CatVideo
 
 **Schedule once, publish everywhere.** A free, open-source social media scheduler for
 freelancers, creators, and small businesses — compose a post once and send it to X, Bluesky,
 LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube, and more from one dashboard or API.
 
-Catpix is built by [FreeSurf](https://freesurf.tools) for people who post the same update to
+CatVideo is built by [FreeSurf](https://freesurf.tools) for people who post the same update to
 many platforms and don't want to pay $6–$99/month for tools like Buffer or Hootsuite.
 
-- Web app: [catpix.app](https://catpix.app)
+- Web app: [catvideo.app](https://catvideo.app)
 - API base: [post.freesurf.tools](https://post.freesurf.tools)
 - Android: [Google Play](https://play.google.com/store/apps/details?id=tools.freesurf.post)
 - License: MIT
 
-> **Open source — with a note on self-hosting.** Catpix is MIT-licensed and the code is public,
+> **Open source — with a note on self-hosting.** CatVideo is MIT-licensed and the code is public,
 > so you can read it, modify it, contribute, or deploy it to your own Cloudflare and Supabase
 > accounts. It isn't yet a turnkey self-hosted package: publishing depends on hosted
 > integrations — [bundle.social](https://bundle.social) holds the platform tokens today, and
@@ -32,10 +32,10 @@ many platforms and don't want to pay $6–$99/month for tools like Buffer or Hoo
 
 ## Try it
 
-Visit [catpix.app](https://catpix.app), sign in, connect your accounts, and start posting.
+Visit [catvideo.app](https://catvideo.app), sign in, connect your accounts, and start posting.
 
 The API reference lives at [post.freesurf.tools/llms.txt](https://post.freesurf.tools/llms.txt).
-The old `post.freesurf.tools` UI redirects to Catpix; the API stays on that host for existing
+The old `post.freesurf.tools` UI redirects to CatVideo; the API stays on that host for existing
 integrations and the mobile app.
 
 ## Supported platforms
@@ -48,7 +48,7 @@ page/channel or provider approval before publishing.
 ## Project structure
 
 ```
-catpix/
+catvideo/
 ├── src/                  # Cloudflare Worker (TypeScript)
 │   ├── index.ts          # Router, auth, posting, scheduling, teams, credits
 │   ├── auth.ts           # Supabase JWT validation

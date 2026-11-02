@@ -12,7 +12,8 @@ import { useAppLanguage } from "../lib/useAppLanguage";
 import { FloatingMenuButton } from "../components/Menu";
 import {
   listTeams, createTeam, activateTeam, renameTeam, deleteTeam,
-  listAccounts, connectUrl, CONNECT_RETURN_URL, disconnectAccount, setChannel, type Team, type Account,
+  listAccounts, connectUrl, CONNECT_RETURN_URL, disconnectAccount, setChannel,
+  getReviewerStatus, type Team, type Account,
 } from "../lib/api";
 
 const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
@@ -38,6 +39,7 @@ export default function AccountsScreen() {
   const { T } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [teams, setTeams] = useState<Team[]>([]);
+  const [reviewer, setReviewer] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
@@ -52,6 +54,7 @@ export default function AccountsScreen() {
 
   async function load() {
     setLoadingTeams(true);
+    getReviewerStatus().then(setReviewer).catch(() => setReviewer(false));
     try {
       const t = await listTeams();
       setTeams(t);
@@ -203,6 +206,7 @@ export default function AccountsScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>{T.accounts}</Text>
+        {reviewer && <Text style={[styles.reviewerBadge, { color: colors.brand, borderColor: colors.brand }]}>Reviewer</Text>}
         <Text style={[styles.sectionSub, { color: colors.textMuted }]}>
           {selectedTeam ? `${T.for_label} ${selectedTeam.label}` : ""}
         </Text>
@@ -301,6 +305,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 48 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 22, marginBottom: 8 },
   sectionTitle: { fontSize: 16, fontWeight: "700" },
+  reviewerBadge: { fontSize: 10, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase", borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   sectionSub: { fontSize: 13 },
   helper: { fontSize: 13, marginBottom: 12 },
   emptyNote: { fontSize: 14, marginVertical: 8 },

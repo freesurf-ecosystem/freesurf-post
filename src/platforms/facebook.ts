@@ -10,15 +10,33 @@ export async function postToFacebook(
   text: string,
   accessToken: string,
   pageId: string,
+  mediaUrl?: string,
   link?: string
 ): Promise<PlatformPostResult> {
   try {
-    const body = new URLSearchParams();
-    body.set("message", text);
-    body.set("access_token", accessToken);
-    if (link) body.set("link", link);
+    const isVideo = Boolean(mediaUrl && /\.(mp4|mov|m4v)(\?|#|$)/i.test(mediaUrl));
+    const endpoint = mediaUrl
+      ? isVideo
+        ? `/${pageId}/videos`
+        : `/${pageId}/photos`
+      : `/${pageId}/feed`;
 
-    const res = await fetch(`${API_BASE}/${pageId}/feed`, {
+    const body = new URLSearchParams();
+    body.set("access_token", accessToken);
+    if (mediaUrl) {
+      if (isVideo) {
+        body.set("file_url", mediaUrl);
+        body.set("description", text);
+      } else {
+        body.set("url", mediaUrl);
+        body.set("caption", text);
+      }
+    } else {
+      body.set("message", text);
+      if (link) body.set("link", link);
+    }
+
+    const res = await fetch(`${API_BASE}${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
@@ -34,13 +52,16 @@ export async function postToFacebook(
       };
     }
 
-    const [pageIdPart, postIdPart] = (data.id ?? "").split("_");
+    const id = data.id ?? "";
+    const [pageIdPart, postIdPart] = id.split("_");
 
     return {
       platform: "facebook",
       success: true,
-      postId: data.id,
-      postUrl: `https://facebook.com/${pageIdPart}/posts/${postIdPart}`,
+      postId: id,
+      postUrl: postIdPart
+        ? `https://facebook.com/${pageIdPart}/posts/${postIdPart}`
+        : `https://facebook.com/${id}`,
     };
   } catch (e) {
     return {

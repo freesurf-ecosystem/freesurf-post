@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
 import { useAppLanguage } from "../lib/useAppLanguage";
-import { TERMS_VERSION, recordConsent, subscribeDigest, subscribeProductUpdates, OnboardingState } from "../lib/onboarding";
+import { TERMS_VERSION, recordConsent, subscribeDigest, OnboardingState } from "../lib/onboarding";
 
 const TERMS_URL = "https://freesurf.tools/terms";
 const PRIVACY_URL = "https://freesurf.tools/privacy";
@@ -25,7 +25,6 @@ export default function OnboardingScreen({
   const insets = useSafeAreaInsets();
   const [terms, setTerms] = useState(initial.terms);
   const [digest, setDigest] = useState(initial.digest);
-  const [updates, setUpdates] = useState(initial.updates);
   const [agreeChecked, setAgreeChecked] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -62,11 +61,7 @@ export default function OnboardingScreen({
       if (!uid) throw new Error("No active session");
 
       if (!initial.digest) await recordConsent(uid, "onboarding_digest", digest ? "accepted" : "declined");
-      if (!initial.updates) await recordConsent(uid, "onboarding_updates", updates ? "accepted" : "declined");
 
-      if (updates && email && !initial.updates) {
-        try { await subscribeProductUpdates(email); } catch (e) { console.warn("[onboarding] updates subscribe failed", e); }
-      }
       if (digest && email && !initial.digest) {
         try { await subscribeDigest(email); } catch (e) { console.warn("[onboarding] digest subscribe failed", e); }
       }
@@ -112,10 +107,6 @@ export default function OnboardingScreen({
           <TouchableOpacity onPress={() => setDigest(!digest)} style={styles.checkRow}>
             {box(digest)}
             <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>{link(DIGEST_URL, T.subscribe_digest)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setUpdates(!updates)} style={styles.checkRow}>
-            {box(updates)}
-            <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>{T.product_updates}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand, marginTop: 12 }]} onPress={finish} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{T.finish}</Text>}

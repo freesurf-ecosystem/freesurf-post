@@ -2,8 +2,8 @@ const FOOTER_TEMPLATE = `
   <footer class="freesurf-footer">
     <div class="freesurf-footer-inner">
       <div class="freesurf-footer-brand">
-        <a href="https://catpix.app" class="freesurf-footer-logo"><svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask-footer" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask-footer)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>Catpix</a>
-        <p class="freesurf-footer-tagline">Catpix is a social media scheduler developed by FreeSurf. We create free tools for freelancers, small businesses, and independent workers.</p>
+        <a href="https://catvideo.app" class="freesurf-footer-logo"><svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask-footer" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask-footer)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>CatVideo</a>
+        <p class="freesurf-footer-tagline">CatVideo is a social media scheduler developed by FreeSurf. We create free tools for freelancers, small businesses, and independent workers.</p>
       </div>
       <div class="freesurf-footer-links">
         <div class="freesurf-footer-col">
@@ -25,25 +25,25 @@ const FOOTER_TEMPLATE = `
         </div>
         <div class="freesurf-footer-col">
           <span class="freesurf-footer-heading">Platform</span>
-          <a href="https://catpix.app">Home</a>
-          <a href="https://github.com/freesurf-ecosystem/catpix">GitHub</a>
+          <a href="https://catvideo.app">Home</a>
+          <a href="https://github.com/freesurf-ecosystem/catvideo">GitHub</a>
           <a href="https://post.freesurf.tools/llms.txt">API reference</a>
         </div>
         <div class="freesurf-footer-col">
           <span class="freesurf-footer-heading">Legal</span>
           <a href="/privacy/">Privacy</a>
           <a href="/terms/">Terms</a>
-          <a href="mailto:support@freesurf.tools">Support</a>
+          <a href="/support/">Support</a>
         </div>
       </div>
     </div>
     <div class="freesurf-footer-bottom">
-      <span>&copy; <span class="freesurf-footer-year"></span> Catpix by FreeSurf. Built for independent workers.</span>
+      <span>&copy; <span class="freesurf-footer-year"></span> CatVideo by FreeSurf. Built for independent workers.</span>
     </div>
   </footer>
 `;
 
-class CatpixFooter extends HTMLElement {
+class CatVideoFooter extends HTMLElement {
   static get observedAttributes() {
     return ["theme-toggle"];
   }
@@ -89,6 +89,6 @@ class CatpixFooter extends HTMLElement {
   }
 }
 
-if (!customElements.get("catpix-footer")) {
-  customElements.define("catpix-footer", CatpixFooter);
+if (!customElements.get("catvideo-footer")) {
+  customElements.define("catvideo-footer", CatVideoFooter);
 }

@@ -1,8 +1,8 @@
 # cnxt to post — API Reference
 
-Base URL: `https://post.cnxt.to`
+Base URL: `https://post.freesurf.tools`
 
-Authenticate with a Supabase JWT in the `Authorization` header. Get a token by signing in through `auth.cnxt.to` (or any cnxt tool with shared auth).
+Authenticate with a Supabase JWT in the `Authorization` header. Get a token by signing in through `auth.freesurf.tools` (or any cnxt tool with shared auth).
 
 ```
 Authorization: Bearer <supabase-access-token>
@@ -274,7 +274,7 @@ Health check. No auth required. Returns `ok`.
 ### Browser
 
 ```js
-const res = await fetch("https://post.cnxt.to/api/post", {
+const res = await fetch("https://post.freesurf.tools/api/post", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -287,7 +287,7 @@ const res = await fetch("https://post.cnxt.to/api/post", {
 ### Node.js
 
 ```js
-const res = await fetch("https://post.cnxt.to/api/post", {
+const res = await fetch("https://post.freesurf.tools/api/post", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -300,7 +300,7 @@ const res = await fetch("https://post.cnxt.to/api/post", {
 ### Cloudflare Worker
 
 ```ts
-const res = await fetch("https://post.cnxt.to/api/post", {
+const res = await fetch("https://post.freesurf.tools/api/post", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",

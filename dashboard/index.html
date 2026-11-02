@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Catpix by FreeSurf — Free social media scheduler</title>
+  <title>CatVideo by FreeSurf — Free social media scheduler</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
   <link rel="mask-icon" href="/favicon.svg" color="#000000" />
   <meta name="description" content="Schedule and cross-post to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube. Free, open source, with an API and Android app." />
-  <link rel="canonical" href="https://catpix.app/" />
+  <link rel="canonical" href="https://catvideo.app/" />
   <meta name="robots" content="index,follow" />
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Catpix" />
-  <meta property="og:title" content="Catpix by FreeSurf — Free social media scheduler" />
+  <meta property="og:site_name" content="CatVideo" />
+  <meta property="og:title" content="CatVideo by FreeSurf — Free social media scheduler" />
   <meta property="og:description" content="Schedule once and publish everywhere. Free, open-source cross-posting to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube." />
-  <meta property="og:url" content="https://catpix.app/" />
+  <meta property="og:url" content="https://catvideo.app/" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Catpix by FreeSurf — Free social media scheduler" />
+  <meta name="twitter:title" content="CatVideo by FreeSurf — Free social media scheduler" />
   <meta name="twitter:description" content="Schedule once and publish everywhere. Free, open-source cross-posting to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -25,7 +25,7 @@
   <div class="app-shell">
     <!-- Mobile Header -->
     <header class="mobile-header">
-      <a href="/" class="mobile-logo"><svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>Catpix</a>
+      <a href="/" class="mobile-logo"><svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>CatVideo</a>
       <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
@@ -36,7 +36,7 @@
       <div class="sidebar-header">
         <a href="/" class="sidebar-logo">
           <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>
-          <span>Catpix</span>
+          <span>CatVideo</span>
         </a>
         <button class="sidebar-close" id="sidebar-close" aria-label="Close sidebar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -101,6 +101,7 @@
           </div>
           <div class="sidebar-user-info">
             <span class="sidebar-user-email" id="user-email"></span>
+            <span class="reviewer-badge hidden" id="reviewer-badge">Reviewer</span>
           </div>
         </div>
         <div class="sidebar-actions">
@@ -254,7 +255,7 @@
           <div class="card auth-card">
             <div class="card-header">
               <div>
-                <h2 class="card-title" id="onboarding-title">Welcome to Catpix</h2>
+                <h2 class="card-title" id="onboarding-title">Welcome to CatVideo</h2>
                 <p class="card-subtitle" id="onboarding-subtitle">Step 1 of 2</p>
               </div>
             </div>
@@ -269,20 +270,13 @@
               <button class="btn btn-primary btn-full" id="btn-onboarding-terms" disabled>Accept &amp; continue</button>
             </div>
 
-            <!-- Step 2: FeedFree Digest + FreeSurf product updates -->
+            <!-- Step 2: FeedFree Digest -->
             <div id="onboarding-step-2" class="hidden">
               <p class="onboarding-intro">Since our tool is free for posting (at cost for the X API), we rely on sign-ups to our FeedFree newsletter (a free newsletter) which curates blog-length social posts covering AI, SEO, social media marketing, open-source projects — from X and LinkedIn (with more channels being added). Instead of scrolling social media for insight all day, you can get links to worthwhile posts in your inbox on a regular basis. Feel free to give it a try — unsubscribe at any time, it is highly appreciated.</p>
               <label class="auth-checkbox">
                 <input type="checkbox" id="onboarding-digest" />
                 <span>
                   <span class="auth-checkbox-main">Subscribe to the <a href="https://feedfree.tech" target="_blank" rel="noopener">FeedFree Digest</a></span>
-                </span>
-              </label>
-              <label class="auth-checkbox">
-                <input type="checkbox" id="onboarding-updates" />
-                <span>
-                  <span class="auth-checkbox-main">FreeSurf product updates</span>
-                  <span class="auth-checkbox-sub">Occasional news about our other free tools. Unsubscribe any time.</span>
                 </span>
               </label>
               <button class="btn btn-primary btn-full" id="btn-onboarding-finish">Finish</button>
@@ -353,6 +347,11 @@
                 <div class="connect-hint">Go to the <strong>Accounts</strong> tab to connect your social profiles.</div>
                 <div class="platform-toggles" id="platform-toggles"></div>
                 <div class="posting-to-line" id="posting-to-line">No platforms selected</div>
+                <div id="compose-limits" class="compose-limits"></div>
+                <label class="auth-checkbox reviewer-only" style="margin-top:8px;font-size:0.8rem;">
+                  <input type="checkbox" id="direct-media-toggle" />
+                  Use direct media storage (R2) — reviewer demo
+                </label>
                 <div id="platform-target-row" class="hidden" style="margin-top:10px;">
                   <label class="form-label" id="platform-target-label" for="platform-target-input"></label>
                   <input type="text" id="platform-target-input" class="form-input" placeholder="" style="max-width:260px;" autocomplete="off" />
@@ -905,18 +904,18 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
     </main>
 
     <!-- FreeSurf footer -->
-    <catpix-footer theme-toggle></catpix-footer>
+    <catvideo-footer theme-toggle></catvideo-footer>
   </div>
 
   <script type="module" src="./js/dashboard.js?v=20261030"></script>
-  <script src="/js/components/catpix-footer.js?v=20261030b" defer></script>
+  <script src="/js/components/catvideo-footer.js?v=20261030b" defer></script>
 <script>
 // Typing animation
 (function(){
   const cur = document.querySelector(".hero-cursor");
   const subline = document.getElementById("hero-subline");
   const targets = [
-    [document.getElementById("hero-line0"),    "Catpix"],
+    [document.getElementById("hero-line0"),    "CatVideo"],
     [document.getElementById("hero-line1"),    "A FreeSurf tool"],
     [document.getElementById("hero-line2"),    "Post everywhere, from one place"],
     [document.getElementById("hero-asterisk"), "Free except for X API fees passed through at cost"],

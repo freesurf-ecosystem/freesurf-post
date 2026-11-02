@@ -1,4 +1,4 @@
-﻿// ── FreeSurf Post — Dashboard ──
+// ── CatVideo — Dashboard ──
 import { getSharedSession, clearSharedSession, getSupabase } from "./freesurf-auth.js";
 import config from "./freesurf.config.js";
 
@@ -28,6 +28,30 @@ const PLATFORMS = [
 // Platforms that need a selected Page/Channel/Organization after OAuth
 const CHANNEL_PLATFORMS = new Set(["linkedin", "facebook", "youtube"]);
 
+// Reviewer-only direct OAuth platforms for the web app. Mobile never sends
+// direct=1, so it stays on the Bundle flow until we migrate it deliberately.
+const DIRECT_REVIEWER_PLATFORMS = new Set([
+  "linkedin",
+  "facebook",
+  "instagram",
+  "threads",
+  "tiktok",
+  "pinterest",
+  "youtube",
+  "x",
+]);
+
+// Direct media (R2 URLs) is supported by these platforms in the reviewer demo.
+const DIRECT_MEDIA_PLATFORMS = new Set([
+  "linkedin",
+  "facebook",
+  "instagram",
+  "threads",
+  "tiktok",
+  "pinterest",
+  "youtube",
+]);
+
 // Platforms that need a per-post target (channel/board/subreddit) entered in compose.
 const PLATFORM_TARGETS = {
   discord: { label: "Discord channel ID", placeholder: "e.g. 123456789012345678" },
@@ -38,6 +62,10 @@ const PLATFORM_TARGETS = {
 
 // ── State ──
 let session = null;
+let reviewerMode = false;
+let connectedRedirectHandled = false;
+let postingLimits = null;
+let directMediaMode = false;
 let connectedProfiles = []; // { platform, label, handle, id }[]
 let composeAccounts = [];   // accounts for the team selected in the compose dropdown
 let postHistory = [];
@@ -46,7 +74,7 @@ let currentView = "compose";
 // Onboarding (post-sign-in): terms/privacy acceptance + the two marketing
 // opt-ins. Anyone missing any of the three is asked again on their next login.
 const TERMS_VERSION = "2026.09.17";
-let onboarding = { terms: false, digest: false, updates: false };
+let onboarding = { terms: false, digest: false };
 let onboardingDismissed = false; // "Remind me later" — lets them in for this session
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
@@ -369,7 +397,40 @@ async function refreshAuth() {
   await loadOnboardingState();
   await fetchProfiles();
   await fetchTeams();
+  await fetchReviewerStatus();
+  await fetchPostingLimits();
   renderAuthUI();
+  if (!connectedRedirectHandled) {
+    connectedRedirectHandled = true;
+    handleConnectedRedirect();
+  }
+}
+
+function handleConnectedRedirect() {
+  const params = new URLSearchParams(location.search);
+  const connected = params.get("connected");
+  if (!connected) return;
+  const error = params.get("error");
+  history.replaceState({}, "", location.pathname);
+  if (error) {
+    alert(`Connection failed: ${error.replace(/_/g, " ")}`);
+    return;
+  }
+  showView("accounts");
+  setTimeout(() => showView("accounts"), 250);
+}
+
+async function fetchReviewerStatus() {
+  if (!session?.access_token) { reviewerMode = false; return; }
+  try {
+    const res = await apiFetch(`/api/reviewer`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    reviewerMode = Boolean(data?.reviewer);
+  } catch {
+    reviewerMode = false;
+  }
 }
 
 async function fetchProfiles() {
@@ -410,6 +471,13 @@ async function fetchProfiles() {
 function renderAuthUI() {
   const signedIn = Boolean(session?.user);
   $("#user-email").textContent = signedIn ? session.user.email : "";
+  document.documentElement.dataset.reviewer = reviewerMode ? "true" : "false";
+  $("#reviewer-badge")?.classList.toggle("hidden", !reviewerMode);
+  const directMediaToggle = $("#direct-media-toggle");
+  if (directMediaToggle) {
+    directMediaToggle.checked = reviewerMode;
+    directMediaMode = reviewerMode && directMediaToggle.checked;
+  }
   $("#btn-sign-in").classList.toggle("hidden", signedIn);
   $("#btn-sign-out").classList.toggle("hidden", !signedIn);
 
@@ -449,7 +517,7 @@ $("#btn-sign-out").addEventListener("click", async () => {
   await supabase.auth.signOut();
   await clearSharedSession();
   session = null;
-  onboarding = { terms: false, digest: false, updates: false };
+  onboarding = { terms: false, digest: false };
   onboardingDismissed = false;
   connectedProfiles = [];
   renderAuthUI();
@@ -562,10 +630,10 @@ $("#btn-auth-submit").addEventListener("click", async () => {
       });
       if (error) throw error;
 
-      // Terms consent and the marketing opt-ins (FeedFree Digest, FreeSurf
-      // product updates) are NOT collected here anymore. They are asked in the
-      // post-sign-in onboarding flow, so they are also shown to social-login
-      // users. See renderOnboarding() / loadOnboardingState() below.
+      // Terms consent and the marketing opt-in (FeedFree Digest) are NOT
+      // collected here anymore. They are asked in the post-sign-in onboarding
+      // flow, so they are also shown to social-login users. See
+      // renderOnboarding() / loadOnboardingState() below.
       if (signUpData?.session) {
         // Email confirmation is disabled — sign the user straight in.
         await refreshAuth();
@@ -585,21 +653,21 @@ $("#btn-auth-submit").addEventListener("click", async () => {
   }
 });
 
-// ── Onboarding (post-sign-in: Terms & Privacy + the two marketing opt-ins) ──
+// ── Onboarding (post-sign-in: Terms & Privacy + the FeedFree Digest opt-in) ──
 
 function onboardingComplete() {
-  return onboarding.terms && onboarding.digest && onboarding.updates;
+  return onboarding.terms && onboarding.digest;
 }
 
 function needsOnboarding() {
   if (!session?.user) return false;
   if (!onboarding.terms) return true;        // Terms are blocking
-  if (onboardingDismissed) return false;     // opt-ins deferred for this session
-  return !(onboarding.digest && onboarding.updates);
+  if (onboardingDismissed) return false;     // opt-in deferred for this session
+  return !onboarding.digest;
 }
 
 async function loadOnboardingState() {
-  onboarding = { terms: false, digest: false, updates: false };
+  onboarding = { terms: false, digest: false };
   onboardingDismissed = false;
   if (!session?.user) return;
   try {
@@ -612,7 +680,6 @@ async function loadOnboardingState() {
     for (const row of data || []) {
       if (row.type === "terms") onboarding.terms = true;
       else if (row.type === "onboarding_digest") onboarding.digest = true;
-      else if (row.type === "onboarding_updates") onboarding.updates = true;
     }
   } catch (e) {
     console.error("[post] onboarding state load threw:", e?.message || e);
@@ -623,7 +690,7 @@ function renderOnboarding() {
   const termsDone = onboarding.terms;
   const errEl = $("#onboarding-error");
   if (errEl) { errEl.className = "feedback"; errEl.textContent = ""; }
-  $("#onboarding-title").textContent = termsDone ? "Almost there" : "Welcome to Catpix";
+  $("#onboarding-title").textContent = termsDone ? "Almost there" : "Welcome to CatVideo";
   $("#onboarding-subtitle").textContent = termsDone ? "Step 2 of 2" : "Step 1 of 2";
   $("#onboarding-step-1").classList.toggle("hidden", termsDone);
   $("#onboarding-step-2").classList.toggle("hidden", !termsDone);
@@ -665,24 +732,13 @@ async function finishOnboarding() {
   const btn = $("#btn-onboarding-finish");
   const errEl = $("#onboarding-error");
   const wantsDigest = $("#onboarding-digest").checked;
-  const wantsUpdates = $("#onboarding-updates").checked;
   const email = (session.user.email || "").trim().toLowerCase();
   btn.disabled = true;
   btn.textContent = "Please wait…";
   try {
-    // Record the decision for BOTH opt-ins (accept or decline) so we don't ask again.
+    // Record the decision (accept or decline) so we don't ask again.
     await recordConsent("onboarding_digest", wantsDigest ? "accepted" : "declined");
-    await recordConsent("onboarding_updates", wantsUpdates ? "accepted" : "declined");
 
-    if (wantsUpdates && email) {
-      const supabase = await initSupabase();
-      const { error } = await supabase.from("update_subscriptions").insert({
-        email, list: "ecosystem_updates", source: "post_onboarding",
-      });
-      if (error && error.code !== "23505") {
-        console.error("[post] ecosystem subscription insert failed:", error.message);
-      }
-    }
     if (wantsDigest && email) {
       try {
         const supabase = await initSupabase();
@@ -696,7 +752,6 @@ async function finishOnboarding() {
     }
 
     onboarding.digest = true;
-    onboarding.updates = true;
     renderAuthUI();
   } catch (e) {
     errEl.className = "feedback error visible";
@@ -755,8 +810,8 @@ $$(".sidebar-nav-item").forEach((link) => {
 
 function showView(name) {
   // Onboarding is blocking until Terms are accepted, and keeps re-appearing on
-  // login until the two opt-ins are answered or deferred. Redirect any normal
-  // view here while it is still required.
+  // login until the opt-in is answered or deferred. Redirect any normal view
+  // here while it is still required.
   if (session && needsOnboarding() && name !== "onboarding") name = "onboarding";
   currentView = name;
   $$(".view").forEach((v) => v.classList.add("hidden"));
@@ -961,6 +1016,16 @@ btnPost.addEventListener("click", async () => {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
+  if (directMediaMode) {
+    const unsupported = platforms.filter((p) => !DIRECT_MEDIA_PLATFORMS.has(p));
+    if (unsupported.length) {
+      showFeedback(
+        `Direct media mode doesn't support: ${unsupported.join(", ")}. Turn it off or deselect those platforms.`,
+        "error"
+      );
+      return;
+    }
+  }
 
   for (const p of PLATFORMS) {
     if (!p.requiresMedia || !platforms.includes(p.key)) continue;
@@ -985,23 +1050,14 @@ btnPost.addEventListener("click", async () => {
     const uploadIds = [];
     for (const m of uploadedMedia) {
       if (m.uploadId) { uploadIds.push(m.uploadId); continue; }
-      const fd = new FormData();
-      fd.append("file", m.file);
-      if (teamId) fd.append("teamId", teamId);
-      const upRes = await apiFetch(`/api/media/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: fd,
-      });
-      const upData = await readJson(upRes);
-      if (!upRes.ok || !upData?.uploadId) {
-        showFeedback(upData?.error || `Media upload failed (${upRes.status}).`, "error");
+      try {
+        uploadIds.push(await uploadMediaFile(m, teamId));
+      } catch (e) {
+        showFeedback(e?.message || "Media upload failed.", "error");
         btnPost.disabled = false;
         btnPost.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Post`;
         return;
       }
-      m.uploadId = upData.uploadId;
-      uploadIds.push(upData.uploadId);
     }
 
     const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined }));
@@ -1040,7 +1096,7 @@ btnPost.addEventListener("click", async () => {
       resetDisclosures();
       resetFirstComment();
     } else {
-      showFeedback(data?.error || data?.__raw || `Post failed (HTTP ${res.status}).`, "error");
+      showFeedback(formatApiError(data, `Post failed (HTTP ${res.status}).`), "error");
     }
   } catch (err) {
     console.error("[post] failed", err);
@@ -1051,12 +1107,26 @@ btnPost.addEventListener("click", async () => {
   btnPost.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Post`;
 });
 
+$("#direct-media-toggle")?.addEventListener("change", (e) => {
+  directMediaMode = Boolean(e.target.checked);
+});
+
 $("#btn-schedule-compose")?.addEventListener("click", async () => {
   const text = textarea.value.trim();
   if (!text && uploadedMedia.length === 0) { showFeedback("Write something or attach media first.", "error"); return; }
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
+  if (directMediaMode) {
+    const unsupported = platforms.filter((p) => !DIRECT_MEDIA_PLATFORMS.has(p));
+    if (unsupported.length) {
+      showFeedback(
+        `Direct media mode doesn't support: ${unsupported.join(", ")}. Turn it off or deselect those platforms.`,
+        "error"
+      );
+      return;
+    }
+  }
 
   const timeEl = $("#compose-sched-time");
   let scheduledAt = timeEl?.value;
@@ -1079,25 +1149,17 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
   };
   setScheduling(true, uploadedMedia.length ? "Uploading…" : "Scheduling…");
   try {
-    // Upload any attached media to Bundle first (scoped to the selected team).
+    // Upload any attached media first (R2 for reviewer direct mode, otherwise Bundle).
     const uploadIds = [];
+    const teamId = $("#post-team")?.value;
     for (const m of uploadedMedia) {
       if (m.uploadId) { uploadIds.push(m.uploadId); continue; }
-      const fd = new FormData();
-      fd.append("file", m.file);
-      const teamId = $("#post-team")?.value;
-      if (teamId) fd.append("teamId", teamId);
-      const upRes = await apiFetch(`/api/media/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: fd,
-      });
-      const upData = await readJson(upRes);
-      if (!upRes.ok || !upData?.uploadId) {
-        showFeedback(upData?.error || `Media upload failed (${upRes.status}).`, "error");
+      try {
+        uploadIds.push(await uploadMediaFile(m, teamId));
+      } catch (e) {
+        showFeedback(e?.message || "Media upload failed.", "error");
         return;
       }
-      uploadIds.push(upData.uploadId);
     }
 
     const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined }));
@@ -1118,7 +1180,7 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
       resetFirstComment();
     } else {
       const err = await readJson(res);
-      showFeedback(err?.error || err?.__raw || `Failed to schedule (HTTP ${res.status}).`, "error");
+      showFeedback(formatApiError(err, `Failed to schedule (HTTP ${res.status}).`), "error");
     }
   } catch (err) {
     console.error("[schedule] failed", err);
@@ -1130,6 +1192,69 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
 });
 
 function showFeedback(msg, type) { feedback.className = `feedback ${type} visible`; feedback.textContent = msg; }
+
+async function uploadMediaFile(m, teamId) {
+  const fd = new FormData();
+  fd.append("file", m.file);
+
+  if (directMediaMode) {
+    const res = await apiFetch(`/api/media/direct/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: fd,
+    });
+    const data = await readJson(res);
+    if (!res.ok || !data?.url) {
+      throw new Error(data?.error || `Direct media upload failed (${res.status}).`);
+    }
+    m.uploadId = data.url;
+    return data.url;
+  }
+
+  if (teamId) fd.append("teamId", teamId);
+  const res = await apiFetch(`/api/media/upload`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body: fd,
+  });
+  const data = await readJson(res);
+  if (!res.ok || !data?.uploadId) {
+    throw new Error(data?.error || `Media upload failed (${res.status}).`);
+  }
+  m.uploadId = data.uploadId;
+  return data.uploadId;
+}
+
+async function fetchPostingLimits() {
+  try {
+    const res = await fetch(`${API_BASE}/api/limits`);
+    if (!res.ok) return;
+    const data = await res.json();
+    postingLimits = data?.posting || null;
+    renderPostingLimits();
+  } catch { /* limits are informational */ }
+}
+
+function renderPostingLimits() {
+  const el = $("#compose-limits");
+  if (!el || !postingLimits) return;
+  el.textContent =
+    `Posting limits: ${postingLimits.perDayPerUser}/day · ` +
+    `${postingLimits.perMonthPerUser}/month per user · ` +
+    `${postingLimits.perMonthPerAccount}/month per account · ` +
+    `${postingLimits.perMonthOrg}/month org-wide`;
+}
+
+function formatApiError(data, fallback) {
+  if (!data) return fallback;
+  if (data.code === "rate_limit_exceeded" && data.limit) {
+    const reset = data.limit.resetAt
+      ? new Date(data.limit.resetAt).toLocaleString()
+      : "";
+    return `${data.error || "Posting limit reached."}${reset ? ` Resets ${reset}.` : ""}`;
+  }
+  return data.error || data.__raw || fallback;
+}
 function clearFeedback() { feedback.className = "feedback"; feedback.innerHTML = ""; }
 
 // Analytics view has its own feedback element (the global #post-feedback lives in
@@ -1699,15 +1824,50 @@ async function connectPlatform(key) {
   const platform = PLATFORMS.find((p) => p.key === key);
   if (!platform) return;
 
-  // All platforms connect via Bundle.social (including Bluesky), so accounts stay team-scoped.
+  // Reviewer-only direct Bluesky uses the existing app-password token store.
+  if (key === "bluesky" && reviewerMode) {
+    const handle = prompt("Bluesky handle (e.g. name.bsky.social):");
+    if (!handle) return;
+    const appPassword = prompt("Bluesky app password:");
+    if (!appPassword) return;
+    try {
+      const res = await apiFetch(`/api/profiles/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          platform: "bluesky",
+          label: "Default",
+          handle,
+          accessToken: appPassword,
+          metadata: { connection: "direct", app_password: true },
+        }),
+      });
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(data?.error || "Could not connect Bluesky");
+      await fetchProfiles();
+      showView("accounts");
+    } catch (e) {
+      alert(e?.message || "Could not connect Bluesky");
+    }
+    return;
+  }
+
+  // All other platforms connect via Bundle unless the reviewer's direct switch
+  // added direct=1 in fetchConnectUrl.
   fetchConnectUrl(key);
 }
 
 async function fetchConnectUrl(platform) {
   if (!session?.access_token) return;
   try {
-    const teamQ = accountsTeamId ? `?teamId=${encodeURIComponent(accountsTeamId)}` : "";
-    const res = await apiFetch(`/api/connect/${platform}${teamQ}`, {
+    const params = new URLSearchParams();
+    if (accountsTeamId) params.set("teamId", accountsTeamId);
+    if (reviewerMode && DIRECT_REVIEWER_PLATFORMS.has(platform)) params.set("direct", "1");
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const res = await apiFetch(`/api/connect/${platform}${qs}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
