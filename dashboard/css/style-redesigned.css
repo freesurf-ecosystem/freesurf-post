@@ -2666,16 +2666,16 @@ cat-walker.is-sleeping .cat-rig__ear { transform-origin: 0% 100%; animation: cat
   position: sticky;
   top: 0;
   z-index: 30;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   padding-bottom: 18px;
   background: var(--bg);
 }
-.marketing-logo { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 700; text-decoration: none; }
+.marketing-logo { grid-column: 1; justify-self: start; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 700; text-decoration: none; }
 .marketing-logo:hover { text-decoration: none; }
-.marketing-nav { display: flex; align-items: center; gap: 22px; }
+.marketing-nav { grid-column: 2; justify-self: center; display: flex; align-items: center; gap: 34px; }
 .marketing-group { position: relative; }
 .marketing-link { padding: 6px 0; border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
 .marketing-link:hover { color: var(--text); }
@@ -2686,14 +2686,12 @@ cat-walker.is-sleeping .cat-rig__ear { transform-origin: 0% 100%; animation: cat
 .marketing-dropdown.open { display: flex; }
 .marketing-dropdown a { padding: 9px 12px; border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 0.9rem; text-decoration: none; }
 .marketing-dropdown a:hover { background: var(--bg-alt); color: var(--text); }
-.marketing-menu-btn { display: none; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.marketing-menu-btn { grid-column: 3; justify-self: end; display: none; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 .marketing-menu-btn:hover { background: var(--bg-alt); }
-.marketing-cta { color: #ffffff; }
-.marketing-cta:hover { color: #ffffff; }
 #pricing { scroll-margin-top: 90px; }
 @media (max-width: 768px) {
   body:has(#view-welcome:not(.hidden)) .mobile-header { display: none; }
-  .marketing-header { flex-wrap: wrap; padding-bottom: 12px; }
+  .marketing-header { display: flex; justify-content: space-between; flex-wrap: wrap; padding-bottom: 12px; }
   .marketing-menu-btn { display: inline-flex; }
   .marketing-nav {
     display: none;
@@ -2711,5 +2709,4 @@ cat-walker.is-sleeping .cat-rig__ear { transform-origin: 0% 100%; animation: cat
   .marketing-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; }
   .marketing-dropdown { position: static; min-width: 0; padding: 0 0 0 12px; background: transparent; border: 0; box-shadow: none; }
   .marketing-dropdown a { padding: 8px 6px; }
-  .marketing-cta { display: flex; justify-content: center; margin-top: 6px; }
 }
