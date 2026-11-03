@@ -34,7 +34,7 @@
   <meta name="twitter:description" content="Schedule once and publish everywhere. Free, open-source cross-posting to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style-redesigned.css?v=20261103o" />
+  <link rel="stylesheet" href="./css/style-redesigned.css?v=20261103p" />
   <noscript><style>html.is-loading body { visibility: visible; }</style></noscript>
   <script>
     (function () {
@@ -156,6 +156,31 @@
     <main class="main-content">
       <!-- Welcome / Landing (when signed out) -->
       <section id="view-welcome" class="view">
+        <header class="marketing-header">
+          <a href="/" class="marketing-logo" aria-label="CatVideo home">
+            <svg class="logo-mark" width="28" height="28" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask-marketing" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask-marketing)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>
+            <span>CatVideo</span>
+          </a>
+          <button class="marketing-menu-btn" id="marketing-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="marketing-nav">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <nav class="marketing-nav" id="marketing-nav">
+            <div class="marketing-group">
+              <button class="marketing-link marketing-toggle" id="marketing-resources-toggle" type="button" aria-expanded="false" aria-controls="marketing-resources">
+                Resources
+                <svg class="marketing-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="marketing-dropdown" id="marketing-resources">
+                <a href="/resources/">All resources</a>
+                <a href="/resources/#comparisons">Comparisons</a>
+                <a href="/resources/#social-media-apis">Social Media APIs</a>
+                <a href="/llms.txt">LLMs.txt</a>
+              </div>
+            </div>
+            <a class="marketing-link" href="#pricing">Pricing</a>
+            <button class="btn btn-primary btn-sm marketing-cta" id="marketing-cta" type="button">Sign in / Sign up</button>
+          </nav>
+        </header>
         <div class="hero">
           <div class="hero-content">
             <div class="hero-logo">
@@ -231,7 +256,7 @@
               <h3 class="feature-title">Open Source</h3>
               <p class="feature-description">Built in public and community-driven. <a href="https://github.com/ah8571/freesurf-to-post" target="_blank" style="color:var(--brand);font-weight:500;">View on GitHub →</a></p>
             </div>
-            <div class="feature-card">
+            <div class="feature-card" id="pricing">
               <div class="feature-icon">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               </div>
@@ -991,6 +1016,58 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
   }
 
   setTimeout(type, 500);
+})();
+</script>
+<script>
+(function () {
+  const header = document.querySelector(".marketing-header");
+  if (!header) return;
+  const menuBtn = document.getElementById("marketing-menu-btn");
+  const nav = document.getElementById("marketing-nav");
+  const resourcesBtn = document.getElementById("marketing-resources-toggle");
+  const resources = document.getElementById("marketing-resources");
+
+  const closeAll = () => {
+    nav.classList.remove("open");
+    resources.classList.remove("open");
+    menuBtn.setAttribute("aria-expanded", "false");
+    menuBtn.setAttribute("aria-label", "Open menu");
+    resourcesBtn.setAttribute("aria-expanded", "false");
+  };
+
+  menuBtn.addEventListener("click", () => {
+    const open = !nav.classList.contains("open");
+    nav.classList.toggle("open", open);
+    menuBtn.setAttribute("aria-expanded", String(open));
+    menuBtn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  });
+
+  resourcesBtn.addEventListener("click", () => {
+    const open = !resources.classList.contains("open");
+    resources.classList.toggle("open", open);
+    resourcesBtn.setAttribute("aria-expanded", String(open));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!header.contains(event.target)) closeAll();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAll();
+  });
+
+  const cta = document.getElementById("marketing-cta");
+  if (cta) {
+    cta.addEventListener("click", () => {
+      closeAll();
+      const heroBtn = document.getElementById("btn-hero-signin");
+      if (heroBtn) heroBtn.click();
+    });
+  }
+
+  nav.addEventListener("click", (event) => {
+    if (event.target.closest("a")) closeAll();
+  });
 })();
 </script>
 </body>
