@@ -2619,15 +2619,9 @@ cat-walker::after {
   filter: blur(1px);
 }
 
-/* Turning around reads as a quick spin in place rather than a mirror snap. */
-.cat-walker__flip {
-  position: absolute;
-  inset: 0;
-  transform-origin: center;
-  transform: perspective(160px) rotateY(0deg);
-  transition: transform 500ms ease-in-out;
-}
-cat-walker.is-left .cat-walker__flip { transform: perspective(160px) rotateY(180deg); }
+/* Mirrored at the moment the cat faces the viewer mid-turn, so the switch isn't visible. */
+.cat-walker__flip { position: absolute; inset: 0; transform-origin: center; }
+cat-walker.is-left .cat-walker__flip { transform: scaleX(-1); }
 .cat-walker__svg { position: absolute; left: 0; bottom: 0; display: block; width: 100%; height: auto; overflow: visible; }
 
 /* The rig itself is posed from cat-walker.js; CSS only adds the small idle touches. */
