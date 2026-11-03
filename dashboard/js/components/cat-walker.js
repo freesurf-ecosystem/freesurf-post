@@ -1,93 +1,171 @@
-const WALK_POSE = `
-  <svg class="cat-walker__svg" viewBox="0 0 64 44" aria-hidden="true" focusable="false">
-    <g class="cat-walker__bob">
-      <path class="cat-walker__tail" d="M15.5 23 C8.5 21 6.5 13 10.5 8" fill="none" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
-      <g stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round">
-        <path class="cat-leg cat-leg--b" d="M22 27 L22 40.5"/>
-        <path class="cat-leg cat-leg--a" d="M44 26 L44 40.5"/>
-      </g>
-      <path d="M14 25.5 C13.5 20.5 17.5 18.5 23 19 C30 19.5 36 19 41 18 C45 17.5 48.5 20 48.5 25 C48.5 29 45.5 31 41 31 C34 31.5 26 32 20 31.5 C16 31 14.5 29 14 25.5 Z" fill="var(--cat-ink)"/>
-      <g stroke="var(--cat-ink)" stroke-width="3.6" stroke-linecap="round">
-        <path class="cat-leg cat-leg--a" d="M18.5 26 L18.5 40.5"/>
-        <path class="cat-leg cat-leg--b" d="M40.5 26 L40.5 40.5"/>
-      </g>
-      <path d="M12 27 C11.5 20 16 17.5 21 18.5 C25 19.5 26 24 25 28 C24 31.5 20 33 17 32 C14 31 12.2 29.5 12 27 Z" fill="var(--cat-ink)"/>
-      <g class="cat-walker__head">
-        <ellipse cx="50.5" cy="18.5" rx="6.5" ry="5.8" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.7"/>
-        <ellipse cx="55.8" cy="20.6" rx="3.2" ry="2.4" fill="var(--cat-ink)"/>
-        <g fill="var(--cat-ink)" stroke="var(--cat-ink)" stroke-width="1" stroke-linejoin="round">
-          <path d="M45.3 15.5 L46.2 8.3 L50.3 13 Z"/>
-          <path d="M52 12.9 L56.7 8.7 L57.1 16 Z"/>
-        </g>
-        <g class="cat-walker__eyes"><ellipse cx="53" cy="17.6" rx="1" ry="1.3" fill="var(--cat-paper)"/></g>
-        <path d="M58.8 20.4 l3 -0.7 M58.8 21.6 l3 0.4" stroke="var(--cat-ink)" stroke-width="0.5" stroke-linecap="round" opacity="0.6"/>
-      </g>
-    </g>
-  </svg>
-`;
+// The cat is one rig (body, head, tail, four jointed legs) drawn in a 64x44 box,
+// facing right, ground at y≈41. Poses are sets of joint positions; the cat moves
+// between them by interpolating every point, so it really gets up and lies down.
 
-const SLEEP_POSE = `
-  <svg class="cat-walker__svg" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
-    <g class="cat-sleep__body">
-      <path d="M4 40.5 C3 30 9.5 18 21.5 17 C30 16.3 36 20 38 27 C39.5 32 39 37 37 40.5 Z" fill="var(--cat-ink)"/>
-      <path d="M12 37 C10.5 30 15 25.5 22 26" fill="none" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linecap="round" opacity="0.35"/>
-    </g>
-    <g class="cat-sleep__tail">
-      <path d="M6.5 37 C5 42.5 15 42.6 23 41.6 C28 41 31.5 40.2 32.5 37.8" fill="none" stroke="var(--cat-paper)" stroke-width="5.6" stroke-linecap="round"/>
-      <path d="M6.5 37 C5 42.5 15 42.6 23 41.6 C28 41 31.5 40.2 32.5 37.8" fill="none" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
-    </g>
-    <path d="M36 37 C38 36 44 36.2 46 38.4 C47 39.8 46 41 44 41 L37 41 Z" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.8" stroke-linejoin="round"/>
-    <ellipse cx="37.5" cy="30" rx="8.3" ry="6.8" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.7"/>
-    <g fill="var(--cat-ink)" stroke="var(--cat-ink)" stroke-width="1" stroke-linejoin="round">
-      <path d="M31.2 26 L32.3 17.3 L37.6 23 Z"/>
-      <path class="cat-sleep__ear" d="M39.3 23 L44.6 18.4 L45 26.5 Z"/>
-    </g>
-    <path d="M39.4 29.4 q1.8 1.5 3.6 0" fill="none" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linecap="round"/>
-    <path d="M45.2 31 l3 -0.6 M45.2 32.2 l3 0.5" stroke="var(--cat-ink)" stroke-width="0.5" stroke-linecap="round" opacity="0.6"/>
-  </svg>
-`;
+const INK = "var(--cat-ink)";
+const PAPER = "var(--cat-paper)";
 
-const STRETCH_POSE = `
-  <svg class="cat-walker__svg" viewBox="0 0 64 44" aria-hidden="true" focusable="false">
-    <path class="cat-stretch__tail" d="M12.5 18 C6 14 4.5 6 9 2.5" fill="none" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
-    <path d="M19.5 29 L21 40.5" stroke="var(--cat-ink)" stroke-width="3.8" stroke-linecap="round"/>
-    <path d="M45 31 L59.5 36" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
-    <path d="M11 41 C11.5 36 9.5 30 10.5 23 C11.5 16 16 13.5 21 14 C28 15 36 21 42 27 C44 29 48 33 52 35.5 C55 37 59 37.5 61 38.5 C62.5 39.3 62 41 60 41 L44 41 C40 41 37 39.5 34 38 C29 35.5 24 31 21 30.5 C18 33 16.5 37 16 41 Z" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linejoin="round"/>
-    <ellipse cx="47" cy="27.5" rx="6.8" ry="5.8" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.7"/>
-    <ellipse cx="52.6" cy="29.3" rx="3.4" ry="2.5" fill="var(--cat-ink)"/>
-    <g fill="var(--cat-ink)" stroke="var(--cat-ink)" stroke-width="1" stroke-linejoin="round">
-      <path d="M41.6 24 L42.3 16.3 L46.8 21.6 Z"/>
-      <path d="M48.6 21.6 L53.6 17 L53.6 24.6 Z"/>
-    </g>
-    <path d="M48.3 26.6 q1.5 -1.3 3 0" fill="none" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linecap="round"/>
-    <path d="M55.6 29.2 l3 -0.7 M55.6 30.4 l3 0.4" stroke="var(--cat-ink)" stroke-width="0.5" stroke-linecap="round" opacity="0.6"/>
-  </svg>
-`;
+const leg = (name, upperWidth) => `
+  <g data-leg="${name}" fill="none" stroke="${INK}" stroke-linecap="round" stroke-linejoin="round">
+    <path data-bone="upper" stroke-width="${upperWidth}"/>
+    <path data-bone="lower" stroke-width="3"/>
+    <ellipse data-bone="paw" rx="2.1" ry="1.25" fill="${INK}" stroke="none"/>
+  </g>`;
 
 const TEMPLATE = `
   <div class="cat-walker__flip">
-    <div class="cat-walker__pose cat-walker__pose--walk">${WALK_POSE}</div>
-    <div class="cat-walker__pose cat-walker__pose--sleep">${SLEEP_POSE}</div>
-    <div class="cat-walker__pose cat-walker__pose--stretch">${STRETCH_POSE}</div>
+    <svg class="cat-walker__svg" viewBox="0 0 64 44" aria-hidden="true" focusable="false">
+      <g data-part="bob">
+        ${leg("fh", 4.6)}
+        ${leg("ff", 3.8)}
+        <g class="cat-rig__breath">
+          <path data-part="body" fill="${INK}"/>
+          <ellipse data-part="haunch" fill="${INK}"/>
+        </g>
+        ${leg("nh", 4.6)}
+        <path data-part="tail-under" fill="none" stroke="${PAPER}" stroke-width="5.6" stroke-linecap="round"/>
+        <path data-part="tail" fill="none" stroke="${INK}" stroke-width="3.4" stroke-linecap="round"/>
+        ${leg("nf", 3.8)}
+        <g data-part="head">
+          <ellipse rx="6.5" ry="5.8" fill="${INK}" stroke="${PAPER}" stroke-width="0.7"/>
+          <ellipse cx="5.3" cy="2.1" rx="3.2" ry="2.4" fill="${INK}"/>
+          <g fill="${INK}" stroke="${INK}" stroke-width="1" stroke-linejoin="round">
+            <path d="M-5.2 -3 L-4.3 -10.2 L-0.2 -5.5 Z"/>
+            <path class="cat-rig__ear" d="M1.5 -5.6 L6.2 -9.8 L6.6 -2.5 Z"/>
+          </g>
+          <ellipse data-eye="open" class="cat-rig__eye" cx="2.6" cy="-0.9" rx="1" ry="1.3" fill="${PAPER}"/>
+          <path data-eye="closed" d="M0.9 -0.7 q1.8 1.5 3.6 0" fill="none" stroke="${PAPER}" stroke-width="0.9" stroke-linecap="round"/>
+          <path data-eye="happy" d="M1.1 -0.2 q1.5 -1.3 3 0" fill="none" stroke="${PAPER}" stroke-width="0.9" stroke-linecap="round"/>
+          <path d="M8.3 1.9 l3 -0.7 M8.3 3.1 l3 0.4" stroke="${INK}" stroke-width="0.5" stroke-linecap="round" opacity="0.6"/>
+        </g>
+      </g>
+    </svg>
   </div>
 `;
+
+// body: start point + 6 cubic segments (rear, back, shoulders, chest, belly, rump).
+// haunch: cx cy rx ry. head: x y rotation scale. eyes: open closed happy (opacity).
+// tail: start + 2 cubic segments. legs: hip, knee, paw.
+const POSES = {
+  sleep: {
+    body: [12.6, 31, 13.5, 24, 17, 19.5, 23, 17.8, 28, 16.5, 36, 16.8, 40.5, 20.5, 45, 24, 47.8, 30, 47.5, 35, 47.3, 39, 45, 40.8, 42, 40.8, 33, 41, 22, 41, 16, 40.6, 12.8, 40.3, 12, 35, 12.6, 31],
+    haunch: [21, 33, 8, 7],
+    head: [46.5, 30.5, 0, 1.12],
+    eyes: [0, 1, 0],
+    tail: [15.5, 37, 14, 42.5, 24, 42.6, 32, 41.6, 37, 41, 40.5, 40.2, 41.5, 37.8],
+    tailUnder: [1],
+    fh: [23, 32, 26, 37, 31, 39.4],
+    nh: [21, 33, 24, 38, 29, 39.6],
+    ff: [44, 34, 47.5, 38.8, 54, 39.2],
+    nf: [43, 35, 46, 39.6, 52.5, 40],
+  },
+  stretch: {
+    body: [11, 22, 11, 17, 14.5, 14, 19, 14, 27, 14.5, 35, 20, 41, 26.5, 43.5, 29, 46.5, 30.5, 46, 32.5, 45.5, 35, 42, 35.5, 39, 35, 32, 33.5, 24, 29.5, 19, 27, 15, 25.5, 11.5, 25, 11, 22],
+    haunch: [15.5, 20.5, 6, 6.5],
+    head: [48, 27.5, 0, 1],
+    eyes: [0, 0, 1],
+    tail: [12.5, 18, 9, 16, 6.5, 12, 7, 8, 7.3, 5.5, 8, 3.8, 9, 2.5],
+    tailUnder: [0],
+    fh: [18.5, 25, 16.5, 33, 17.5, 40],
+    nh: [15, 24, 12.5, 32.5, 13.5, 40],
+    ff: [44.5, 31.5, 52.5, 35.8, 60.5, 38.4],
+    nf: [43, 33, 51, 37.6, 59.5, 39.6],
+  },
+  stand: {
+    body: [14, 22.5, 13.5, 17.5, 17.5, 15.5, 23, 16, 30, 16.5, 36, 16, 41, 15, 45, 14.5, 48.5, 17, 48.5, 22, 48.5, 26, 45.5, 28, 41, 28, 34, 28.5, 26, 29, 20, 28.5, 16, 28, 14.5, 26, 14, 22.5],
+    haunch: [19, 22.5, 6.5, 6.5],
+    head: [50.5, 15.5, 0, 1],
+    eyes: [1, 0, 0],
+    tail: [15.5, 20, 11, 19, 8, 16, 8, 12, 8, 9, 9, 6.5, 10.5, 5],
+    tailUnder: [0],
+    fh: [23, 26.5, 20.5, 33.8, 22, 40],
+    nh: [19.5, 26, 16.5, 33.5, 18, 40],
+    ff: [44, 24, 44.6, 32.1, 45.4, 40],
+    nf: [41, 24, 41.3, 32.1, 42, 40],
+  },
+};
+
+const LEGS = ["fh", "ff", "nh", "nf"];
+// Walk gait (lateral sequence) and joint bend: hind hocks point back, front wrists forward.
+const GAIT = { nh: { phase: 0, bend: 1 }, nf: { phase: 0.25, bend: -1 }, fh: { phase: 0.5, bend: 1 }, ff: { phase: 0.75, bend: -1 } };
+const STRIDE = 3;
+const STEP_LIFT = 2.2;
+const GAIT_MS = 700;
 
 // A fresh visit or a full refresh wakes the cat for a stretch shortly after the page appears.
 const FIRST_NAP_MIN = 2500;
 const FIRST_NAP_MAX = 4000;
 const NAP_MIN = 3 * 60 * 1000;
 const NAP_MAX = 6 * 60 * 1000;
-const STRETCH_MS = 5000;
-// After stretching the cat stands, takes a few steps out, turns, comes back, and lies down.
-const STAND_MS = 900;
+const OVERDUE_STRETCH_DELAY = 1500;
+// The wake-up routine: rise into a stretch, stand, step out, turn, step back, lie down.
+const RISE_MS = 1400;
+const STRETCH_HOLD_MS = 3600;
+const STAND_UP_MS = 1100;
+const STAND_MS = 600;
 const CIRCLE_DISTANCE = 34; // px
 const CIRCLE_STEP_MS = 1700; // keep in sync with the transform transition on cat-walker
-const TURN_MS = 500;
-const SETTLE_MS = 500;
-const OVERDUE_STRETCH_DELAY = 1500;
-const STATES = ["sleeping", "stretching", "idle", "walking"];
+const TURN_MS = 550;
+const LIE_DOWN_MS = 1600;
+const STATES = ["sleeping", "stretching", "standing", "walking"];
 // Per-tab, so the nap schedule carries across page loads instead of restarting on each one.
 const STORAGE_KEY = "cat-walker:next-stretch";
+
+const ease = (t) => 0.5 - Math.cos(Math.PI * t) / 2;
+
+function lerpPose(a, b, t) {
+  const out = {};
+  for (const key of Object.keys(a)) out[key] = a[key].map((v, i) => v + (b[key][i] - v) * t);
+  return out;
+}
+
+function boneLengths([hx, hy, kx, ky, px, py]) {
+  // A little slack so a striding leg can still reach the ground.
+  return [Math.hypot(kx - hx, ky - hy) * 1.04, Math.hypot(px - kx, py - ky) * 1.04];
+}
+
+// Two-bone IK: place the knee so both bones keep their length, bending to one side.
+function solveKnee(hx, hy, px, py, [l1, l2], bend) {
+  let dx = px - hx;
+  let dy = py - hy;
+  let d = Math.hypot(dx, dy) || 0.001;
+  if (d > l1 + l2 - 0.01) {
+    const s = (l1 + l2 - 0.01) / d;
+    dx *= s;
+    dy *= s;
+    px = hx + dx;
+    py = hy + dy;
+    d = l1 + l2 - 0.01;
+  }
+  const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+  const h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  const ux = dx / d;
+  const uy = dy / d;
+  return [hx + a * ux - bend * h * uy, hy + a * uy + bend * h * ux, px, py];
+}
+
+// Rotate every point of a path after the first around that first point (the tail root).
+function rotateAround(points, angleDeg) {
+  if (!angleDeg) return points;
+  const [ox, oy] = points;
+  const r = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(r);
+  const sin = Math.sin(r);
+  const out = [ox, oy];
+  for (let i = 2; i < points.length; i += 2) {
+    const x = points[i] - ox;
+    const y = points[i + 1] - oy;
+    out.push(ox + x * cos - y * sin, oy + x * sin + y * cos);
+  }
+  return out;
+}
+
+const cubicPath = (p) => {
+  const n = (v) => +v.toFixed(2);
+  let d = `M${n(p[0])} ${n(p[1])}`;
+  for (let i = 2; i < p.length; i += 6) d += ` C${p.slice(i, i + 6).map(n).join(" ")}`;
+  return d;
+};
 
 function randomNap() {
   return NAP_MIN + Math.random() * (NAP_MAX - NAP_MIN);
@@ -115,6 +193,8 @@ function writeNextStretch(timestamp) {
   }
 }
 
+class Cancelled extends Error {}
+
 class CatWalker extends HTMLElement {
   connectedCallback() {
     if (this.dataset.ready === "true") return;
@@ -123,6 +203,28 @@ class CatWalker extends HTMLElement {
     this.setAttribute("aria-hidden", "true");
     this.classList.add("is-visible");
     this._timer = null;
+    this._run = null;
+
+    const part = (name) => this.querySelector(`[data-part="${name}"]`);
+    this._el = {
+      bob: part("bob"),
+      body: part("body"),
+      haunch: part("haunch"),
+      head: part("head"),
+      tail: part("tail"),
+      tailUnder: part("tail-under"),
+      eyes: ["open", "closed", "happy"].map((n) => this.querySelector(`[data-eye="${n}"]`)),
+      legs: Object.fromEntries(
+        LEGS.map((name) => {
+          const g = this.querySelector(`[data-leg="${name}"]`);
+          const bone = (b) => g.querySelector(`[data-bone="${b}"]`);
+          return [name, { upper: bone("upper"), lower: bone("lower"), paw: bone("paw") }];
+        }),
+      ),
+    };
+    this._bones = Object.fromEntries(LEGS.map((name) => [name, boneLengths(POSES.stand[name])]));
+    this._pose = POSES.sleep;
+    this._draw(this._pose);
 
     const nextStretch = readNextStretch();
     if (nextStretch === null || isReload()) {
@@ -134,6 +236,7 @@ class CatWalker extends HTMLElement {
 
   disconnectedCallback() {
     if (this._timer) clearTimeout(this._timer);
+    this._run = null;
   }
 
   _setState(state) {
@@ -144,43 +247,121 @@ class CatWalker extends HTMLElement {
     if (this._timer) clearTimeout(this._timer);
     this._setState("sleeping");
     if (persist) writeNextStretch(Date.now() + ms);
-    this._timer = setTimeout(() => this._stretch(), ms);
+    this._timer = setTimeout(() => this._wake(), ms);
   }
 
-  _stretch() {
-    if (this._timer) clearTimeout(this._timer);
+  async _wake() {
     // Keep a page change mid-routine from triggering another stretch straight away.
     writeNextStretch(Date.now() + NAP_MIN);
-    this._run(
-      [
-        [() => this._setState("stretching"), STRETCH_MS],
-        [() => this._setState("idle"), STAND_MS],
-        [() => this._walkTo(-CIRCLE_DISTANCE, { facingLeft: true }), CIRCLE_STEP_MS],
-        [() => this._turn(false), TURN_MS],
-        [() => this._walkTo(0, { facingLeft: false }), CIRCLE_STEP_MS],
-        [() => this._setState("idle"), SETTLE_MS],
-      ],
-      () => this._napFor(randomNap()),
-    );
+    const run = (this._run = {});
+    try {
+      this._setState("stretching");
+      await this._tweenTo(POSES.stretch, RISE_MS, run);
+      await this._animate(STRETCH_HOLD_MS, run, (ms) => {
+        const fade = Math.min(1, ms / 400, (STRETCH_HOLD_MS - ms) / 400);
+        this._draw(this._pose, { tailAngle: 12 * fade * Math.sin((ms / 1200) * 2 * Math.PI) });
+      });
+      this._setState("standing");
+      await this._tweenTo(POSES.stand, STAND_UP_MS, run);
+      await this._pause(STAND_MS, run);
+      await this._walk(-CIRCLE_DISTANCE, true, run);
+      this._setState("standing");
+      this.classList.remove("is-left");
+      await this._pause(TURN_MS, run);
+      await this._walk(0, false, run);
+      this._setState("standing");
+      await this._pause(STAND_MS, run);
+      await this._tweenTo(POSES.sleep, LIE_DOWN_MS, run);
+    } catch (error) {
+      if (error instanceof Cancelled) return;
+      throw error;
+    }
+    this._napFor(randomNap());
   }
 
-  _run(steps, done) {
-    const [step, ...rest] = steps;
-    if (!step) return done();
-    const [action, ms] = step;
-    action();
-    this._timer = setTimeout(() => this._run(rest, done), ms);
+  // Runs frame(elapsedMs) on every animation frame for `ms`, then resolves.
+  _animate(ms, run, frame) {
+    return new Promise((resolve, reject) => {
+      const start = performance.now();
+      const tick = (now) => {
+        if (this._run !== run) return reject(new Cancelled());
+        const elapsed = Math.min(Math.max(now - start, 0), ms);
+        frame(elapsed);
+        if (elapsed >= ms) resolve();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
   }
 
-  _turn(facingLeft) {
-    this._setState("idle");
-    this.classList.toggle("is-left", facingLeft);
+  _pause(ms, run) {
+    return this._animate(ms, run, () => {});
   }
 
-  _walkTo(x, { facingLeft }) {
+  async _tweenTo(target, ms, run) {
+    const from = this._pose;
+    await this._animate(ms, run, (elapsed) => this._draw(lerpPose(from, target, ease(elapsed / ms))));
+    this._pose = target;
+  }
+
+  async _walk(x, facingLeft, run) {
     this.classList.toggle("is-left", facingLeft);
     this._setState("walking");
     this.style.transform = x ? `translateX(${x}px)` : "";
+    const pose = this._pose;
+    await this._animate(CIRCLE_STEP_MS, run, (ms) => {
+      // Ease the stride in and out so the first and last steps aren't a jolt.
+      const ramp = Math.min(1, ms / 300, (CIRCLE_STEP_MS - ms) / 300);
+      const cycle = ms / GAIT_MS;
+      const legs = {};
+      for (const name of LEGS) {
+        const [hx, hy, , , restX, restY] = pose[name];
+        const p = (cycle + GAIT[name].phase) % 1;
+        let px;
+        let py = restY;
+        if (p < 0.6) {
+          px = restX + STRIDE * ramp * (1 - (2 * p) / 0.6);
+        } else {
+          const t = (p - 0.6) / 0.4;
+          px = restX + STRIDE * ramp * (-1 + 2 * ease(t));
+          py = restY - STEP_LIFT * ramp * Math.sin(Math.PI * t);
+        }
+        const [kx, ky, fx, fy] = solveKnee(hx, hy, px, py, this._bones[name], GAIT[name].bend);
+        legs[name] = [hx, hy, kx, ky, fx, fy];
+      }
+      const bob = -0.5 * ramp * Math.abs(Math.sin(cycle * 2 * Math.PI));
+      const sway = 6 * Math.sin((ms / 1400) * 2 * Math.PI);
+      this._draw({ ...pose, ...legs }, { bob, tailAngle: sway });
+    });
+    this._draw(pose);
+  }
+
+  _draw(pose, { tailAngle = 0, bob = 0 } = {}) {
+    const el = this._el;
+    const n = (v) => +v.toFixed(2);
+    el.bob.setAttribute("transform", bob ? `translate(0 ${n(bob)})` : "");
+    el.body.setAttribute("d", cubicPath(pose.body));
+    const [cx, cy, rx, ry] = pose.haunch;
+    el.haunch.setAttribute("cx", n(cx));
+    el.haunch.setAttribute("cy", n(cy));
+    el.haunch.setAttribute("rx", n(rx));
+    el.haunch.setAttribute("ry", n(ry));
+    const [hx, hy, rot, scale] = pose.head;
+    el.head.setAttribute("transform", `translate(${n(hx)} ${n(hy)}) rotate(${n(rot)}) scale(${n(scale)})`);
+    pose.eyes.forEach((opacity, i) => el.eyes[i].setAttribute("opacity", n(opacity)));
+    const tail = cubicPath(rotateAround(pose.tail, tailAngle));
+    el.tail.setAttribute("d", tail);
+    el.tailUnder.setAttribute("d", tail);
+    // The tail's paper edge only makes sense once it is wrapped round the curled-up body.
+    el.tailUnder.setAttribute("opacity", n(Math.max(0, (pose.tailUnder[0] - 0.85) / 0.15)));
+    for (const name of LEGS) {
+      const [hipX, hipY, kneeX, kneeY, pawX, pawY] = pose[name].map(n);
+      const bones = el.legs[name];
+      bones.upper.setAttribute("d", `M${hipX} ${hipY} L${kneeX} ${kneeY}`);
+      bones.lower.setAttribute("d", `M${kneeX} ${kneeY} L${pawX} ${pawY}`);
+      bones.paw.setAttribute("cx", n(pawX + 0.9));
+      bones.paw.setAttribute("cy", n(pawY + 0.1));
+    }
   }
 }
 

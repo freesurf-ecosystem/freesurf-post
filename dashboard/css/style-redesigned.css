@@ -2628,74 +2628,20 @@ cat-walker::after {
   transition: transform 500ms ease-in-out;
 }
 cat-walker.is-left .cat-walker__flip { transform: perspective(160px) rotateY(180deg); }
-.cat-walker__svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cat-walker__svg { position: absolute; left: 0; bottom: 0; display: block; width: 100%; height: auto; overflow: visible; }
 
-/* All poses stay rendered and crossfade; the resting offsets make the cat
-   appear to rise out of its nap and sink back into it. */
-.cat-walker__pose {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  opacity: 0;
-  transform-origin: 50% 100%;
-  transition: opacity 700ms ease, transform 800ms ease-in-out;
-}
-.cat-walker__pose--sleep { left: 50%; width: 44px; margin-left: -22px; transform: scale(0.92, 1.12); }
-.cat-walker__pose--stretch { transform-origin: 100% 100%; transform: scale(0.86, 1.05); }
-.cat-walker__pose--walk { transform: scale(1.04, 0.86); }
+/* The rig itself is posed from cat-walker.js; CSS only adds the small idle touches. */
+.cat-rig__breath,
+.cat-rig__ear,
+.cat-rig__eye { transform-box: fill-box; }
 
-cat-walker.is-sleeping .cat-walker__pose--sleep,
-cat-walker.is-stretching .cat-walker__pose--stretch,
-cat-walker.is-idle .cat-walker__pose--walk,
-cat-walker.is-walking .cat-walker__pose--walk { opacity: 1; transform: none; }
+cat-walker.is-sleeping .cat-rig__breath { transform-origin: center bottom; animation: cat-breathe 3.4s ease-in-out infinite; }
+cat-walker.is-sleeping .cat-rig__ear { transform-origin: 0% 100%; animation: cat-ear-twitch 9s ease-in-out infinite; }
+.cat-rig__eye { transform-origin: center; animation: cat-blink 4.6s ease-in-out infinite; }
 
-.cat-sleep__body,
-.cat-sleep__ear,
-.cat-stretch__tail { transform-box: fill-box; }
-
-.cat-sleep__body { transform-origin: center bottom; animation: cat-breathe 3.4s ease-in-out infinite; }
-.cat-sleep__ear { transform-origin: 0% 100%; animation: cat-ear-twitch 9s ease-in-out infinite; }
-.cat-stretch__tail { transform-origin: 100% 100%; }
-cat-walker.is-stretching .cat-stretch__tail { animation: cat-tail-flick 1.2s ease-in-out 0.8s 3; }
-
-.cat-walker__bob,
-.cat-leg,
-.cat-walker__tail,
-.cat-walker__eyes { transform-box: fill-box; }
-
-.cat-walker__bob { transform-origin: center bottom; }
-.cat-leg { transform-origin: center top; }
-.cat-walker__tail { transform-origin: 100% 100%; animation: cat-tail-sway 2.8s ease-in-out infinite; }
-.cat-walker__eyes { transform-origin: center; animation: cat-blink 4.6s ease-in-out infinite; }
-
-cat-walker.is-walking .cat-walker__bob { animation: cat-walk-bob 0.35s ease-in-out infinite; }
-cat-walker.is-walking .cat-leg--a { animation: cat-step-a 0.7s ease-in-out infinite; }
-cat-walker.is-walking .cat-leg--b { animation: cat-step-b 0.7s ease-in-out infinite; }
-
-@keyframes cat-walk-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-0.8px); }
-}
-
-@keyframes cat-step-a {
-  0%, 100% { transform: rotate(12deg); }
-  50% { transform: rotate(-12deg); }
-}
-
-@keyframes cat-step-b {
-  0%, 100% { transform: rotate(-12deg); }
-  50% { transform: rotate(12deg); }
-}
-
-@keyframes cat-tail-sway {
-  0%, 100% { transform: rotate(-7deg); }
-  50% { transform: rotate(10deg); }
-}
-
-@keyframes cat-blink {
-  0%, 91%, 100% { transform: scaleY(1); }
-  94% { transform: scaleY(0.12); }
+@keyframes cat-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scaleY(1.04) scaleX(1.012); }
 }
 
 @keyframes cat-ear-twitch {
@@ -2704,29 +2650,9 @@ cat-walker.is-walking .cat-leg--b { animation: cat-step-b 0.7s ease-in-out infin
   92% { transform: rotate(4deg); }
 }
 
-@keyframes cat-tail-flick {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(12deg); }
-}
-
-cat-walker.is-stretching .cat-walker__pose--stretch .cat-walker__svg {
-  transform-box: fill-box;
-  transform-origin: 100% 100%;
-  animation: cat-stretch 5s ease-in-out;
-}
-
-@keyframes cat-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scaleY(1.045) scaleX(1.015); }
-}
-
-@keyframes cat-stretch {
-  0% { transform: scaleX(0.92); }
-  25% { transform: scaleX(1.06); }
-  40% { transform: scaleX(1.04); }
-  65% { transform: scaleX(1.09); }
-  88% { transform: scaleX(1.05); }
-  100% { transform: scaleX(1); }
+@keyframes cat-blink {
+  0%, 91%, 100% { transform: scaleY(1); }
+  94% { transform: scaleY(0.12); }
 }
 
 @media (max-width: 640px) {
@@ -2736,7 +2662,6 @@ cat-walker.is-stretching .cat-walker__pose--stretch .cat-walker__svg {
     right: max(12px, env(safe-area-inset-right));
     bottom: max(12px, env(safe-area-inset-bottom));
   }
-  .cat-walker__pose--sleep { width: 34px; margin-left: -17px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
