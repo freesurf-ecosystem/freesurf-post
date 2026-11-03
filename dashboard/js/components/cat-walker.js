@@ -47,58 +47,58 @@ const TEMPLATE = `
 `;
 
 // body: start point + 6 cubic segments (rear, back, shoulders, chest, belly, rump).
-// haunch: cx cy rx ry. head: x y rotation scale face (0 profile, 1 looking at you). eyes: open closed happy (opacity).
-// tail: start + 2 cubic segments. legs: hip, knee, paw.
+// haunch: cx cy rx ry. head: x y rotation scale face (0 profile, 1 looking at you) facing (1 or -1). eyes: open closed happy (opacity).
+// tail: start + 2 cubic segments. legs: hip, knee, paw, paw offset (points the paw forward).
 const POSES = {
   sleep: {
     body: [12.6, 31, 13.5, 24, 17, 19.5, 23, 17.8, 28, 16.5, 36, 16.8, 40.5, 20.5, 45, 24, 47.8, 30, 47.5, 35, 47.3, 39, 45, 40.8, 42, 40.8, 33, 41, 22, 41, 16, 40.6, 12.8, 40.3, 12, 35, 12.6, 31],
     haunch: [21, 33, 8, 7],
-    head: [46.5, 31.6, 4, 1.12, 0],
+    head: [46.5, 31.6, 4, 1.12, 0, 1],
     eyes: [0, 1, 0],
     tail: [15.5, 37, 14, 42.5, 24, 42.6, 32, 41.6, 37, 41, 40.5, 40.2, 41.5, 37.8],
     tailUnder: [1],
-    fh: [23, 32, 26, 37, 31, 39.4],
-    nh: [21, 33, 24, 38, 29, 39.6],
-    ff: [44, 35, 48, 37.4, 54, 38],
-    nf: [43, 36, 47, 38.2, 52.5, 38.8],
+    fh: [23, 32, 26, 37, 31, 39.4, 0.9],
+    nh: [21, 33, 24, 38, 29, 39.6, 0.9],
+    ff: [44, 35, 48, 37.4, 54, 38, 0.9],
+    nf: [43, 36, 47, 38.2, 52.5, 38.8, 0.9],
   },
   stretch: {
     body: [11, 22, 11, 17, 14.5, 14, 19, 14, 27, 14.5, 35, 20, 41, 26.5, 43.5, 29, 46.5, 30.5, 46, 32.5, 45.5, 35, 42, 35.5, 39, 35, 32, 33.5, 24, 29.5, 19, 27, 15, 25.5, 11.5, 25, 11, 22],
     haunch: [15.5, 20.5, 6, 6.5],
-    head: [48, 27.5, 0, 1, 0],
+    head: [48, 27.5, 0, 1, 0, 1],
     eyes: [0, 0, 1],
     tail: [12.5, 18, 9, 16, 6.5, 12, 7, 8, 7.3, 5.5, 8, 3.8, 9, 2.5],
     tailUnder: [0],
-    fh: [18.5, 25, 16.5, 33, 17.5, 40],
-    nh: [15, 24, 12.5, 32.5, 13.5, 40],
-    ff: [44.5, 31.5, 52.5, 35.8, 60.5, 38.4],
-    nf: [43, 33, 51, 37.6, 59.5, 39.6],
+    fh: [18.5, 25, 16.5, 33, 17.5, 40, 0.9],
+    nh: [15, 24, 12.5, 32.5, 13.5, 40, 0.9],
+    ff: [44.5, 31.5, 52.5, 35.8, 60.5, 38.4, 0.9],
+    nf: [43, 33, 51, 37.6, 59.5, 39.6, 0.9],
   },
   stand: {
     body: [14, 22.5, 13.5, 17.5, 17.5, 15.5, 23, 16, 30, 16.5, 36, 16, 41, 15, 45, 14.5, 48.5, 17, 48.5, 22, 48.5, 26, 45.5, 28, 41, 28, 34, 28.5, 26, 29, 20, 28.5, 16, 28, 14.5, 26, 14, 22.5],
     haunch: [19, 22.5, 6.5, 6.5],
-    head: [50.5, 15.5, 0, 1, 0],
+    head: [50.5, 15.5, 0, 1, 0, 1],
     eyes: [1, 0, 0],
     tail: [15.5, 20, 11, 19, 8, 16, 8, 12, 8, 9, 9, 6.5, 10.5, 5],
     tailUnder: [0],
-    fh: [23, 26.5, 20.5, 33.8, 22, 40],
-    nh: [19.5, 26, 16.5, 33.5, 18, 40],
-    ff: [44, 24, 44.6, 32.1, 45.4, 40],
-    nf: [41, 24, 41.3, 32.1, 42, 40],
+    fh: [23, 26.5, 20.5, 33.8, 22, 40, 0.9],
+    nh: [19.5, 26, 16.5, 33.5, 18, 40, 0.9],
+    ff: [44, 24, 44.6, 32.1, 45.4, 40, 0.9],
+    nf: [41, 24, 41.3, 32.1, 42, 40, 0.9],
   },
   // Facing the viewer, used halfway through a turn. Symmetric about x=32 (the flip axis),
   // so switching direction at this moment can't be seen.
   front: {
     body: [24, 24, 24, 20, 25.5, 17.5, 28, 17, 30.5, 16.6, 33.5, 16.6, 36, 17, 38.5, 17.5, 40, 20, 40, 24, 40, 27.5, 38.5, 30.3, 36, 30.5, 33.5, 30.8, 30.5, 30.8, 28, 30.5, 25.5, 30.3, 24, 27.5, 24, 24],
     haunch: [32, 25, 8, 6],
-    head: [32, 15.5, 0, 1, 1],
+    head: [32, 15.5, 0, 1, 1, 1],
     eyes: [1, 0, 0],
     tail: [32, 22, 32, 19, 32, 16, 32, 14.5, 32, 13, 32, 12, 32, 11],
     tailUnder: [0],
-    fh: [27.5, 28, 27, 34, 27, 40],
-    nh: [36.5, 28, 37, 34, 37, 40],
-    ff: [35, 27, 35, 33.5, 35, 40],
-    nf: [29, 27, 29, 33.5, 29, 40],
+    fh: [34, 25.5, 34, 33, 34, 40, 0],
+    nh: [30, 25.5, 30, 33, 30, 40, 0],
+    ff: [35, 24, 35, 32, 35, 40, 0],
+    nf: [29, 24, 29, 32, 29, 40, 0],
   },
 };
 
@@ -110,6 +110,37 @@ const FACE = {
   muzzle: [[5.3, 2.1, 3.2, 2.4], [0, 2.6, 3.4, 2.2]],
 };
 const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+
+// Mirror a pose part across x=32, the axis the is-left flip uses.
+function mirrorPart(key, values) {
+  const m = values.slice();
+  const flipX = (i) => (m[i] = 64 - m[i]);
+  if (key === "body" || key === "tail") for (let i = 0; i < m.length; i += 2) flipX(i);
+  else if (key === "haunch") flipX(0);
+  else if (key === "head") {
+    flipX(0);
+    m[2] = -m[2];
+    m[5] = -m[5];
+  } else if (LEGS.includes(key)) {
+    [0, 2, 4].forEach(flipX);
+    m[6] = -m[6];
+  }
+  return m;
+}
+
+// One part's position through a full turn: standing -> facing the viewer -> standing the other way.
+// The front pose is symmetric, so switching to the mirrored half at the midpoint is seamless.
+function turnPart(key, u) {
+  if (u <= 0.5) return mix(POSES.stand[key], POSES.front[key], u * 2);
+  return mirrorPart(key, mix(POSES.stand[key], POSES.front[key], 2 - u * 2));
+}
+
+const within = (t, [a, b]) => ease(Math.min(1, Math.max(0, (t - a) / (b - a))));
+const legTurnProgress = (t, [first, second]) => (t < second[0] ? 0.5 * within(t, first) : 0.5 + 0.5 * within(t, second));
+function legTurnLift(t, steps) {
+  for (const [a, b] of steps) if (t > a && t < b) return Math.sin((Math.PI * (t - a)) / (b - a));
+  return 0;
+}
 
 const LEGS = ["fh", "ff", "nh", "nf"];
 // Walk gait (lateral sequence) and joint bend: hind hocks point back, front wrists forward.
@@ -131,7 +162,19 @@ const STAND_UP_MS = 1100;
 const STAND_MS = 600;
 const CIRCLE_DISTANCE = 34; // px
 const CIRCLE_STEP_MS = 1700; // keep in sync with the transform transition on cat-walker
-const TURN_HALF_MS = 420;
+// Turning: the head leads, each paw steps round on its own, the body follows, the tail trails.
+// Windows are fractions of TURN_MS; each leg takes two steps (to facing the viewer, then on round).
+const TURN_MS = 2400;
+const TURN_LIFT = 2;
+const TURN_TIMING = {
+  head: [0, 0.7],
+  body: [0.08, 0.92],
+  tail: [0.2, 1],
+  nf: [[0.05, 0.25], [0.42, 0.6]],
+  ff: [[0.18, 0.38], [0.55, 0.72]],
+  nh: [[0.3, 0.5], [0.66, 0.84]],
+  fh: [[0.4, 0.6], [0.78, 0.96]],
+};
 const LIE_DOWN_MS = 1600;
 const STATES = ["sleeping", "stretching", "standing", "walking"];
 // Per-tab, so the nap schedule carries across page loads instead of restarting on each one.
@@ -293,9 +336,9 @@ class CatWalker extends HTMLElement {
       this._setState("standing");
       await this._tweenTo(POSES.stand, STAND_UP_MS, run);
       await this._pause(STAND_MS, run);
-      await this._turn(true, run);
+      await this._turn(run);
       await this._walk(-CIRCLE_DISTANCE, run);
-      await this._turn(false, run);
+      await this._turn(run);
       await this._walk(0, run);
       this._setState("standing");
       await this._pause(STAND_MS, run);
@@ -332,12 +375,35 @@ class CatWalker extends HTMLElement {
     this._pose = target;
   }
 
-  // Swing round to face the viewer, switch sides while symmetric, and swing on round.
-  async _turn(facingLeft, run) {
+  // Turn round through facing the viewer, one part at a time. The whole turn is drawn in the
+  // current frame ending on the mirrored stand; flipping the frame afterwards changes nothing visible.
+  async _turn(run) {
     this._setState("standing");
-    await this._tweenTo(POSES.front, TURN_HALF_MS, run);
-    this.classList.toggle("is-left", facingLeft);
-    await this._tweenTo(POSES.stand, TURN_HALF_MS, run);
+    await this._animate(TURN_MS, run, (ms) => {
+      const t = ms / TURN_MS;
+      const bodyU = within(t, TURN_TIMING.body);
+      const pose = {
+        body: turnPart("body", bodyU),
+        haunch: turnPart("haunch", bodyU),
+        head: turnPart("head", within(t, TURN_TIMING.head)),
+        tail: turnPart("tail", within(t, TURN_TIMING.tail)),
+        eyes: POSES.stand.eyes,
+        tailUnder: [0],
+      };
+      // Hips ride with the body; each paw stays planted until its own step.
+      const side = bodyU < 0.5 ? 1 : -1;
+      for (const name of LEGS) {
+        const [hx, hy] = turnPart(name, bodyU);
+        const paw = turnPart(name, legTurnProgress(t, TURN_TIMING[name]));
+        const lift = TURN_LIFT * legTurnLift(t, TURN_TIMING[name]);
+        const [kx, ky, px, py] = solveKnee(hx, hy, paw[4], paw[5] - lift, this._bones[name], GAIT[name].bend * side);
+        pose[name] = [hx, hy, kx, ky, px, py, paw[6]];
+      }
+      this._draw(pose, { tailAngle: 9 * Math.sin(Math.PI * within(t, TURN_TIMING.tail)) });
+    });
+    this.classList.toggle("is-left");
+    this._pose = POSES.stand;
+    this._draw(this._pose);
   }
 
   async _walk(x, run) {
@@ -362,7 +428,7 @@ class CatWalker extends HTMLElement {
           py = restY - STEP_LIFT * ramp * Math.sin(Math.PI * t);
         }
         const [kx, ky, fx, fy] = solveKnee(hx, hy, px, py, this._bones[name], GAIT[name].bend);
-        legs[name] = [hx, hy, kx, ky, fx, fy];
+        legs[name] = [hx, hy, kx, ky, fx, fy, pose[name][6]];
       }
       const bob = -0.5 * ramp * Math.abs(Math.sin(cycle * 2 * Math.PI));
       const sway = 6 * Math.sin((ms / 1400) * 2 * Math.PI);
@@ -381,8 +447,8 @@ class CatWalker extends HTMLElement {
     el.haunch.setAttribute("cy", n(cy));
     el.haunch.setAttribute("rx", n(rx));
     el.haunch.setAttribute("ry", n(ry));
-    const [hx, hy, rot, scale, face] = pose.head;
-    el.head.setAttribute("transform", `translate(${n(hx)} ${n(hy)}) rotate(${n(rot)}) scale(${n(scale)})`);
+    const [hx, hy, rot, scale, face, facing] = pose.head;
+    el.head.setAttribute("transform", `translate(${n(hx)} ${n(hy)}) rotate(${n(rot)}) scale(${n(scale * Math.sign(facing || 1))} ${n(scale)})`);
     pose.eyes.forEach((opacity, i) => el.eyes[i].setAttribute("opacity", n(opacity)));
     const f = el.face;
     const ear = (shape) => {
@@ -411,12 +477,11 @@ class CatWalker extends HTMLElement {
     // The tail's paper edge only makes sense once it is wrapped round the curled-up body.
     el.tailUnder.setAttribute("opacity", n(Math.max(0, (pose.tailUnder[0] - 0.85) / 0.15)));
     for (const name of LEGS) {
-      const [hipX, hipY, kneeX, kneeY, pawX, pawY] = pose[name].map(n);
+      const [hipX, hipY, kneeX, kneeY, pawX, pawY, pawOffset] = pose[name].map(n);
       const bones = el.legs[name];
       bones.upper.setAttribute("d", `M${hipX} ${hipY} L${kneeX} ${kneeY}`);
       bones.lower.setAttribute("d", `M${kneeX} ${kneeY} L${pawX} ${pawY}`);
-      // Paws point forward in profile and straight at the viewer from the front.
-      bones.paw.setAttribute("cx", n(pawX + 0.9 * (1 - face)));
+      bones.paw.setAttribute("cx", n(pawX + pawOffset));
       bones.paw.setAttribute("cy", n(pawY + 0.1));
     }
   }
