@@ -2580,7 +2580,7 @@ cat-walker {
   --cat-ink: #171717;
   --cat-paper: #ffffff;
 
-  position: fixed;
+  position: absolute;
   left: 0;
   top: 0;
   z-index: 120;
@@ -2618,8 +2618,7 @@ cat-walker.is-left .cat-walker__flip { transform: scaleX(-1); }
 .cat-walker__pose--sleep { left: 50%; width: 44px; margin-left: -22px; }
 
 cat-walker.is-idle .cat-walker__pose--walk,
-cat-walker.is-walking .cat-walker__pose--walk,
-cat-walker.is-hopping .cat-walker__pose--walk { display: block; }
+cat-walker.is-walking .cat-walker__pose--walk { display: block; }
 cat-walker.is-sleeping .cat-walker__pose--sleep { display: block; }
 cat-walker.is-stretching .cat-walker__pose--stretch { display: block; }
 

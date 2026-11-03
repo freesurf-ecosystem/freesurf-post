@@ -101,12 +101,10 @@ const TEMPLATE = `
 
 const SPEED = 44;
 const EDGE = 10;
-const HOP_MS = 700;
-const SHOWCASE_MS = 35000;
 const REST_MIN_MS = 5 * 60 * 1000;
 const REST_MAX_MS = 10 * 60 * 1000;
 const NEARBY_PX = 220;
-const STATES = ["idle", "walking", "hopping", "sleeping", "stretching"];
+const STATES = ["idle", "walking", "sleeping", "stretching"];
 
 class CatWalker extends HTMLElement {
   connectedCallback() {
@@ -117,15 +115,11 @@ class CatWalker extends HTMLElement {
 
     this._welcome = document.getElementById("view-welcome");
     this._width = 64;
-    this._height = 56;
-    this._x = 0;
-    this._y = 0;
-    this._targetX = 0;
-    this._lane = 0;
+    this._x = EDGE;
+    this._targetX = EDGE;
     this._state = "idle";
     this._stateUntil = 0;
-    this._showcaseUntil = 0;
-    this._hop = null;
+    this._firstTrip = true;
     this._active = false;
     this._last = 0;
     this._started = false;
@@ -171,38 +165,24 @@ class CatWalker extends HTMLElement {
   _start(now) {
     this._started = true;
     this._width = this.offsetWidth || this._width;
-    this._height = this.offsetHeight || this._height;
-    const { maxX, bottomY } = this._lanes();
-    this._lane = 0;
-    this._x = EDGE + Math.random() * Math.max(1, maxX - EDGE);
-    this._y = bottomY;
-    this._showcaseUntil = now + SHOWCASE_MS;
+    this._x = EDGE;
+    this._targetX = EDGE;
+    this._firstTrip = true;
     this._setState("idle");
-    this._stateUntil = now + 700 + Math.random() * 900;
+    this._stateUntil = now + 600 + Math.random() * 700;
     this._face(1);
     this._render();
   }
 
-  _lanes() {
-    return {
-      maxX: Math.max(EDGE, window.innerWidth - this._width - EDGE),
-      topY: 0,
-      bottomY: Math.max(0, window.innerHeight - this._height - EDGE),
-    };
+  _maxX() {
+    return Math.max(EDGE, window.innerWidth - this._width - EDGE);
   }
 
   _clamp() {
     this._width = this.offsetWidth || this._width;
-    this._height = this.offsetHeight || this._height;
-    const { maxX, topY, bottomY } = this._lanes();
+    const maxX = this._maxX();
     this._x = Math.min(Math.max(this._x, EDGE), maxX);
     this._targetX = Math.min(Math.max(this._targetX, EDGE), maxX);
-    if (this._hop) {
-      this._hop.x1 = Math.min(Math.max(this._hop.x1, EDGE), maxX);
-      this._hop.y1 = this._lane === 0 ? bottomY : topY;
-    } else {
-      this._y = this._lane === 0 ? bottomY : topY;
-    }
     this._render();
   }
 
@@ -217,72 +197,33 @@ class CatWalker extends HTMLElement {
 
   _render() {
     this.style.left = `${this._x}px`;
-    this.style.top = `${this._y}px`;
+    this.style.top = "0px";
   }
 
-  _randomX(maxX) {
-    let x = EDGE;
-    for (let i = 0; i < 6; i++) {
-      x = EDGE + Math.random() * Math.max(1, maxX - EDGE);
-      if (Math.abs(x - this._x) >= 60) break;
-    }
-    return x;
-  }
+  _startWalk(now) {
+    const maxX = this._maxX();
 
-  _startWalk(now, nearby = false) {
-    const { maxX, topY, bottomY } = this._lanes();
-    const spread = nearby ? NEARBY_PX : 180;
-    const laneChance = nearby ? 0.12 : 0.28;
-
-    if (Math.random() < laneChance) {
-      const lane = this._lane === 0 ? 1 : 0;
-      const targetX = Math.min(Math.max(this._x + (Math.random() * spread - spread / 2), EDGE), maxX);
-      this._hop = {
-        x0: this._x,
-        y0: this._y,
-        x1: targetX,
-        y1: lane === 0 ? bottomY : topY,
-        start: now,
-        dur: HOP_MS,
-      };
-      this._lane = lane;
-      this._face(targetX < this._x ? -1 : 1);
-      this._setState("hopping");
-      return;
-    }
-
-    let targetX;
-    if (nearby) {
-      const offset = (Math.random() < 0.5 ? -1 : 1) * (70 + Math.random() * (NEARBY_PX - 70));
-      targetX = Math.min(Math.max(this._x + offset, EDGE), maxX);
-      if (Math.abs(targetX - this._x) < 40) {
-        const alt = this._x > (EDGE + maxX) / 2 ? this._x - (70 + Math.random() * NEARBY_PX) : this._x + (70 + Math.random() * NEARBY_PX);
-        targetX = Math.min(Math.max(alt, EDGE), maxX);
-      }
+    if (this._firstTrip) {
+      this._firstTrip = false;
+      this._targetX = Math.max(EDGE, maxX - Math.random() * 60);
     } else {
-      targetX = this._randomX(maxX);
+      const offset = (Math.random() < 0.5 ? -1 : 1) * (70 + Math.random() * (NEARBY_PX - 70));
+      this._targetX = Math.min(Math.max(this._x + offset, EDGE), maxX);
+      if (Math.abs(this._targetX - this._x) < 40) {
+        const alt = this._x > (EDGE + maxX) / 2
+          ? this._x - (70 + Math.random() * NEARBY_PX)
+          : this._x + (70 + Math.random() * NEARBY_PX);
+        this._targetX = Math.min(Math.max(alt, EDGE), maxX);
+      }
     }
 
-    this._targetX = targetX;
     this._face(this._targetX < this._x ? -1 : 1);
     this._setState("walking");
   }
 
-  _rest(now, min, max, sleeping) {
-    this._setState(sleeping ? "sleeping" : "idle");
-    this._stateUntil = now + min + Math.random() * (max - min);
-  }
-
   _arrive(now) {
-    if (now >= this._showcaseUntil) {
-      this._rest(now, REST_MIN_MS, REST_MAX_MS, true);
-      return;
-    }
-
-    const roll = Math.random();
-    if (roll < 0.12) this._rest(now, 2500, 5000, true);
-    else if (roll < 0.5) this._rest(now, 600, 1600, false);
-    else this._startWalk(now);
+    this._setState("sleeping");
+    this._stateUntil = now + REST_MIN_MS + Math.random() * (REST_MAX_MS - REST_MIN_MS);
   }
 
   _frame(now) {
@@ -308,24 +249,8 @@ class CatWalker extends HTMLElement {
         this._render();
         break;
       }
-      case "hopping": {
-        if (!this._hop) return;
-        const p = Math.min(1, (now - this._hop.start) / this._hop.dur);
-        const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-        this._x = this._hop.x0 + (this._hop.x1 - this._hop.x0) * eased;
-        this._y = this._hop.y0 + (this._hop.y1 - this._hop.y0) * eased - Math.sin(p * Math.PI) * 34;
-        this._render();
-        if (p >= 1) {
-          this._x = this._hop.x1;
-          this._y = this._hop.y1;
-          this._hop = null;
-          this._setState("idle");
-          this._stateUntil = now + 250;
-        }
-        break;
-      }
       case "idle":
-        if (now >= this._stateUntil) this._startWalk(now, now >= this._showcaseUntil);
+        if (now >= this._stateUntil) this._startWalk(now);
         break;
       case "sleeping":
         if (now >= this._stateUntil) {
@@ -334,7 +259,7 @@ class CatWalker extends HTMLElement {
         }
         break;
       case "stretching":
-        if (now >= this._stateUntil) this._startWalk(now, now >= this._showcaseUntil);
+        if (now >= this._stateUntil) this._startWalk(now);
         break;
     }
   }
