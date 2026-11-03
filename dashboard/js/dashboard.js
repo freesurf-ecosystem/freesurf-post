@@ -64,7 +64,6 @@ const PLATFORM_TARGETS = {
 let session = null;
 let reviewerMode = false;
 let connectedRedirectHandled = false;
-let postingLimits = null;
 let directMediaMode = false;
 let connectedProfiles = []; // { platform, label, handle, id }[]
 let composeAccounts = [];   // accounts for the team selected in the compose dropdown
@@ -398,7 +397,6 @@ async function refreshAuth() {
   await fetchProfiles();
   await fetchTeams();
   await fetchReviewerStatus();
-  await fetchPostingLimits();
   renderAuthUI();
   if (!connectedRedirectHandled) {
     connectedRedirectHandled = true;
@@ -1223,25 +1221,6 @@ async function uploadMediaFile(m, teamId) {
   }
   m.uploadId = data.uploadId;
   return data.uploadId;
-}
-
-async function fetchPostingLimits() {
-  try {
-    const res = await fetch(`${API_BASE}/api/limits`);
-    if (!res.ok) return;
-    const data = await res.json();
-    postingLimits = data?.posting || null;
-    renderPostingLimits();
-  } catch { /* limits are informational */ }
-}
-
-function renderPostingLimits() {
-  const el = $("#compose-limits");
-  if (!el || !postingLimits) return;
-  el.textContent =
-    `Posting limits: ${postingLimits.perDayPerUser}/day · ` +
-    `${postingLimits.perMonthPerUser}/month per user · ` +
-    `${postingLimits.perMonthPerAccount}/month per account until we can increase limits`;
 }
 
 function formatApiError(data, fallback) {
