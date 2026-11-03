@@ -2580,9 +2580,9 @@ cat-walker {
   --cat-ink: #171717;
   --cat-paper: #ffffff;
 
-  position: absolute;
-  left: 0;
-  top: 0;
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
   z-index: 120;
   display: block;
   width: 64px;
@@ -2590,7 +2590,6 @@ cat-walker {
   pointer-events: none;
   opacity: 0;
   transition: opacity 300ms ease;
-  will-change: left, top;
 }
 
 cat-walker.is-visible { opacity: 0.95; }
@@ -2685,7 +2684,12 @@ cat-walker.is-stretching .cat-walker__pose--stretch .cat-walker__svg {
 }
 
 @media (max-width: 640px) {
-  cat-walker { width: 48px; height: 42px; }
+  cat-walker {
+    width: 48px;
+    height: 42px;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
   .cat-walker__pose--sleep { width: 34px; margin-left: -17px; }
 }
 

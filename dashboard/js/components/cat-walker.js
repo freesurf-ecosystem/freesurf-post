@@ -93,18 +93,17 @@ const STRETCH_POSE = `
 
 const TEMPLATE = `
   <div class="cat-walker__flip">
-    <div class="cat-walker__pose cat-walker__pose--walk">${WALK_POSE}</div>
     <div class="cat-walker__pose cat-walker__pose--sleep">${SLEEP_POSE}</div>
     <div class="cat-walker__pose cat-walker__pose--stretch">${STRETCH_POSE}</div>
   </div>
 `;
 
-const SPEED = 44;
-const EDGE = 10;
-const REST_MIN_MS = 5 * 60 * 1000;
-const REST_MAX_MS = 10 * 60 * 1000;
-const NEARBY_PX = 220;
-const STATES = ["idle", "walking", "sleeping", "stretching"];
+const FIRST_NAP_MIN = 20000;
+const FIRST_NAP_MAX = 35000;
+const NAP_MIN = 3 * 60 * 1000;
+const NAP_MAX = 6 * 60 * 1000;
+const STRETCH_MS = 2000;
+const STATES = ["sleeping", "stretching"];
 
 class CatWalker extends HTMLElement {
   connectedCallback() {
@@ -114,18 +113,8 @@ class CatWalker extends HTMLElement {
     this.setAttribute("aria-hidden", "true");
 
     this._welcome = document.getElementById("view-welcome");
-    this._width = 64;
-    this._x = EDGE;
-    this._targetX = EDGE;
-    this._state = "idle";
-    this._stateUntil = 0;
-    this._firstTrip = true;
-    this._active = false;
-    this._last = 0;
-    this._started = false;
-
-    this._onResize = () => this._clamp();
-    window.addEventListener("resize", this._onResize);
+    this._timer = null;
+    this._firstNap = true;
 
     this._syncVisibility();
     if (this._welcome) {
@@ -133,135 +122,36 @@ class CatWalker extends HTMLElement {
       this._observer.observe(this._welcome, { attributes: true, attributeFilter: ["class"] });
     }
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    this._onMotionChange = () => this._syncVisibility();
-    if (reduced.addEventListener) reduced.addEventListener("change", this._onMotionChange);
-
-    this._frame = this._frame.bind(this);
-    requestAnimationFrame((now) => {
-      this._last = now;
-      this._frame(now);
-    });
+    this._scheduleNap();
   }
 
   disconnectedCallback() {
-    window.removeEventListener("resize", this._onResize);
+    if (this._timer) clearTimeout(this._timer);
     if (this._observer) this._observer.disconnect();
-    if (this._onMotionChange) {
-      window.matchMedia("(prefers-reduced-motion: reduce)").removeEventListener("change", this._onMotionChange);
-    }
-    this._active = false;
   }
 
   _syncVisibility() {
-    const welcomeVisible = Boolean(this._welcome) && !this._welcome.classList.contains("hidden");
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    this.classList.toggle("is-visible", welcomeVisible);
-    this._active = welcomeVisible && !reduced;
-
-    if (this._active && !this._started) this._start(performance.now());
-  }
-
-  _start(now) {
-    this._started = true;
-    this._width = this.offsetWidth || this._width;
-    this._x = EDGE;
-    this._targetX = EDGE;
-    this._firstTrip = true;
-    this._setState("idle");
-    this._stateUntil = now + 600 + Math.random() * 700;
-    this._face(1);
-    this._render();
-  }
-
-  _maxX() {
-    return Math.max(EDGE, window.innerWidth - this._width - EDGE);
-  }
-
-  _clamp() {
-    this._width = this.offsetWidth || this._width;
-    const maxX = this._maxX();
-    this._x = Math.min(Math.max(this._x, EDGE), maxX);
-    this._targetX = Math.min(Math.max(this._targetX, EDGE), maxX);
-    this._render();
+    const visible = Boolean(this._welcome) && !this._welcome.classList.contains("hidden");
+    this.classList.toggle("is-visible", visible);
   }
 
   _setState(state) {
-    this._state = state;
     for (const name of STATES) this.classList.toggle(`is-${name}`, name === state);
   }
 
-  _face(direction) {
-    this.classList.toggle("is-left", direction < 0);
-  }
-
-  _render() {
-    this.style.left = `${this._x}px`;
-    this.style.top = "0px";
-  }
-
-  _startWalk(now) {
-    const maxX = this._maxX();
-
-    if (this._firstTrip) {
-      this._firstTrip = false;
-      this._targetX = Math.max(EDGE, maxX - Math.random() * 60);
-    } else {
-      const offset = (Math.random() < 0.5 ? -1 : 1) * (70 + Math.random() * (NEARBY_PX - 70));
-      this._targetX = Math.min(Math.max(this._x + offset, EDGE), maxX);
-      if (Math.abs(this._targetX - this._x) < 40) {
-        const alt = this._x > (EDGE + maxX) / 2
-          ? this._x - (70 + Math.random() * NEARBY_PX)
-          : this._x + (70 + Math.random() * NEARBY_PX);
-        this._targetX = Math.min(Math.max(alt, EDGE), maxX);
-      }
-    }
-
-    this._face(this._targetX < this._x ? -1 : 1);
-    this._setState("walking");
-  }
-
-  _arrive(now) {
+  _scheduleNap() {
+    if (this._timer) clearTimeout(this._timer);
     this._setState("sleeping");
-    this._stateUntil = now + REST_MIN_MS + Math.random() * (REST_MAX_MS - REST_MIN_MS);
+    const min = this._firstNap ? FIRST_NAP_MIN : NAP_MIN;
+    const max = this._firstNap ? FIRST_NAP_MAX : NAP_MAX;
+    this._firstNap = false;
+    this._timer = setTimeout(() => this._stretch(), min + Math.random() * (max - min));
   }
 
-  _frame(now) {
-    const dt = Math.min((now - this._last) / 1000, 0.05);
-    this._last = now;
-    if (this._active) this._tick(now, dt);
-    requestAnimationFrame(this._frame);
-  }
-
-  _tick(now, dt) {
-    switch (this._state) {
-      case "walking": {
-        const dx = this._targetX - this._x;
-        const distance = Math.abs(dx);
-        if (distance < 0.5) {
-          this._x = this._targetX;
-          this._arrive(now);
-          this._render();
-          return;
-        }
-        this._face(dx < 0 ? -1 : 1);
-        this._x += Math.sign(dx) * Math.min(distance, SPEED * dt);
-        this._render();
-        break;
-      }
-      case "idle":
-        if (now >= this._stateUntil) this._startWalk(now);
-        break;
-      case "sleeping":
-        if (now >= this._stateUntil) {
-          this._setState("stretching");
-          this._stateUntil = now + 1800;
-        }
-        break;
-      case "stretching":
-        if (now >= this._stateUntil) this._startWalk(now);
-        break;
-    }
+  _stretch() {
+    if (this._timer) clearTimeout(this._timer);
+    this._setState("stretching");
+    this._timer = setTimeout(() => this._scheduleNap(), STRETCH_MS);
   }
 }
 
