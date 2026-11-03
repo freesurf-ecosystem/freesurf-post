@@ -43,8 +43,9 @@ const TEMPLATE = `
   </div>
 `;
 
-const FIRST_NAP_MIN = 55 * 1000;
-const FIRST_NAP_MAX = 65 * 1000;
+// A fresh visit or a full refresh wakes the cat for a stretch shortly after the page appears.
+const FIRST_NAP_MIN = 2500;
+const FIRST_NAP_MAX = 4000;
 const NAP_MIN = 3 * 60 * 1000;
 const NAP_MAX = 6 * 60 * 1000;
 const STRETCH_MS = 5000;
@@ -55,6 +56,11 @@ const STORAGE_KEY = "cat-walker:next-stretch";
 
 function randomNap() {
   return NAP_MIN + Math.random() * (NAP_MAX - NAP_MIN);
+}
+
+function isReload() {
+  const [entry] = performance.getEntriesByType?.("navigation") ?? [];
+  return entry?.type === "reload";
 }
 
 function readNextStretch() {
@@ -84,7 +90,7 @@ class CatWalker extends HTMLElement {
     this._timer = null;
 
     const nextStretch = readNextStretch();
-    if (nextStretch === null) {
+    if (nextStretch === null || isReload()) {
       this._napFor(FIRST_NAP_MIN + Math.random() * (FIRST_NAP_MAX - FIRST_NAP_MIN));
     } else {
       this._napFor(Math.max(nextStretch - Date.now(), OVERDUE_STRETCH_DELAY), { persist: false });
