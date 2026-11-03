@@ -1241,8 +1241,7 @@ function renderPostingLimits() {
   el.textContent =
     `Posting limits: ${postingLimits.perDayPerUser}/day · ` +
     `${postingLimits.perMonthPerUser}/month per user · ` +
-    `${postingLimits.perMonthPerAccount}/month per account · ` +
-    `${postingLimits.perMonthOrg}/month org-wide`;
+    `${postingLimits.perMonthPerAccount}/month per account until we can increase limits`;
 }
 
 function formatApiError(data, fallback) {
