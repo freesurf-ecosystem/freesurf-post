@@ -1,4 +1,4 @@
-# CatVideo — Free social media scheduler and API
+# CatVideo - Free social media scheduler and API
 
 CatVideo (by FreeSurf) is a **free to use**, open-source social media scheduler
 and cross-posting service. There is no subscription, per-seat, or per-channel
@@ -14,7 +14,7 @@ don't manage platform credentials.
 Base URL: https://post.freesurf.tools
 Web app: https://catvideo.app
 
-> This file and the in-app API tab (dashboard → API) are the source of truth.
+> This file and the in-app API tab (dashboard -> API) are the source of truth.
 > `archive/API_REFERENCE.md` is the old, superseded doc.
 
 ## Rate limits
@@ -61,24 +61,24 @@ Two ways to authenticate:
 
 ## Endpoints
 
-- [Post now](#post-now) — `POST /api/post`
-- [Schedule](#schedule) — `POST /api/schedule`
-- [Scheduled posts](#scheduled-posts) — `GET /api/scheduled`, `DELETE /api/scheduled/:id`
-- [Delete a published post](#delete-a-published-post) — `POST /api/posts/delete`
-- [Metrics](#metrics) — `GET /api/metrics/:platform/:postId`
-- [Analytics](#analytics) — `GET /api/analytics/:platform`, `POST /api/analytics/refresh`, `POST /api/analytics/force`
-- [Media](#media) — `POST /api/media/upload`, `POST /api/media`
-- [Comments & replies](#comments--replies) — `POST /api/comments/import`, `GET /api/comments`, `POST /api/reply`
-- [Import post history](#import-post-history) — `POST /api/import`, `GET /api/imports`, `GET /api/imports/posts`
-- [Posts & accounts](#posts--accounts) — `GET /api/posts/recent`, `GET /api/post/:id`, `GET /api/profiles`, `POST /api/disconnect/:platform`, `POST /api/channel/:platform`
-- [Teams](#teams) — `GET /api/teams`, `POST /api/teams`, `PATCH /api/teams/:id`, `DELETE /api/teams/:id`
-- [API keys](#api-keys) — `GET /api/keys`, `POST /api/keys`, `DELETE /api/keys/:id`
+- [Post now](#post-now) - `POST /api/post`
+- [Schedule](#schedule) - `POST /api/schedule`
+- [Scheduled posts](#scheduled-posts) - `GET /api/scheduled`, `DELETE /api/scheduled/:id`
+- [Delete a published post](#delete-a-published-post) - `POST /api/posts/delete`
+- [Metrics](#metrics) - `GET /api/metrics/:platform/:postId`
+- [Analytics](#analytics) - `GET /api/analytics/:platform`, `POST /api/analytics/refresh`, `POST /api/analytics/force`
+- [Media](#media) - `POST /api/media/upload`, `POST /api/media`
+- [Comments & replies](#comments--replies) - `POST /api/comments/import`, `GET /api/comments`, `POST /api/reply`
+- [Import post history](#import-post-history) - `POST /api/import`, `GET /api/imports`, `GET /api/imports/posts`
+- [Posts & accounts](#posts--accounts) - `GET /api/posts/recent`, `GET /api/post/:id`, `GET /api/profiles`, `POST /api/disconnect/:platform`, `POST /api/channel/:platform`
+- [Teams](#teams) - `GET /api/teams`, `POST /api/teams`, `PATCH /api/teams/:id`, `DELETE /api/teams/:id`
+- [API keys](#api-keys) - `GET /api/keys`, `POST /api/keys`, `DELETE /api/keys/:id`
 
 ## Post now
 
 `POST /api/post`
 
-A team is required — target it either by **name** (`team`) or **id** (`teamId`).
+A team is required - target it either by **name** (`team`) or **id** (`teamId`).
 `team` names are unique per account. Use whichever is easier; `teamId` wins if both are sent.
 
 By team name:
@@ -108,12 +108,12 @@ By team id:
 - `platforms` (required): array of platform keys (see [Platform keys](#platform-keys)).
 - `text` (required): post body.
 - `mediaUrls` (optional): Bundle upload ids (from `POST /api/media/upload` or `POST /api/media`).
-- `platformTargets` (optional): per-platform target, required for some platforms — `{"discord":"channelId","slack":"channelId","pinterest":"boardName","reddit":"r/example"}`.
-- `instagramImageFit` (optional): `"fit"` (default — adds padding) or `"crop"` (center-crops)
-  so Instagram feed images outside 4:5–1.91:1 still publish. Applies to image posts only.
+- `platformTargets` (optional): per-platform target, required for some platforms - `{"discord":"channelId","slack":"channelId","pinterest":"boardName","reddit":"r/example"}`.
+- `instagramImageFit` (optional): `"fit"` (default - adds padding) or `"crop"` (center-crops)
+  so Instagram feed images outside 4:5-1.91:1 still publish. Applies to image posts only.
 - `firstComment` (optional): a comment posted on each platform right after publishing to
   seed engagement. Supported on Facebook, Instagram, TikTok, Threads, LinkedIn, YouTube,
-  Reddit, Bluesky, and X — not Pinterest or Google Business.
+  Reddit, Bluesky, and X - not Pinterest or Google Business.
 
 Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postId": "...", "postUrl": "..." }], "postedAt": "..." }`
 
@@ -121,7 +121,7 @@ Response: `{ "id": "...", "results": [{ "platform": "x", "success": true, "postI
 
 `POST /api/schedule`
 
-A team is required, same as Post now — by name (`team`) or id (`teamId`).
+A team is required, same as Post now - by name (`team`) or id (`teamId`).
 
 ```json
 {
@@ -135,17 +135,17 @@ A team is required, same as Post now — by name (`team`) or id (`teamId`).
 - `scheduledAt` (required): future ISO 8601 timestamp.
 - Posts publish within ~5 minutes of that time via a cron worker, to the team
   stored on the post (never an active-team fallback).
-- `firstComment` (optional): same as Post now — posted right after the scheduled
+- `firstComment` (optional): same as Post now - posted right after the scheduled
   post publishes.
 
 ## Scheduled posts
 
-`GET /api/scheduled` — list your scheduled posts.
-`DELETE /api/scheduled/:id` — cancel a scheduled post.
+`GET /api/scheduled` - list your scheduled posts.
+`DELETE /api/scheduled/:id` - cancel a scheduled post.
 
 ## Delete a published post (developer / API only)
 
-`POST /api/posts/delete` — deletes a post already published to a platform.
+`POST /api/posts/delete` - deletes a post already published to a platform.
 Currently supports X (Bundle's metered tweet delete, **$0.01** each from credits).
 Not exposed in the UI because it's irreversible.
 
@@ -153,19 +153,19 @@ Not exposed in the UI because it's irreversible.
 { "platform": "x", "postId": "<post-id>" }
 ```
 
-`postId` is the per-platform id recorded when the post was created — the value
+`postId` is the per-platform id recorded when the post was created - the value
 in `results[].postId` (from `POST /api/post` or `GET /api/posts/recent`).
 
-**X only.** Deletion isn't supported for other platforms through the API —
+**X only.** Deletion isn't supported for other platforms through the API -
 **TikTok in particular has no delete endpoint** (neither on TikTok nor via
 Bundle), so TikTok videos must be removed in the TikTok app. Unsupported
 platforms return `501 Delete not yet proxied`.
 
 ## Metrics
 
-`GET /api/metrics/:platform/:postId` — engagement metrics for one published post.
+`GET /api/metrics/:platform/:postId` - engagement metrics for one published post.
 
-`postId` is the per-platform post id recorded when the post was created — the
+`postId` is the per-platform post id recorded when the post was created - the
 value in `results[].postId` from `POST /api/post`, or from `GET /api/posts/recent`.
 Metrics are proxied from Bundle.social, so no platform credentials are needed
 (works for X, Instagram, Facebook, LinkedIn, Threads, TikTok, YouTube, and Bluesky).
@@ -195,11 +195,11 @@ Auth: API key or JWT. X metric reads are metered (~$0.005/read) from credits.
 
 Raw Bundle analytics plus refresh/aggregate helpers. Auth: API key or JWT.
 
-- `GET /api/analytics/:platform?type=profile` — profile metrics (followers, reach, …). Default `type=profile`.
-- `GET /api/analytics/:platform?type=post&postId=<postId>` — raw Bundle post analytics (includes `externalData` with the native post id/permalink).
-- `POST /api/analytics/refresh?limit=10&offset=0` — pull fresh analytics for the caller's recent posted posts and cache them into `post_posts.metrics`. Live per-post reads are forced (falling back to Bundle's passive snapshot when rate-limited). `limit` is the window size; each call handles a bounded batch and returns `{ refreshed, posts, processed, nextOffset, done, skippedX, rateLimited }` — advance `offset` to `nextOffset` until `done` for windows larger than one batch.
-- `POST /api/analytics/force` — force a single live fetch. Body `{ "platform": "x", "postId": "..." }` for app posts, or `{ "platform": "x", "importedPostId": "..." }` for imported posts.
-- `GET /api/analytics` — aggregate totals per platform for the last 30 days: `{ analytics, totals, period }`.
+- `GET /api/analytics/:platform?type=profile` - profile metrics (followers, reach, ...). Default `type=profile`.
+- `GET /api/analytics/:platform?type=post&postId=<postId>` - raw Bundle post analytics (includes `externalData` with the native post id/permalink).
+- `POST /api/analytics/refresh?limit=10&offset=0` - pull fresh analytics for the caller's recent posted posts and cache them into `post_posts.metrics`. Live per-post reads are forced (falling back to Bundle's passive snapshot when rate-limited). `limit` is the window size; each call handles a bounded batch and returns `{ refreshed, posts, processed, nextOffset, done, skippedX, rateLimited }` - advance `offset` to `nextOffset` until `done` for windows larger than one batch.
+- `POST /api/analytics/force` - force a single live fetch. Body `{ "platform": "x", "postId": "..." }` for app posts, or `{ "platform": "x", "importedPostId": "..." }` for imported posts.
+- `GET /api/analytics` - aggregate totals per platform for the last 30 days: `{ analytics, totals, period }`.
 
 ```
 GET /api/analytics/x?type=profile
@@ -209,8 +209,8 @@ POST /api/analytics/refresh?limit=10&offset=0
 
 ## Media
 
-`POST /api/media/upload` — upload a local file (multipart, field `file`), returns `{ "uploadId": "..." }`.
-`POST /api/media` — upload from a public URL: `{ "url": "https://example.com/photo.jpg" }` → `{ "uploadId": "..." }`.
+`POST /api/media/upload` - upload a local file (multipart, field `file`), returns `{ "uploadId": "..." }`.
+`POST /api/media` - upload from a public URL: `{ "url": "https://example.com/photo.jpg" }` -> `{ "uploadId": "..." }`.
 
 Then pass the upload ids in `mediaUrls` on `POST /api/post`. `text` is the caption.
 Pass multiple ids for carousels (X, LinkedIn, Instagram). TikTok and YouTube require
@@ -221,7 +221,7 @@ a single video. Supported types: jpg / jpeg / png / gif / mp4 / mov / pdf.
 Pull comments on one of your posts, then reply to a specific comment.
 
 ```
-# 1) Import comments (async — poll /api/comments until they appear)
+# 1) Import comments (async - poll /api/comments until they appear)
 POST /api/comments/import   { "platform": "x", "postId": "<postId>" }
 
 # 2) List the fetched comments (id, authorName, text, publishedAt)
@@ -240,7 +240,7 @@ Bluesky uses the direct adapter, all others proxy Bundle.
 ## Import post history
 
 Backfill posts a connected account published **before** it was connected (async
-job) — useful for X, whose per-post analytics aren't served passively. Imported
+job) - useful for X, whose per-post analytics aren't served passively. Imported
 posts come back with their analytics where the platform reports them. Supports
 `x`, `bluesky`, `threads`, `tiktok`, `linkedin`, `instagram`, `facebook`,
 `pinterest`, `youtube`, `reddit`, `mastodon`.
@@ -253,26 +253,26 @@ GET  /api/imports/posts?platform=x&count=50
 
 `count` defaults to 50. Monthly import caps apply; the posts endpoint returns
 `remainingCapacity`. Imports are billed at $0.005 per result. Refresh only pulls
-**live** metrics for posts this app published — use import for older posts.
+**live** metrics for posts this app published - use import for older posts.
 
 ## Posts & accounts
 
-- `GET /api/posts/recent?limit=10` — your recent posted posts with per-platform `results[]` (each has `postId`, `postUrl`, `success`) and cached `metrics`.
-- `GET /api/post/:id` — one post's status and `externalData` (native ids/permalinks). JWT only.
-- `GET /api/profiles` — connected platform profiles for the current user.
-- `GET /api/connect/:platform` — Bundle portal URL to connect an account.
-- `POST /api/disconnect/:platform` — disconnect a connected account.
-- `POST /api/channel/:platform` — set / refresh / unset the target channel/page (Facebook, LinkedIn, YouTube, Instagram, Reddit, Discord, Slack, Pinterest).
-- `GET /api/bundle-accounts` — list Bundle-connected accounts.
-- `GET /api/bundle-posts?platform=<platform>` — recent Bundle posts.
+- `GET /api/posts/recent?limit=10` - your recent posted posts with per-platform `results[]` (each has `postId`, `postUrl`, `success`) and cached `metrics`.
+- `GET /api/post/:id` - one post's status and `externalData` (native ids/permalinks). JWT only.
+- `GET /api/profiles` - connected platform profiles for the current user.
+- `GET /api/connect/:platform` - Bundle portal URL to connect an account.
+- `POST /api/disconnect/:platform` - disconnect a connected account.
+- `POST /api/channel/:platform` - set / refresh / unset the target channel/page (Facebook, LinkedIn, YouTube, Instagram, Reddit, Discord, Slack, Pinterest).
+- `GET /api/bundle-accounts` - list Bundle-connected accounts.
+- `GET /api/bundle-posts?platform=<platform>` - recent Bundle posts.
 
 ## Teams
 
-`GET /api/teams` — list your teams (id, label, is_active).
-`POST /api/teams` — create a team (`{ "label": "Personal" }`). Labels are unique
+`GET /api/teams` - list your teams (id, label, is_active).
+`POST /api/teams` - create a team (`{ "label": "Personal" }`). Labels are unique
 per account; a duplicate returns `409`.
-`PATCH /api/teams/:id` — rename a team (`{ "label": "..." }`).
-`DELETE /api/teams/:id` — delete a team.
+`PATCH /api/teams/:id` - rename a team (`{ "label": "..." }`).
+`DELETE /api/teams/:id` - delete a team.
 
 Target a specific team when posting with `team` (by name) or `teamId` (by id):
 
@@ -286,9 +286,9 @@ Target a specific team when posting with `team` (by name) or `teamId` (by id):
 
 ## API keys
 
-`GET /api/keys` — list your keys (metadata only, never the secret).
-`POST /api/keys` — create a key (`{ "name": "..." }`); returns the raw key once.
-`DELETE /api/keys/:id` — revoke a key.
+`GET /api/keys` - list your keys (metadata only, never the secret).
+`POST /api/keys` - create a key (`{ "name": "..." }`); returns the raw key once.
+`DELETE /api/keys/:id` - revoke a key.
 
 ## Platform keys
 
@@ -310,9 +310,9 @@ Target a specific team when posting with `team` (by name) or `teamId` (by id):
 
 ## Credits / X fees
 
-`GET /api/credits` — balance (`balanceMicros`) and recent transactions.
-`POST /api/credits/topup` — `{ "amountCents": 500 }` → Stripe Checkout, returns `{ "url": "…" }`.
-`POST /api/credits/webhook` — Stripe webhook; credits the ledger on payment success.
+`GET /api/credits` - balance (`balanceMicros`) and recent transactions.
+`POST /api/credits/topup` - `{ "amountCents": 500 }` -> Stripe Checkout, returns `{ "url": "..." }`.
+`POST /api/credits/webhook` - Stripe webhook; credits the ledger on payment success.
 
 X is metered: **$0.015** per plain/media post, **$0.20** for a post with a link.
 Each successful X post is debited from your balance automatically.
@@ -326,24 +326,24 @@ Each successful X post is debited from your balance automatically.
   `instagramImageFit: "crop"` in the post body to center-crop instead.
 - **TikTok and YouTube** require a video; **Instagram** accepts images or video.
 - **Reddit, Pinterest, Slack, Discord, Google Business** can be connected in the
-  dashboard Accounts tab. Posting requires a target per platform — send
+  dashboard Accounts tab. Posting requires a target per platform - send
   `platformTargets` like `{ "discord": "channelId", "slack": "channelId",
   "pinterest": "boardName", "reddit": "r/example" }`.
 
 ## Common errors
 
-- **`{"error":"Invalid JSON body"}` (400)** — client-side quoting problem. PowerShell
+- **`{"error":"Invalid JSON body"}` (400)** - client-side quoting problem. PowerShell
   5.1 corrupts embedded quotes when `-d` is passed as an argument: pipe the body via
   stdin (`-d "@-"`) or write it to a file (`-d @body.json`). Keep captions ASCII;
   emoji/non-ASCII in a PowerShell `-d` argument mangles the JSON too.
-- **`{"error":"teamId or team is required"}` (400)** — every post/schedule needs a
+- **`{"error":"teamId or team is required"}` (400)** - every post/schedule needs a
   team by name (`"team": "Personal"`) or id (`"teamId": "..."`); list via `GET /api/teams`.
-- **`401 Unauthorized`** — missing, revoked, or wrong-position API key. Send
+- **`401 Unauthorized`** - missing, revoked, or wrong-position API key. Send
   `Authorization: Bearer fsp_live_...` or `FSP-API-KEY: fsp_live_...`.
-- **`{"error":"Unsupported file type"}` (400)** on upload — extension not supported
+- **`{"error":"Unsupported file type"}` (400)** on upload - extension not supported
   (jpg/jpeg/png/gif/mp4/mov/pdf). Type is inferred from the filename.
-- **X `Insufficient X credit`** — X is metered ($0.015 plain, $0.20 with a link);
+- **X `Insufficient X credit`** - X is metered ($0.015 plain, $0.20 with a link);
   top up in the X fees tab.
-- **Comment create `Request Validation Error` (400)** — a required field is missing
+- **Comment create `Request Validation Error` (400)** - a required field is missing
   (commonly the post id); the error names the missing field.
-- **`{"error":"Unknown platform"}` (400)** — platform key not supported (see Platform keys).
+- **`{"error":"Unknown platform"}` (400)** - platform key not supported (see Platform keys).

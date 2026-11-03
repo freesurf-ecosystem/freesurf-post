@@ -16,6 +16,8 @@
     .resources-page { position: relative; z-index: 1; }
     .resources-header { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); }
     .resources-topbar { max-width: 1200px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .resources-menu-btn { display: none; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+    .resources-menu-btn:hover { background: var(--bg-alt); }
     .resources-nav { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 0.9rem; }
     .resources-nav a { color: var(--text-secondary); text-decoration: none; }
     .resources-nav a:hover { color: var(--text); }
@@ -31,6 +33,23 @@
     .resources-section .feature-card { background: var(--surface); border: 1px solid var(--border); }
     .resources-section a.feature-card { display: block; text-decoration: none; color: inherit; }
     .resources-note { max-width: 760px; color: var(--text-muted); font-size: 0.9rem; margin-top: 12px; }
+    @media (max-width: 768px) {
+      .resources-menu-btn { display: inline-flex; }
+      .resources-nav {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        margin-top: 4px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+      }
+      .resources-nav.open { display: flex; }
+      .resources-nav a { padding: 10px 6px; border-radius: 8px; }
+      .resources-nav a:hover { background: var(--bg-alt); }
+      .resources-nav .resources-login { display: flex; justify-content: center; margin-top: 6px; }
+    }
     @media (max-width: 640px) {
       .resources-hero { padding-top: 48px; }
       .resources-section { padding-top: 36px; }
@@ -45,11 +64,14 @@
           <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>
           CatVideo
         </a>
-        <nav class="resources-nav">
+        <button class="resources-menu-btn" id="resources-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="resources-nav">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <nav class="resources-nav" id="resources-nav">
           <a href="/resources/#comparisons">Comparisons</a>
-          <a href="/resources/#platform-schedulers">Platform API &amp; schedulers</a>
-          <a href="https://post.freesurf.tools/llms.txt">API reference</a>
-          <a class="btn btn-primary btn-sm" href="/">Open CatVideo</a>
+          <a href="/resources/#social-media-apis">Social Media APIs</a>
+          <a href="/llms.txt">LLMs.txt</a>
+          <a class="btn btn-primary btn-sm resources-login" href="/#auth">Log in / Sign up</a>
         </nav>
       </div>
     </header>
@@ -57,7 +79,7 @@
     <main>
       <section class="resources-hero">
         <h1>Resources</h1>
-        <p>Comparisons, platform guides, and API explainers for people choosing a social media scheduler. We publish when a page adds something useful - not to hit a content quota.</p>
+        <p>Comparisons, social media API guides, and explainers for people choosing a social media scheduler. We publish when a page adds something useful - not to hit a content quota.</p>
       </section>
 
       <section class="resources-section" id="comparisons">
@@ -159,9 +181,9 @@
 
       </section>
 
-      <section class="resources-section" id="platform-schedulers">
-        <h2>Platform API &amp; schedulers</h2>
-        <p>One page per platform, combining the native API, the platform's own scheduler or business suite, and how to schedule through CatVideo. No separate "posting API" and "scheduler" pages.</p>
+      <section class="resources-section" id="social-media-apis">
+        <h2>Social Media APIs</h2>
+        <p>One page per platform: the native API and the platform's own scheduler or business suite, documented first, then how to publish through CatVideo. No separate "posting API" and "scheduler" pages.</p>
         <div class="features-grid">
           <a class="feature-card" href="/tools/free-tiktok-api-and-scheduler/">
             <h3 class="feature-title">Free TikTok API &amp; scheduler</h3>
@@ -205,7 +227,7 @@
       <section class="resources-section" id="api">
         <h2>API reference</h2>
         <p>The CatVideo API is free with an account. Post, schedule, upload media, pull metrics, manage comments, and list teams.</p>
-        <p><a class="btn btn-primary btn-sm" href="https://post.freesurf.tools/llms.txt">Read the API reference</a></p>
+        <p><a class="btn btn-primary btn-sm" href="/llms.txt">Read llms.txt</a> - machine-readable docs for LLMs and the mobile web app.</p>
       </section>
 
       <section class="resources-section" id="blog">
@@ -219,5 +241,21 @@
   <script src="/js/components/catvideo-footer.js?v=20261103i" defer></script>
   <cat-walker></cat-walker>
   <script src="/js/components/cat-walker.js?v=20261103j" defer></script>
+  <script>
+    (function () {
+      const btn = document.getElementById("resources-menu-btn");
+      const nav = document.getElementById("resources-nav");
+      if (!btn || !nav) return;
+      const setOpen = (open) => {
+        nav.classList.toggle("open", open);
+        btn.setAttribute("aria-expanded", String(open));
+        btn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+      };
+      btn.addEventListener("click", () => setOpen(!nav.classList.contains("open")));
+      nav.addEventListener("click", (event) => {
+        if (event.target.closest("a")) setOpen(false);
+      });
+    })();
+  </script>
 </body>
 </html>
