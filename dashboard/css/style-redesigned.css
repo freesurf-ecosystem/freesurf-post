@@ -2577,32 +2577,25 @@ input:-webkit-autofill:focus {
 
 /* -- Homepage cat (walks on its own, does not follow the cursor) -- */
 cat-walker {
-  --cat-fur: #e3a15f;
-  --cat-fur-dark: #bf7d40;
-  --cat-belly: #f8ecdc;
-  --cat-ink: #2a1d14;
-  --cat-pink: #e79aa0;
+  --cat-ink: #171717;
+  --cat-paper: #ffffff;
 
   position: fixed;
   left: 0;
-  bottom: max(14px, env(safe-area-inset-bottom));
-  z-index: 2;
+  top: 0;
+  z-index: 120;
   display: block;
-  width: 56px;
-  height: 39px;
+  width: 64px;
+  height: 56px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 300ms ease;
-  will-change: transform;
+  will-change: left, top;
 }
 
 cat-walker.is-visible { opacity: 0.95; }
 
-[data-theme="dark"] cat-walker {
-  --cat-fur: #e8a862;
-  --cat-fur-dark: #c8863f;
-  --cat-belly: #f8ecdc;
-}
+body:has(.sidebar-overlay.active) cat-walker { opacity: 0; }
 
 cat-walker::after {
   content: "";
@@ -2617,9 +2610,18 @@ cat-walker::after {
   filter: blur(1px);
 }
 
-.cat-walker__flip { width: 100%; height: 100%; transform-origin: center; }
+.cat-walker__flip { position: absolute; inset: 0; transform-origin: center; }
 cat-walker.is-left .cat-walker__flip { transform: scaleX(-1); }
-.cat-walker__svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.cat-walker__svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.cat-walker__pose { position: absolute; left: 0; bottom: 0; width: 100%; display: none; }
+.cat-walker__pose--sleep { left: 50%; width: 44px; margin-left: -22px; }
+
+cat-walker.is-idle .cat-walker__pose--walk,
+cat-walker.is-walking .cat-walker__pose--walk,
+cat-walker.is-hopping .cat-walker__pose--walk { display: block; }
+cat-walker.is-sleeping .cat-walker__pose--sleep { display: block; }
+cat-walker.is-stretching .cat-walker__pose--stretch { display: block; }
 
 .cat-walker__bob,
 .cat-leg,
@@ -2660,8 +2662,32 @@ cat-walker.is-walking .cat-leg--b { animation: cat-step-b 0.34s ease-in-out infi
   94% { transform: scaleY(0.12); }
 }
 
+cat-walker.is-sleeping .cat-walker__pose--sleep .cat-walker__svg {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: cat-breathe 3.4s ease-in-out infinite;
+}
+
+cat-walker.is-stretching .cat-walker__pose--stretch .cat-walker__svg {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  animation: cat-stretch 1.8s ease-in-out;
+}
+
+@keyframes cat-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+@keyframes cat-stretch {
+  0% { transform: scaleX(0.92); }
+  45%, 70% { transform: scaleX(1.08); }
+  100% { transform: scaleX(1); }
+}
+
 @media (max-width: 640px) {
-  cat-walker { width: 46px; height: 32px; bottom: max(10px, env(safe-area-inset-bottom)); }
+  cat-walker { width: 48px; height: 42px; }
+  .cat-walker__pose--sleep { width: 34px; margin-left: -17px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
