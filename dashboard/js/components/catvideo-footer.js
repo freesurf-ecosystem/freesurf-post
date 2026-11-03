@@ -8,9 +8,8 @@ const FOOTER_TEMPLATE = `
       <div class="freesurf-footer-links">
         <div class="freesurf-footer-col">
           <span class="freesurf-footer-heading">Resources</span>
-          <a href="/resources/">All resources</a>
           <a href="/resources/#comparisons">Comparisons</a>
-          <a href="/resources/#platform-schedulers">Platform API &amp; schedulers</a>
+          <a href="/llms.txt" title="Machine-readable information for LLMs">LLMs.txt</a>
         </div>
         <div class="freesurf-footer-col">
           <span class="freesurf-footer-heading">Newsletter</span>
