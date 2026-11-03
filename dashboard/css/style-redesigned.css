@@ -2640,9 +2640,9 @@ cat-walker.is-stretching .cat-walker__pose--stretch { display: block; }
 .cat-walker__tail { transform-origin: 100% 100%; animation: cat-tail-sway 2.8s ease-in-out infinite; }
 .cat-walker__eyes { transform-origin: center; animation: cat-blink 4.6s ease-in-out infinite; }
 
-cat-walker.is-walking .cat-walker__bob { animation: cat-walk-bob 0.34s ease-in-out infinite; }
-cat-walker.is-walking .cat-leg--a { animation: cat-step-a 0.34s ease-in-out infinite; }
-cat-walker.is-walking .cat-leg--b { animation: cat-step-b 0.34s ease-in-out infinite; }
+cat-walker.is-walking .cat-walker__bob { animation: cat-walk-bob 0.3s ease-in-out infinite; }
+cat-walker.is-walking .cat-leg--a { animation: cat-step-a 0.6s ease-in-out infinite; }
+cat-walker.is-walking .cat-leg--b { animation: cat-step-b 0.6s ease-in-out infinite; }
 
 @keyframes cat-walk-bob {
   0%, 100% { transform: translateY(0); }
@@ -2670,17 +2670,16 @@ cat-walker.is-walking .cat-leg--b { animation: cat-step-b 0.34s ease-in-out infi
 }
 
 cat-walker.is-sleeping .cat-walker__pose--sleep,
+cat-walker.is-walking .cat-walker__pose--walk,
+cat-walker.is-idle .cat-walker__pose--walk,
 cat-walker.is-stretching .cat-walker__pose--stretch { animation: cat-pose-in 260ms ease-out; }
 
 .cat-sleep__body,
 .cat-sleep__ear,
-.cat-z,
 .cat-stretch__tail { transform-box: fill-box; }
 
 .cat-sleep__body { transform-origin: center bottom; animation: cat-breathe 3.4s ease-in-out infinite; }
 .cat-sleep__ear { transform-origin: 0% 100%; animation: cat-ear-twitch 9s ease-in-out infinite; }
-.cat-z { opacity: 0; animation: cat-z-float 3.4s ease-out infinite; }
-.cat-z--2 { animation-delay: 1.7s; }
 .cat-stretch__tail { transform-origin: 100% 100%; animation: cat-tail-flick 1s ease-in-out 2; }
 
 @keyframes cat-pose-in {
@@ -2691,12 +2690,6 @@ cat-walker.is-stretching .cat-walker__pose--stretch { animation: cat-pose-in 260
   0%, 88%, 94%, 100% { transform: rotate(0deg); }
   90% { transform: rotate(-14deg); }
   92% { transform: rotate(4deg); }
-}
-
-@keyframes cat-z-float {
-  0% { opacity: 0; transform: translate(-2px, 3px) scale(0.7); }
-  25% { opacity: 0.85; }
-  100% { opacity: 0; transform: translate(2px, -4px) scale(1.1); }
 }
 
 @keyframes cat-tail-flick {
