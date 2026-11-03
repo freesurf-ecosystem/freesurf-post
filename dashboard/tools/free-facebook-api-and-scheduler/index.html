@@ -1,13 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="is-loading">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    try {
+      var savedTheme = localStorage.getItem("freesurf-theme");
+      if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+    } catch (e) {}
+  </script>
   <style>
     .hidden { display: none !important; }
     .logo-mark { width: 28px; height: 28px; }
     .store-badge svg { width: 22px; height: 22px; }
     a { color: inherit; text-decoration: none; }
+    html.is-loading { background: #ffffff; }
+    html.is-loading[data-theme="dark"] { background: #0a0a0c; }
+    html.is-loading body { visibility: hidden; }
   </style>
   <title>Free Facebook API &amp; Scheduler - CatVideo</title>
   <meta name="description" content="Schedule Facebook Page posts for free with CatVideo. Compare Meta’s Graph API, Meta Business Suite, Groups, and multi-platform scheduling." />
@@ -19,6 +28,30 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style-redesigned.css?v=20261103j" />
   <link rel="stylesheet" href="/css/article.css?v=20261030" />
+  <noscript><style>html.is-loading body { visibility: visible; }</style></noscript>
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var links = document.querySelectorAll('link[rel="stylesheet"][href*="/css/"]');
+      var pending = links.length;
+      var done = false;
+      function reveal() {
+        if (done) return;
+        done = true;
+        root.classList.remove("is-loading");
+      }
+      if (!pending) { reveal(); return; }
+      for (var i = 0; i < links.length; i++) {
+        (function (link) {
+          if (link.sheet) { pending -= 1; return; }
+          link.addEventListener("load", function () { if (--pending === 0) reveal(); });
+          link.addEventListener("error", function () { if (--pending === 0) reveal(); });
+        })(links[i]);
+      }
+      if (pending === 0) reveal();
+      setTimeout(reveal, 3000);
+    })();
+  </script>
 </head>
 <body>
   <div class="post-page">
