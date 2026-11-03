@@ -84,12 +84,32 @@ const TEMPLATE = `
   </div>
 `;
 
-const FIRST_NAP_MIN = 20000;
-const FIRST_NAP_MAX = 35000;
+const FIRST_NAP_MIN = 55 * 1000;
+const FIRST_NAP_MAX = 65 * 1000;
 const NAP_MIN = 3 * 60 * 1000;
 const NAP_MAX = 6 * 60 * 1000;
 const STRETCH_MS = 2000;
+const OVERDUE_STRETCH_DELAY = 1500;
 const STATES = ["sleeping", "stretching"];
+// Per-tab, so the nap schedule carries across page loads instead of restarting on each one.
+const STORAGE_KEY = "cat-walker:next-stretch";
+
+function readNextStretch() {
+  try {
+    const value = Number(sessionStorage.getItem(STORAGE_KEY));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeNextStretch(timestamp) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, String(timestamp));
+  } catch {
+    // Storage unavailable (e.g. privacy mode): the cat just keeps its schedule per page.
+  }
+}
 
 class CatWalker extends HTMLElement {
   connectedCallback() {
@@ -97,47 +117,36 @@ class CatWalker extends HTMLElement {
     this.dataset.ready = "true";
     this.innerHTML = TEMPLATE;
     this.setAttribute("aria-hidden", "true");
-
-    this._welcome = document.getElementById("view-welcome");
+    this.classList.add("is-visible");
     this._timer = null;
-    this._firstNap = true;
 
-    this._syncVisibility();
-    if (this._welcome) {
-      this._observer = new MutationObserver(() => this._syncVisibility());
-      this._observer.observe(this._welcome, { attributes: true, attributeFilter: ["class"] });
+    const nextStretch = readNextStretch();
+    if (nextStretch === null) {
+      this._napFor(FIRST_NAP_MIN + Math.random() * (FIRST_NAP_MAX - FIRST_NAP_MIN));
+    } else {
+      this._napFor(Math.max(nextStretch - Date.now(), OVERDUE_STRETCH_DELAY), { persist: false });
     }
-
-    this._scheduleNap();
   }
 
   disconnectedCallback() {
     if (this._timer) clearTimeout(this._timer);
-    if (this._observer) this._observer.disconnect();
-  }
-
-  _syncVisibility() {
-    const visible = Boolean(this._welcome) && !this._welcome.classList.contains("hidden");
-    this.classList.toggle("is-visible", visible);
   }
 
   _setState(state) {
     for (const name of STATES) this.classList.toggle(`is-${name}`, name === state);
   }
 
-  _scheduleNap() {
+  _napFor(ms, { persist = true } = {}) {
     if (this._timer) clearTimeout(this._timer);
     this._setState("sleeping");
-    const min = this._firstNap ? FIRST_NAP_MIN : NAP_MIN;
-    const max = this._firstNap ? FIRST_NAP_MAX : NAP_MAX;
-    this._firstNap = false;
-    this._timer = setTimeout(() => this._stretch(), min + Math.random() * (max - min));
+    if (persist) writeNextStretch(Date.now() + ms);
+    this._timer = setTimeout(() => this._stretch(), ms);
   }
 
   _stretch() {
     if (this._timer) clearTimeout(this._timer);
     this._setState("stretching");
-    this._timer = setTimeout(() => this._scheduleNap(), STRETCH_MS);
+    this._timer = setTimeout(() => this._napFor(NAP_MIN + Math.random() * (NAP_MAX - NAP_MIN)), STRETCH_MS);
   }
 }
 
