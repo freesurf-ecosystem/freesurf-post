@@ -37,57 +37,43 @@ const WALK_POSE = `
 
 const SLEEP_POSE = `
   <svg class="cat-walker__svg" viewBox="0 0 48 44" aria-hidden="true" focusable="false">
-    <g>
-      <path d="M11 31 C5 35 9 41 19 41 C29 41 38 37 38 31" fill="none" stroke="var(--cat-ink)" stroke-width="4" stroke-linecap="round"/>
-      <ellipse cx="24" cy="27" rx="16" ry="11" fill="var(--cat-paper)" stroke="var(--cat-ink)" stroke-width="1.6"/>
-      <g clip-path="url(#cat-sleep-body)">
-        <path d="M9 23 Q24 15 39 23" fill="none" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
-      </g>
-      <circle cx="32" cy="23" r="8" fill="var(--cat-paper)" stroke="var(--cat-ink)" stroke-width="1.6"/>
-      <g clip-path="url(#cat-sleep-head)">
-        <rect x="23" y="14" width="18" height="5.5" fill="var(--cat-ink)"/>
-      </g>
-      <polygon points="26,18 27.5,11 32,16" fill="var(--cat-ink)"/>
-      <polygon points="35,16 39,11.5 39.5,18.5" fill="var(--cat-ink)"/>
-      <path d="M34 24 q2 1.5 4 0" fill="none" stroke="var(--cat-ink)" stroke-width="1.2" stroke-linecap="round"/>
-      <circle cx="40.5" cy="26" r="0.9" fill="var(--cat-ink)"/>
+    <g class="cat-sleep__zs" fill="none" stroke="var(--cat-ink)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+      <path class="cat-z cat-z--1" d="M40 12 h3 l-3 3.4 h3"/>
+      <path class="cat-z cat-z--2" d="M44.5 5 h2.2 l-2.2 2.5 h2.2"/>
     </g>
-    <defs>
-      <clipPath id="cat-sleep-body"><ellipse cx="24" cy="27" rx="16" ry="11"/></clipPath>
-      <clipPath id="cat-sleep-head"><circle cx="32" cy="23" r="8"/></clipPath>
-    </defs>
+    <g class="cat-sleep__body">
+      <path d="M4 40.5 C3 30 9.5 18 21.5 17 C30 16.3 36 20 38 27 C39.5 32 39 37 37 40.5 Z" fill="var(--cat-ink)"/>
+      <path d="M12 37 C10.5 30 15 25.5 22 26" fill="none" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linecap="round" opacity="0.35"/>
+    </g>
+    <g class="cat-sleep__tail">
+      <path d="M6.5 37 C5 42.5 15 42.6 23 41.6 C28 41 31.5 40.2 32.5 37.8" fill="none" stroke="var(--cat-paper)" stroke-width="5.6" stroke-linecap="round"/>
+      <path d="M6.5 37 C5 42.5 15 42.6 23 41.6 C28 41 31.5 40.2 32.5 37.8" fill="none" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
+    </g>
+    <path d="M36 37 C38 36 44 36.2 46 38.4 C47 39.8 46 41 44 41 L37 41 Z" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.8" stroke-linejoin="round"/>
+    <ellipse cx="37.5" cy="30" rx="8.3" ry="6.8" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.7"/>
+    <g fill="var(--cat-ink)" stroke="var(--cat-ink)" stroke-width="1" stroke-linejoin="round">
+      <path d="M31.2 26 L32.3 17.3 L37.6 23 Z"/>
+      <path class="cat-sleep__ear" d="M39.3 23 L44.6 18.4 L45 26.5 Z"/>
+    </g>
+    <path d="M39.4 29.4 q1.8 1.5 3.6 0" fill="none" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M45.2 31 l3 -0.6 M45.2 32.2 l3 0.5" stroke="var(--cat-ink)" stroke-width="0.5" stroke-linecap="round" opacity="0.6"/>
   </svg>
 `;
 
 const STRETCH_POSE = `
   <svg class="cat-walker__svg" viewBox="0 0 64 44" aria-hidden="true" focusable="false">
-    <g>
-      <path d="M17 24 C7 24 5 14 11 8" fill="none" stroke="var(--cat-ink)" stroke-width="4.2" stroke-linecap="round"/>
-      <g stroke="var(--cat-ink)" stroke-width="4" stroke-linecap="round">
-        <line x1="21" y1="30" x2="21" y2="41"/>
-        <line x1="27" y1="31" x2="27" y2="41"/>
-        <line x1="45" y1="32" x2="62" y2="40"/>
-        <line x1="46" y1="35" x2="62" y2="42"/>
-      </g>
-      <ellipse cx="33" cy="26" rx="17" ry="8" fill="var(--cat-paper)" stroke="var(--cat-ink)" stroke-width="1.6"/>
-      <g clip-path="url(#cat-stretch-body)">
-        <path d="M16 22 Q33 15 50 22" fill="none" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
-      </g>
-      <polygon points="45,14 46.5,6 51,12" fill="var(--cat-ink)"/>
-      <polygon points="55,12 58.5,6 60,14" fill="var(--cat-ink)"/>
-      <circle cx="52" cy="22" r="8" fill="var(--cat-paper)" stroke="var(--cat-ink)" stroke-width="1.6"/>
-      <g clip-path="url(#cat-stretch-head)">
-        <rect x="43" y="11" width="18" height="7" fill="var(--cat-ink)"/>
-      </g>
-      <ellipse cx="56.5" cy="25" rx="3.2" ry="2.6" fill="var(--cat-paper)"/>
-      <ellipse cx="55" cy="21" rx="1.3" ry="1.7" fill="var(--cat-ink)"/>
-      <path d="M59.4 23.4 l1.6 0.5 -1.3 0.9 z" fill="var(--cat-ink)"/>
-      <path d="M60.8 24.8 q-1 1.1 -2.1 0.4" fill="none" stroke="var(--cat-ink)" stroke-width="0.7" stroke-linecap="round"/>
+    <path class="cat-stretch__tail" d="M12.5 18 C6 14 4.5 6 9 2.5" fill="none" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M19.5 29 L21 40.5" stroke="var(--cat-ink)" stroke-width="3.8" stroke-linecap="round"/>
+    <path d="M45 31 L59.5 36" stroke="var(--cat-ink)" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M11 41 C11.5 36 9.5 30 10.5 23 C11.5 16 16 13.5 21 14 C28 15 36 21 42 27 C44 29 48 33 52 35.5 C55 37 59 37.5 61 38.5 C62.5 39.3 62 41 60 41 L44 41 C40 41 37 39.5 34 38 C29 35.5 24 31 21 30.5 C18 33 16.5 37 16 41 Z" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linejoin="round"/>
+    <ellipse cx="47" cy="27.5" rx="6.8" ry="5.8" fill="var(--cat-ink)" stroke="var(--cat-paper)" stroke-width="0.7"/>
+    <ellipse cx="52.6" cy="29.3" rx="3.4" ry="2.5" fill="var(--cat-ink)"/>
+    <g fill="var(--cat-ink)" stroke="var(--cat-ink)" stroke-width="1" stroke-linejoin="round">
+      <path d="M41.6 24 L42.3 16.3 L46.8 21.6 Z"/>
+      <path d="M48.6 21.6 L53.6 17 L53.6 24.6 Z"/>
     </g>
-    <defs>
-      <clipPath id="cat-stretch-body"><ellipse cx="33" cy="26" rx="17" ry="8"/></clipPath>
-      <clipPath id="cat-stretch-head"><circle cx="52" cy="22" r="8"/></clipPath>
-    </defs>
+    <path d="M48.3 26.6 q1.5 -1.3 3 0" fill="none" stroke="var(--cat-paper)" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M55.6 29.2 l3 -0.7 M55.6 30.4 l3 0.4" stroke="var(--cat-ink)" stroke-width="0.5" stroke-linecap="round" opacity="0.6"/>
   </svg>
 `;
 
