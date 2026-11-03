@@ -20,7 +20,7 @@ const FOOTER_TEMPLATE = `
           <a href="https://invoices.freesurf.tools">Invoices</a>
           <a href="https://links.freesurf.tools">Link-in-bio</a>
           <a href="https://transcribe.freesurf.tools">Meeting Transcriber</a>
-          <a href="https://calories.freesurf.tools">Calorie Tracker</a>
+          <a href="https://reader.freesurf.tools">Reader</a>
         </div>
         <div class="freesurf-footer-col">
           <span class="freesurf-footer-heading">Platform</span>

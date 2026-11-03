@@ -2575,7 +2575,7 @@ input:-webkit-autofill:focus {
 #btn-onboarding-terms,
 #btn-onboarding-finish { margin-top: 6px; }
 
-/* -- Homepage cat (walks on its own, does not follow the cursor) -- */
+/* -- Homepage cat (curls up in the bottom corner) -- */
 cat-walker {
   --cat-ink: #171717;
   --cat-paper: #ffffff;
@@ -2593,6 +2593,15 @@ cat-walker {
 }
 
 cat-walker.is-visible { opacity: 0.95; }
+
+[data-theme="dark"] cat-walker {
+  --cat-ink: #f2f2f2;
+  --cat-paper: #23232d;
+}
+
+[data-theme="dark"] cat-walker::after {
+  background: rgba(255, 255, 255, 0.08);
+}
 
 body:has(.sidebar-overlay.active) cat-walker { opacity: 0; }
 
