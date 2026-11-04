@@ -3796,5 +3796,18 @@ $("#btn-create-reply")?.addEventListener("click", showCreateReplyModal);
 $("#btn-refill-queue")?.addEventListener("click", refillQueue);
 $("#btn-topup")?.addEventListener("click", topUp);
 
+// Expose functions referenced by inline onclick handlers (dashboard.js is an ES
+// module, so these must be attached to the global scope for inline handlers).
+Object.assign(window, {
+  loadDraftIntoCompose,
+  deleteDraft,
+  addHashtagsToCompose,
+  deleteHashtagGroup,
+  copyReply,
+  editSavedReply,
+  deleteSavedReply,
+  removeFromQueue,
+});
+
 init();
 
