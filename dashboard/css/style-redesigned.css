@@ -2570,6 +2570,7 @@ input:-webkit-autofill:focus {
 
 /* -- Onboarding (post-sign-in) -- */
 .onboarding-intro { font-size: 0.9375rem; color: var(--text); line-height: 1.6; margin: 4px 0 18px; }
+.onboarding-newsletter-title { font-size: 1.05rem; margin: 4px 0 8px; }
 #onboarding-step-1 .auth-checkbox,
 #onboarding-step-2 .auth-checkbox { margin-bottom: 12px; }
 #btn-onboarding-terms,
