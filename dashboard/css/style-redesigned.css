@@ -2720,3 +2720,13 @@ cat-walker.is-sleeping .cat-rig__ear { transform-origin: 0% 100%; animation: cat
   .marketing-dropdown { position: static; min-width: 0; padding: 0 0 0 12px; background: transparent; border: 0; box-shadow: none; }
   .marketing-dropdown a { padding: 8px 6px; }
 }
+
+/* Standalone marketing pages (no app shell): give the shared nav a proper top bar. */
+body:not(:has(#view-welcome)) catvideo-nav .marketing-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+body:not(:has(#view-welcome)) catvideo-nav .marketing-nav { justify-self: auto; }

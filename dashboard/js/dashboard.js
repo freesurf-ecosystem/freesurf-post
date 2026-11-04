@@ -3733,7 +3733,9 @@ async function init() {
   }
 
   // Deep-link routing via URL hash (e.g. #accounts)
-  if (initialHash && $(`#view-${initialHash}`)) {
+  if (initialHash === "auth") {
+    showAuth();
+  } else if (initialHash && $(`#view-${initialHash}`)) {
     if (!session && PROTECTED_VIEWS.has(initialHash)) showView("welcome");
     else showView(initialHash);
   }
@@ -3744,6 +3746,11 @@ async function init() {
   if ($("#view-queue")) fetchQueue();
   if ($("#view-analytics")) loadAnalyticsView();
 }
+
+// Open the auth view when the URL hash becomes #auth (shared nav "Sign in" link).
+window.addEventListener("hashchange", () => {
+  if (location.hash === "#auth") showAuth();
+});
 
 // ── Navigation ──
 
