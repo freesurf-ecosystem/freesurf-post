@@ -3,8 +3,8 @@ import { getSharedSession, clearSharedSession, getSupabase } from "./freesurf-au
 import config from "./freesurf.config.js";
 
 const API_BASE = location.port === "8080" ? config.URLS.post : "";
-const CHAR_SOFT_LIMIT = 300;
 const CHAR_HARD_LIMIT = 5000;
+const BLUESKY_CHAR_LIMIT = 300;
 const SUPABASE_URL = config.AUTH.SUPABASE_URL;
 const SUPABASE_ANON_KEY = config.AUTH.SUPABASE_ANON_KEY;
 
@@ -993,16 +993,10 @@ function updateLinkWarning(text) {
 // ── Compose ──
 
 const textarea = $("#post-text");
-const charCount = $("#char-count");
 const btnPost = $("#btn-post");
 const feedback = $("#post-feedback");
 
 textarea.addEventListener("input", () => {
-  const len = textarea.value.length;
-  charCount.textContent = `${len} / ${CHAR_SOFT_LIMIT}`;
-  charCount.className = "char-count";
-  if (len > CHAR_HARD_LIMIT) charCount.classList.add("danger");
-  else if (len > CHAR_SOFT_LIMIT) charCount.classList.add("warning");
   updatePostButtonState();
   updatePlatformPreviews();
   updateLinkWarning(textarea.value);
@@ -1014,6 +1008,10 @@ btnPost.addEventListener("click", async () => {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
+  if (platforms.includes("bluesky") && textarea.value.length > BLUESKY_CHAR_LIMIT) {
+    showFeedback(`Bluesky only allows ${BLUESKY_CHAR_LIMIT} characters — shorten your post to syndicate there.`, "error");
+    return;
+  }
   if (directMediaMode) {
     const unsupported = platforms.filter((p) => !DIRECT_MEDIA_PLATFORMS.has(p));
     if (unsupported.length) {
@@ -1087,8 +1085,6 @@ btnPost.addEventListener("click", async () => {
       postHistory.unshift({ id: data?.id, text, results, postedAt: data?.postedAt });
       saveHistory();
       textarea.value = "";
-      charCount.textContent = "0 / 300";
-      charCount.className = "char-count";
       uploadedMedia = [];
       renderMediaPreview();
       resetDisclosures();
@@ -1115,6 +1111,10 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   if (!platforms.length) { showFeedback("Select at least one platform.", "error"); return; }
   if (!session?.access_token) { showFeedback("Please sign in.", "error"); return; }
+  if (platforms.includes("bluesky") && textarea.value.length > BLUESKY_CHAR_LIMIT) {
+    showFeedback(`Bluesky only allows ${BLUESKY_CHAR_LIMIT} characters — shorten your post to syndicate there.`, "error");
+    return;
+  }
   if (directMediaMode) {
     const unsupported = platforms.filter((p) => !DIRECT_MEDIA_PLATFORMS.has(p));
     if (unsupported.length) {
@@ -1169,8 +1169,6 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     if (res.ok) {
       showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
       textarea.value = "";
-      charCount.textContent = "0 / 300";
-      charCount.className = "char-count";
       if (timeEl) timeEl.value = "";
       uploadedMedia = [];
       renderMediaPreview();
@@ -2193,7 +2191,7 @@ function updateComposeWarnings() {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const textLen = textarea ? textarea.value.length : 0;
   const bsky = $("#bsky-warning");
-  if (bsky) bsky.classList.toggle("hidden", !(platforms.includes("bluesky") && textLen > 300));
+  if (bsky) bsky.classList.toggle("hidden", !(platforms.includes("bluesky") && textLen > BLUESKY_CHAR_LIMIT));
   const videoWarning = $("#video-warning");
   if (videoWarning) {
     const issues = [];
@@ -2451,7 +2449,7 @@ async function loadDraftIntoCompose(draftId) {
       const draft = data.drafts.find((d) => d.id === draftId);
       if (draft) {
         $("#post-text").value = draft.text;
-        updateCharCount();
+        updatePostButtonState();
         updatePlatformPreviews();
         switchView("compose");
       }
@@ -2613,7 +2611,8 @@ async function addHashtagsToCompose(groupId) {
       if (group) {
         const textarea = $("#post-text");
         textarea.value += " " + group.hashtags.join(" ");
-        updateCharCount();
+        updatePostButtonState();
+        updatePlatformPreviews();
         switchView("compose");
       }
     }
