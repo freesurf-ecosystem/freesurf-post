@@ -747,6 +747,10 @@ async function handleApi(
   if (url.pathname === "/api/replies/templates" && request.method === "POST") {
     return handleCreateSavedReply(request, env, origin, h);
   }
+  const savedReplyUpdateMatch = url.pathname.match(/^\/api\/replies\/templates\/([a-f0-9-]+)$/);
+  if (savedReplyUpdateMatch && request.method === "PATCH") {
+    return handleUpdateSavedReply(request, env, savedReplyUpdateMatch[1], origin, h);
+  }
   const savedReplyDeleteMatch = url.pathname.match(/^\/api\/replies\/templates\/([a-f0-9-]+)$/);
   if (savedReplyDeleteMatch && request.method === "DELETE") {
     return handleDeleteSavedReply(request, env, savedReplyDeleteMatch[1], origin, h);
@@ -4971,6 +4975,69 @@ async function handleDeleteSavedReply(
   } catch (error) {
     console.error("Saved reply deletion error:", error);
     return errorResponse("Failed to delete saved reply", 500, origin);
+  }
+}
+
+/**
+ * PATCH /api/replies/templates/:id — Update a saved reply
+ */
+async function handleUpdateSavedReply(
+  request: Request,
+  env: Env,
+  replyId: string,
+  origin: string,
+  headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { title: string; content: string; platforms?: Platform[] };
+  try {
+    body = (await request.json()) as any;
+  } catch {
+    return errorResponse("Invalid JSON body", 400, origin);
+  }
+
+  if (!body.title?.trim()) {
+    return errorResponse("Title is required", 400, origin);
+  }
+  if (!body.content?.trim()) {
+    return errorResponse("Content is required", 400, origin);
+  }
+
+  try {
+    const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_content?id=eq.${replyId}&user_id=eq.${user.sub}`,
+      {
+        method: "PATCH",
+        headers: {
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          data: {
+            title: body.title,
+            content: body.content,
+            platforms: body.platforms || [],
+          },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errorData = await res.json() as { message?: string };
+      return errorResponse(errorData.message || "Failed to update saved reply", 500, origin);
+    }
+
+    const [row] = await res.json() as any[];
+    return json({ reply: { id: row.id, ...row.data } }, 200, headers);
+  } catch (error) {
+    console.error("Saved reply update error:", error);
+    return errorResponse("Failed to update saved reply", 500, origin);
   }
 }
 

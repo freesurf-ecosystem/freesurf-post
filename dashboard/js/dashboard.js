@@ -2677,26 +2677,28 @@ function renderSavedReplies(replies) {
     <div class="reply-card">
       <div class="reply-header">
         <span class="reply-title">${escapeHtml(reply.title)}</span>
+        <div class="reply-actions">
+          <button class="btn btn-sm btn-secondary" onclick="copyReply('${reply.id}')">Copy</button>
+          <button class="btn btn-sm btn-secondary" onclick="editSavedReply('${reply.id}')">Edit</button>
+          <button class="btn btn-sm btn-ghost" onclick="deleteSavedReply('${reply.id}')">Delete</button>
+        </div>
       </div>
-      <div class="reply-content">${escapeHtml(reply.content.substring(0, 150))}${reply.content.length > 150 ? "..." : ""}</div>
+      <div class="reply-content">${escapeHtml(reply.content)}</div>
       <div class="draft-platforms">
         ${reply.platforms.map((p) => `<span class="draft-platform-tag">${p}</span>`).join("")}
-      </div>
-      <div class="draft-actions">
-        <button class="btn btn-sm btn-secondary" onclick="copyReply('${reply.id}')">Copy</button>
-        <button class="btn btn-sm btn-ghost" onclick="deleteSavedReply('${reply.id}')">Delete</button>
       </div>
     </div>
   `).join("");
 }
 
-function showCreateReplyModal() {
+function showCreateReplyModal(reply = null) {
+  const isEdit = !!reply;
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
   modal.innerHTML = `
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Save Text</h3>
+        <h3 class="modal-title">${isEdit ? "Edit Text" : "Save Text"}</h3>
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -2704,18 +2706,18 @@ function showCreateReplyModal() {
       <div class="modal-body">
         <div class="form-group">
           <label class="form-label">Name</label>
-          <input type="text" class="form-input" id="reply-title" placeholder="e.g., Launch hashtags">
+          <input type="text" class="form-input" id="reply-title" placeholder="e.g., Launch hashtags" value="${reply ? escapeHtml(reply.title) : ""}">
         </div>
         <div class="form-group">
           <label class="form-label">Content</label>
-          <textarea class="form-textarea" id="reply-content" placeholder="Thanks for following! Looking forward to connecting with you."></textarea>
+          <textarea class="form-textarea" id="reply-content" placeholder="Thanks for following! Looking forward to connecting with you.">${reply ? escapeHtml(reply.content) : ""}</textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Platforms (optional)</label>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             ${PLATFORMS.map((p) => `
               <label style="display:flex;align-items:center;gap:4px;font-size:0.875rem;">
-                <input type="checkbox" value="${p.key}" class="reply-platform-checkbox">
+                <input type="checkbox" value="${p.key}" class="reply-platform-checkbox" ${reply && reply.platforms.includes(p.key) ? "checked" : ""}>
                 ${p.name}
               </label>
             `).join("")}
@@ -2724,7 +2726,7 @@ function showCreateReplyModal() {
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-        <button class="btn btn-primary" id="btn-save-reply">Create</button>
+        <button class="btn btn-primary" id="btn-save-reply">${isEdit ? "Save" : "Create"}</button>
       </div>
     </div>
   `;
@@ -2741,8 +2743,8 @@ function showCreateReplyModal() {
     }
     
     try {
-      const res = await apiFetch(`/api/replies/templates`, {
-        method: "POST",
+      const res = await apiFetch(isEdit ? `/api/replies/templates/${reply.id}` : `/api/replies/templates`, {
+        method: isEdit ? "PATCH" : "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
@@ -2755,7 +2757,7 @@ function showCreateReplyModal() {
         fetchSavedReplies();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to create saved reply");
+        alert(data.error || (isEdit ? "Failed to update saved text" : "Failed to create saved text"));
       }
     } catch (error) {
       alert("Network error");
@@ -2775,17 +2777,64 @@ async function copyReply(replyId) {
       const data = await res.json();
       const reply = data.replies.find((r) => r.id === replyId);
       if (reply) {
-        await navigator.clipboard.writeText(reply.content);
-        alert("Reply copied to clipboard!");
+        const ok = await copyTextToClipboard(reply.content);
+        if (ok) alert("Text copied to clipboard!");
+        else alert("Copy failed. Please copy manually.");
       }
     }
   } catch (error) {
     console.error("Failed to copy reply:", error);
+    alert("Copy failed. Please copy manually.");
+  }
+}
+
+async function editSavedReply(replyId) {
+  if (!session) return;
+  
+  try {
+    const res = await apiFetch(`/api/replies/templates`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      const reply = data.replies.find((r) => r.id === replyId);
+      if (reply) {
+        showCreateReplyModal(reply);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load saved text for editing:", error);
+  }
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {
+    // fall through to legacy method
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) {
+    return false;
   }
 }
 
 async function deleteSavedReply(replyId) {
-  if (!(await confirmModal("Are you sure you want to delete this saved reply?"))) return;
+  if (!(await confirmModal("Are you sure you want to delete this saved text?"))) return;
   
   try {
     const res = await apiFetch(`/api/replies/templates/${replyId}`, {

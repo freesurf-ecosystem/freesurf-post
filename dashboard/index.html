@@ -816,10 +816,12 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Saved Text</h2>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <h2 class="card-title">Saved Text</h2>
+                <button class="btn btn-primary btn-sm" id="btn-create-reply">Save Text</button>
+              </div>
               <p class="card-subtitle">Reusable hashtags, captions, and text snippets you can paste into new posts.</p>
             </div>
-            <button class="btn btn-primary btn-sm" id="btn-create-reply">Save Text</button>
           </div>
           <div id="saved-replies" class="saved-replies">
             <div class="empty-state">

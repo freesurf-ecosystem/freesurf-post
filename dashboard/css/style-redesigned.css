@@ -1661,7 +1661,8 @@ html:not([data-reviewer="true"]) .reviewer-only {
 .reply-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
@@ -1669,6 +1670,14 @@ html:not([data-reviewer="true"]) .reviewer-only {
   font-weight: 600;
   font-size: 0.9375rem;
   color: var(--text);
+}
+
+.reply-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 12px;
 }
 
 .reply-content {
