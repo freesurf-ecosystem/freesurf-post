@@ -99,9 +99,9 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
           <span>History</span>
         </button>
-        <button class="sidebar-nav-item" data-view="hashtags">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
-          <span>Hashtags</span>
+        <button class="sidebar-nav-item" data-view="saved-text">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <span>Saved Text</span>
         </button>
         <button class="sidebar-nav-item" data-view="inbox">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -811,22 +811,22 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
         </div>
       </section>
 
-      <!-- Hashtag Manager -->
-      <section id="view-hashtags" class="view hidden">
+      <!-- Saved Text -->
+      <section id="view-saved-text" class="view hidden">
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Hashtag Manager</h2>
-              <p class="card-subtitle">Organize hashtag groups for different platforms and topics.</p>
+              <h2 class="card-title">Saved Text</h2>
+              <p class="card-subtitle">Reusable hashtags, captions, and text snippets you can paste into new posts.</p>
             </div>
-            <button class="btn btn-primary btn-sm" id="btn-create-hashtag-group">Create Group</button>
+            <button class="btn btn-primary btn-sm" id="btn-create-reply">Save Text</button>
           </div>
-          <div id="hashtag-groups" class="hashtag-groups">
+          <div id="saved-replies" class="saved-replies">
             <div class="empty-state">
               <div class="empty-state-icon">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </div>
-              <p class="empty-state-text">No hashtag groups yet. Create one to get started.</p>
+              <p class="empty-state-text">No saved text yet. Save a snippet to get started.</p>
             </div>
           </div>
         </div>

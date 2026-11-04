@@ -2667,7 +2667,7 @@ function renderSavedReplies(replies) {
         <div class="empty-state-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
-        <p class="empty-state-text">No saved replies yet. Create one to get started.</p>
+        <p class="empty-state-text">No saved text yet. Save a snippet to get started.</p>
       </div>
     `;
     return;
@@ -2696,15 +2696,15 @@ function showCreateReplyModal() {
   modal.innerHTML = `
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Create Saved Reply</h3>
+        <h3 class="modal-title">Save Text</h3>
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label">Title</label>
-          <input type="text" class="form-input" id="reply-title" placeholder="e.g., Thank you for following">
+          <label class="form-label">Name</label>
+          <input type="text" class="form-input" id="reply-title" placeholder="e.g., Launch hashtags">
         </div>
         <div class="form-group">
           <label class="form-label">Content</label>
@@ -3691,7 +3691,7 @@ async function init() {
   
   // Initialize new feature views
   if ($("#view-drafts")) fetchDrafts();
-  if ($("#view-hashtags")) fetchHashtagGroups();
+  if ($("#view-saved-text")) fetchSavedReplies();
   if ($("#view-queue")) fetchQueue();
   if ($("#view-analytics")) loadAnalyticsView();
 }
@@ -3726,7 +3726,7 @@ function switchView(viewName) {
   if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); }
   if (viewName === "docs") fetchKeys();
   if (viewName === "drafts") fetchDrafts();
-  if (viewName === "hashtags") fetchHashtagGroups();
+  if (viewName === "saved-text") fetchSavedReplies();
   if (viewName === "queue") fetchQueue();
   if (viewName === "history") fetchHistory();
   if (viewName === "analytics") loadAnalyticsView();
