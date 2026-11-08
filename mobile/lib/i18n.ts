@@ -106,6 +106,10 @@ const translations = {
     drafts: "Drafts",
     analytics: "Analytics",
     accounts: "Accounts",
+    review: "Review us",
+    review_title: "Enjoying CatVideo?",
+    review_subtitle: "A quick review helps other creators find CatVideo. Thank you!",
+    leave_review: "Leave a review",
     cancel: "Cancel",
   },
   es: {

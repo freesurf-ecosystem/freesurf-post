@@ -11,6 +11,11 @@ export interface MediaRef {
   mime?: string;
   /** Optional alt text (Instagram carousel items, Facebook media items). */
   altText?: string;
+  /** Video dimensions, when known (used to decide YouTube Short vs. video). */
+  width?: number;
+  height?: number;
+  /** Video duration in seconds, when known. */
+  duration?: number;
 }
 
 /** A post request from the client */

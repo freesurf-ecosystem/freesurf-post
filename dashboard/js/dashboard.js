@@ -178,9 +178,11 @@ function choiceModal({ title, message, options }) {
 }
 
 // ── Video preflight helpers ──
-// Cloudflare rejects request bodies over 100 MB on Free/Pro; use 95 MB as a
-// safety margin for multipart overhead.
-const VIDEO_MAX_UPLOAD_MB = 95;
+// Files up to ~90 MB use Bundle's simple upload. Anything larger (up to 5 GB)
+// is sliced into 64 MiB parts and sent through Bundle's multipart API, so the
+// Cloudflare 100 MB request-body cap no longer limits video size.
+const VIDEO_MAX_UPLOAD_MB = 5120;
+const SIMPLE_UPLOAD_MAX_MB = 90;
 const VIDEO_LIMIT_MB = 100;
 
 function fmtMb(bytes) {
@@ -216,8 +218,8 @@ function videoHelpModal() {
         <div class="modal-header"><div class="modal-title">Video requirements &amp; free fixes</div></div>
         <div class="modal-body" style="max-height:65vh;overflow:auto;color:var(--text);font-size:0.9rem;line-height:1.55;">
           <div style="border:1px solid var(--border);background:var(--bg-alt);border-radius:10px;padding:12px;margin-bottom:14px;">
-            <strong>Upload limit: ${VIDEO_LIMIT_MB} MB per file.</strong><br>
-            Cloudflare rejects files over ${VIDEO_LIMIT_MB} MB before they reach us. Aim for &le;90 MB to leave room for upload overhead. Images are rarely affected; long or high-bitrate videos are. This is a file-size limit, not a duration limit: a 4-minute 1080p clip at 8 Mbps is ~240 MB, but at 3 Mbps it is ~90 MB (720p at ~2 Mbps is ~60 MB). As a practical rule, we currently can't handle videos longer than about 5 minutes unless they compress well below 100 MB (720p / low bitrate, or a dedicated compressor). Automatic compression is on the roadmap.
+            <strong>Upload limit: 5 GB per video.</strong><br>
+            Long videos now upload automatically in 64 MiB parts, so the old Cloudflare ${VIDEO_LIMIT_MB} MB request cap no longer applies. Files under ~${SIMPLE_UPLOAD_MAX_MB} MB still use the faster single-request path; larger ones switch to multipart. Uploads are cheaper and faster when compressed, and platform duration limits still apply (Reels &le;90s, Shorts &le;60s, TikTok &le;10 min). For very long videos, exporting 720p at a lower bitrate is still the quickest way to keep uploads fast.
           </div>
 
           <p style="margin:0 0 4px;"><strong>Quickest fix: CapCut</strong></p>
@@ -231,7 +233,7 @@ function videoHelpModal() {
                 <li>Facebook feed: 4:5 or 16:9. YouTube: 16:9.</li>
               </ul>
             </li>
-            <li>Scale/position the clip (or use Auto reframe), then trim to the platform limit (Reels &le;90s, Shorts &le;60s, TikTok &le;10 min).</li>
+            <li>Scale/position the clip (or use Auto reframe), then trim to the platform limit (Instagram/Facebook Reels &le;15/20 min, YouTube Shorts &le;3 min, TikTok &le;10 min).</li>
             <li><strong>Export</strong>: Format MP4, Codec H.264, Resolution 1080p (or 720p for smaller), Frame rate 30, <strong>Bitrate &rarr; Custom/Lower</strong>.</li>
             <li>Target &le;90 MB. Use a lower export bitrate and/or 720p for longer clips.</li>
           </ol>
@@ -246,7 +248,7 @@ function videoHelpModal() {
           <ol style="margin:0 0 14px 18px;padding:0;">
             <li><strong>Compress</strong> to under ~90 MB (smaller uploads faster).</li>
             <li><strong>Crop or pad</strong> to the target aspect ratio (9:16 for TikTok/Reels; 4:5&ndash;1.91:1 for Instagram feed).</li>
-            <li><strong>Trim</strong> if needed (Reels &le;90s, YouTube Shorts &le;60s, TikTok &le;10 min).</li>
+            <li><strong>Trim</strong> if needed (Instagram Reels &le;15 min, YouTube Shorts &le;3 min, TikTok &le;10 min).</li>
             <li><strong>Re-add the edited file</strong> and post/schedule.</li>
           </ol>
 
@@ -261,12 +263,12 @@ function videoHelpModal() {
             </thead>
             <tbody>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Instagram feed</td><td style="padding:6px;border-bottom:1px solid var(--border);">4:5 &ndash; 1.91:1</td><td style="padding:6px;border-bottom:1px solid var(--border);">Image, video, or carousel (&le;10). Not a Reel.</td></tr>
-              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Instagram Reels</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Single vertical video &le;90s (per Bundle docs).</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Instagram Reels</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Single vertical video, 3s&ndash;15 min (per Bundle docs).</td></tr>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Instagram Stories</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">24h, image or video.</td></tr>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Facebook feed</td><td style="padding:6px;border-bottom:1px solid var(--border);">4:5 &ndash; 16:9</td><td style="padding:6px;border-bottom:1px solid var(--border);">One video or up to 10 images; don't mix.</td></tr>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Facebook Reels</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Vertical short-form; separate from Instagram Reels.</td></tr>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">TikTok</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Video &le;10 min; photo mode: 2&ndash;10 JPG/JPEG/WebP.</td></tr>
-              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">YouTube</td><td style="padding:6px;border-bottom:1px solid var(--border);">16:9 / 9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Title required; Shorts are 9:16 and &le;60s.</td></tr>
+              <tr><td style="padding:6px;border-bottom:1px solid var(--border);">YouTube</td><td style="padding:6px;border-bottom:1px solid var(--border);">16:9 / 9:16</td><td style="padding:6px;border-bottom:1px solid var(--border);">Title required; Shorts are vertical/square (1:3&ndash;1:1) and &le;3 min. Longer or landscape videos post as regular videos.</td></tr>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">X</td><td style="padding:6px;border-bottom:1px solid var(--border);">1:1 &ndash; 16:9</td><td style="padding:6px;border-bottom:1px solid var(--border);">One video or up to 4 images.</td></tr>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">LinkedIn</td><td style="padding:6px;border-bottom:1px solid var(--border);">16:9 (recommended)</td><td style="padding:6px;border-bottom:1px solid var(--border);">Text required; video up to ~10 min.</td></tr>
               <tr><td style="padding:6px;border-bottom:1px solid var(--border);">Threads</td><td style="padding:6px;border-bottom:1px solid var(--border);">9:16 (recommended)</td><td style="padding:6px;border-bottom:1px solid var(--border);">One video or up to 10 images; don't mix.</td></tr>
@@ -315,30 +317,66 @@ async function showCompressionTips() {
 
 function videoSpecIssues(platforms) {
   const issues = [];
+  const format = selectedVideoFormat();
   for (const m of uploadedMedia) {
-    if (m.type !== "video" || !m.width || !m.height) continue;
-    const ratio = m.width / m.height;
+    if (m.type !== "video") continue;
+    const ratio = m.width && m.height ? m.width / m.height : null;
+    const duration = Number(m.duration) || 0;
+    const mb = (m.file?.size || 0) / (1024 * 1024);
     const label = m.file?.name || "Video";
+    const dims = m.width && m.height ? `${m.width}×${m.height} (${ratio.toFixed(2)}:1)` : "an unknown size";
+
     if (platforms.includes("instagram")) {
-      if (ratio < 0.8) {
+      if (duration > 180) {
         issues.push(
-          `Instagram feed: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1) — taller than Instagram feed's 4:5 maximum, so it will be rejected as a feed post. Edit it to 4:5 (1080×1350) or 1:1, or post it as a Reel in the Instagram app (9:16, ≤90s) until Reels posting is supported here. CapCut fix: set Ratio to 9:16 for Reels, or use a custom 1080×1350 canvas for 4:5 feed (1:1 / 1080×1080 is also accepted); export MP4/H.264 at 1080p.`
+          `Videos longer than 3 minutes on Instagram aren't pushed to people outside your followers, according to Meta. ${label} is ${fmtDuration(duration)}; it will still post, but reach may be limited to people who already follow you. Trim to ≤3 min if you want it distributed to non-followers.`
         );
-      } else if (ratio > 1.91) {
-        issues.push(`Instagram feed: ${label} is wider than 1.91:1. Edit it to between 4:5 and 1.91:1 (e.g. 1:1 or 16:9).`);
+      }
+      if (duration > 900) {
+        issues.push(`Instagram: ${label} is ${fmtDuration(duration)} — over Instagram's 15-minute video maximum. Trim it before posting.`);
+      }
+      if (format === "reel") {
+        if (ratio && ratio > 1.0) {
+          issues.push(`Instagram Reel: ${label} is ${dims}. Reels are designed for 9:16 vertical; a landscape video will be cropped or letterboxed.`);
+        }
+        if (mb > 300) {
+          issues.push(`Instagram Reel: ${label} is ${fmtMb(m.file.size)} — over Instagram's 300 MB Reel limit.`);
+        }
+      } else if (format === "feed") {
+        if (ratio && (ratio < 0.8 || ratio > 1.91)) {
+          issues.push(`Instagram feed: ${label} is ${dims}. Feed video must be 4:5 to 1.91:1; use Reel for 9:16 video, or re-export at 4:5 (1080×1350) / 1:1 (1080×1080).`);
+        }
+      } else if (format === "story") {
+        if (duration > 60) issues.push(`Instagram Story: ${label} is ${fmtDuration(duration)} — Stories max out at 60 seconds.`);
+        if (mb > 100) issues.push(`Instagram Story: ${label} is ${fmtMb(m.file.size)} — Stories max out at 100 MB.`);
+        if (ratio && ratio > 1.0) {
+          issues.push(`Instagram Story: ${label} is ${dims}. Stories are full-screen 9:16; a landscape video will be cropped.`);
+        }
       }
     }
     if (platforms.includes("tiktok")) {
-      if (ratio > 0.85) {
-        issues.push(`TikTok: ${label} is ${m.width}×${m.height} (${ratio.toFixed(2)}:1). TikTok recommends 9:16 vertical (1080×1920); it may crop or letterbox this video. Edit to 9:16 for best results. CapCut fix: set Ratio to 9:16 (1080×1920) and export 1080p at a lower bitrate.`);
+      if (ratio && ratio > 0.85) {
+        issues.push(`TikTok: ${label} is ${dims}. TikTok recommends 9:16 vertical (1080×1920); it may crop or letterbox this video. Edit to 9:16 for best results. CapCut fix: set Ratio to 9:16 (1080×1920) and export 1080p at a lower bitrate.`);
       }
-      if (Number(m.duration) > 600) {
-        issues.push(`TikTok: ${label} is ${fmtDuration(m.duration)} long — over TikTok's 10-minute limit. Trim it in CapCut or another editor before posting.`);
+      if (duration > 600) {
+        issues.push(`TikTok: ${label} is ${fmtDuration(duration)} long — over TikTok's 10-minute limit. Trim it in CapCut or another editor before posting.`);
       }
     }
-    if (platforms.includes("facebook") && (ratio < 0.8 || ratio > 1.78)) {
-      issues.push(`Facebook feed: ${label} is ${ratio.toFixed(2)}:1. Feed video works best between 4:5 and 16:9; other ratios may be cropped.`);
+    if (platforms.includes("facebook")) {
+      if (format === "reel") {
+        if (ratio && ratio > 1.0) {
+          issues.push(`Facebook Reel: ${label} is ${dims}. Reels are vertical; a landscape video will be cropped or letterboxed.`);
+        }
+      } else if (format === "story") {
+        if (duration > 60) issues.push(`Facebook Story: ${label} is ${fmtDuration(duration)} — Stories max out at 60 seconds.`);
+      } else if (ratio && (ratio < 0.8 || ratio > 1.78)) {
+        issues.push(`Facebook feed: ${label} is ${ratio.toFixed(2)}:1. Feed video works best between 4:5 and 16:9; other ratios may be cropped.`);
+      }
     }
+  }
+  const singleVideo = uploadedMedia.length === 1 && uploadedMedia[0].type === "video";
+  if ((platforms.includes("instagram") || platforms.includes("facebook")) && singleVideo && !format) {
+    issues.push("This video doesn't fit any Instagram/Facebook format at its current size, length, or aspect ratio. Re-export it as 9:16 (Reel/Story), or 4:5–1.91:1 (Feed video), then re-add it.");
   }
   return issues;
 }
@@ -901,6 +939,7 @@ function updatePlatformPreviews() {
   }
 
   updateDisclosures(selected);
+  updateYouTubeTitlePanel(selected);
   updateComposeWarnings();
 
   // Per-post target input (Discord/Slack channel, Pinterest board, Reddit subreddit).
@@ -943,6 +982,139 @@ function updateDisclosures(platforms) {
   $("#opt-tiktok-brand-wrap")?.classList.toggle("hidden", !tiktok);
 }
 
+function updateYouTubeTitlePanel(platforms) {
+  const panel = $("#youtube-title-panel");
+  if (!panel) return;
+  panel.classList.toggle("hidden", !platforms.includes("youtube"));
+}
+
+const VIDEO_FORMAT_LABELS = { reel: "Reel", feed: "Feed video", story: "Story" };
+const VIDEO_FORMAT_TYPES = { reel: "REEL", feed: "POST", story: "STORY" };
+
+function selectedVideoFormat() {
+  const el = document.querySelector('input[name="video-format"]:checked');
+  return el ? el.value : null;
+}
+
+function videoFormatContext() {
+  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  // Reel/Story/feed-video is a single-video choice. Photos and carousels
+  // (including carousels that contain a video) stay as normal POSTs.
+  if (uploadedMedia.length !== 1 || uploadedMedia[0].type !== "video") return null;
+  const video = uploadedMedia[0];
+  const ig = platforms.includes("instagram");
+  const fb = platforms.includes("facebook");
+  if (!ig && !fb) return null;
+  return {
+    video,
+    ig,
+    fb,
+    ratio: video.width && video.height ? video.width / video.height : null,
+    duration: Number(video.duration) || 0,
+    mb: (video.file?.size || 0) / (1024 * 1024),
+  };
+}
+
+function videoFormatFeasibility(ctx) {
+  const { ratio: r, duration: d, mb } = ctx;
+  return {
+    reel: {
+      ok: (!d || d <= 900) && mb <= 300 && (!r || r <= 1.0),
+      why: d > 900 ? "Reels max 15 min" : mb > 300 ? "Reels max 300 MB" : (r && r > 1.0) ? "Reels need vertical or square video" : "",
+    },
+    feed: {
+      ok: (!r || (r >= 0.8 && r <= 1.91)) && (!d || d <= 900),
+      why: d > 900 ? "Feed video max 15 min" : (r && (r < 0.8 || r > 1.91)) ? "Feed video must be 4:5 to 1.91:1" : "",
+    },
+    story: {
+      ok: (!d || d <= 60) && mb <= 100 && (!r || r <= 1.0),
+      why: d > 60 ? "Stories max 60s" : mb > 100 ? "Stories max 100 MB" : (r && r > 1.0) ? "Stories need vertical video" : "",
+    },
+  };
+}
+
+function renderVideoFormatPanel() {
+  const panel = $("#video-format-panel");
+  if (!panel) return;
+  const ctx = videoFormatContext();
+  if (!ctx) { panel.classList.add("hidden"); return; }
+  panel.classList.remove("hidden");
+
+  const f = videoFormatFeasibility(ctx);
+  for (const key of ["reel", "feed", "story"]) {
+    const wrap = $("#vf-" + key + "-wrap");
+    const input = wrap?.querySelector("input");
+    if (!wrap || !input) continue;
+    input.disabled = !f[key].ok;
+    wrap.style.opacity = f[key].ok ? "" : "0.45";
+    wrap.style.cursor = f[key].ok ? "pointer" : "not-allowed";
+    wrap.title = f[key].ok ? "" : f[key].why;
+    wrap.dataset.why = f[key].ok ? "" : f[key].why;
+    let why = wrap.querySelector(".vf-why");
+    if (!f[key].ok) {
+      if (!why) {
+        why = document.createElement("span");
+        why.className = "vf-why";
+        why.style.cssText = "font-weight:400;color:var(--text-muted);font-size:0.72rem;";
+        wrap.appendChild(why);
+      }
+      why.textContent = " — " + f[key].why;
+    } else if (why) {
+      why.remove();
+    }
+  }
+
+  // Pick a sensible default when nothing valid is selected.
+  let chosen = selectedVideoFormat();
+  if (!chosen || !f[chosen]?.ok) {
+    let next = null;
+    if (f.reel.ok && ctx.ratio && ctx.ratio < 0.75) next = "reel";
+    else if (f.feed.ok) next = "feed";
+    else if (f.reel.ok) next = "reel";
+    else if (f.story.ok) next = "story";
+    const radio = next ? document.querySelector(`input[name="video-format"][value="${next}"]`) : null;
+    if (radio) radio.checked = true;
+    else document.querySelectorAll('input[name="video-format"]').forEach((el) => { el.checked = false; });
+    chosen = next;
+  }
+
+  // Share-to-feed applies to Instagram Reels only.
+  const shareWrap = $("#opt-share-feed-wrap");
+  const shareBox = $("#opt-share-to-feed");
+  const showShare = chosen === "reel" && ctx.ig;
+  shareWrap?.classList.toggle("hidden", !showShare);
+  if (shareBox && !showShare) shareBox.checked = false;
+  else if (shareBox && showShare && !shareBox.dataset.userTouched) shareBox.checked = true;
+
+  const note = $("#vf-note");
+  if (note) {
+    let msg = "";
+    if (chosen === "story") msg = "Stories are a separate 24-hour post; captions aren't used.";
+    else if (chosen === "reel" && ctx.fb && !ctx.ig) msg = "Facebook decides feed placement automatically — there's no share-to-feed toggle.";
+    note.textContent = msg;
+    note.classList.toggle("hidden", !msg);
+  }
+}
+
+document.querySelectorAll('input[name="video-format"]').forEach((el) => {
+  el.addEventListener("change", () => { renderVideoFormatPanel(); updateComposeWarnings(); });
+});
+$("#opt-share-to-feed")?.addEventListener("change", (e) => { e.target.dataset.userTouched = "1"; });
+
+// Clicking a greyed-out format should explain why, not silently do nothing.
+for (const key of ["reel", "feed", "story"]) {
+  const wrap = $("#vf-" + key + "-wrap");
+  wrap?.addEventListener("click", () => {
+    const input = wrap.querySelector("input");
+    if (!input?.disabled || !wrap.dataset.why) return;
+    const note = $("#vf-note");
+    if (note) {
+      note.textContent = `${VIDEO_FORMAT_LABELS[key]} unavailable: ${wrap.dataset.why}.`;
+      note.classList.remove("hidden");
+    }
+  });
+}
+
 function collectPlatformOptions() {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const opts = {};
@@ -954,18 +1126,45 @@ function collectPlatformOptions() {
   if ($("#opt-tiktok-brand")?.checked && platforms.includes("tiktok")) {
     opts.tiktok = { ...(opts.tiktok || {}), isOrganicBrandContent: true };
   }
+
+  // Instagram / Facebook video format. The radio is mutually exclusive; the
+  // Reel-only "share to feed" checkbox is a modifier, not a second format.
+  const format = selectedVideoFormat();
+  const singleVideo = uploadedMedia.length === 1 && uploadedMedia[0].type === "video";
+  if (singleVideo && format && VIDEO_FORMAT_TYPES[format]) {
+    const type = VIDEO_FORMAT_TYPES[format];
+    if (platforms.includes("instagram")) {
+      opts.instagram = { ...(opts.instagram || {}), type };
+      if (type === "REEL") opts.instagram.shareToFeed = Boolean($("#opt-share-to-feed")?.checked);
+    }
+    if (platforms.includes("facebook")) {
+      opts.facebook = { ...(opts.facebook || {}), type };
+    }
+  }
   return opts;
 }
 
 function resetDisclosures() {
   const ai = $("#opt-ai-generated"); if (ai) ai.checked = false;
   const br = $("#opt-tiktok-brand"); if (br) br.checked = false;
+  document.querySelectorAll('input[name="video-format"]').forEach((el) => { el.checked = false; });
+  const share = $("#opt-share-to-feed");
+  if (share) { share.checked = true; delete share.dataset.userTouched; }
+  const yt = $("#youtube-title"); if (yt) yt.value = "";
 }
 
 function collectPlatformTargets() {
   const input = $("#platform-target-input");
   if (!input || !input.dataset.platform || !input.value.trim()) return {};
   return { [input.dataset.platform]: input.value.trim() };
+}
+
+function collectTitles() {
+  const input = $("#youtube-title");
+  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  if (!input || !platforms.includes("youtube")) return undefined;
+  const value = input.value.trim();
+  return value ? { youtube: value } : undefined;
 }
 
 function collectFirstComment() {
@@ -1056,11 +1255,11 @@ btnPost.addEventListener("click", async () => {
       }
     }
 
-    const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined }));
+    const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined, width: m.width || undefined, height: m.height || undefined, duration: m.duration || undefined }));
     const res = await apiFetch(`/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions(), firstComment: collectFirstComment() }),
+      body: JSON.stringify({ platforms, text, teamId, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions(), titles: collectTitles(), firstComment: collectFirstComment() }),
     });
     const data = await readJson(res);
     const results = Array.isArray(data?.results) ? data.results : [];
@@ -1160,11 +1359,11 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
       }
     }
 
-    const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined }));
+    const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined, width: m.width || undefined, height: m.height || undefined, duration: m.duration || undefined }));
     const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions(), firstComment: collectFirstComment() }),
+      body: JSON.stringify({ platforms, text, scheduledAt: iso, teamId: $("#post-team")?.value || undefined, mediaUrls: uploadIds.length ? uploadIds : undefined, media: mediaRefs.length ? mediaRefs : undefined, platformTargets: collectPlatformTargets(), platformOptions: collectPlatformOptions(), titles: collectTitles(), firstComment: collectFirstComment() }),
     });
     if (res.ok) {
       showFeedback(`Scheduled for ${new Date(iso).toLocaleString()}`, "success");
@@ -1190,6 +1389,13 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
 function showFeedback(msg, type) { feedback.className = `feedback ${type} visible`; feedback.textContent = msg; }
 
 async function uploadMediaFile(m, teamId) {
+  // Large videos go through Bundle's multipart API: the browser sends 64 MiB
+  // parts to our Worker, which proxies each part to Bundle. This keeps every
+  // request under Cloudflare's 100 MB body cap.
+  if (!directMediaMode && m.type === "video" && m.file.size > SIMPLE_UPLOAD_MAX_MB * 1024 * 1024) {
+    return uploadMediaMultipart(m, teamId);
+  }
+
   const fd = new FormData();
   fd.append("file", m.file);
 
@@ -1219,6 +1425,72 @@ async function uploadMediaFile(m, teamId) {
   }
   m.uploadId = data.uploadId;
   return data.uploadId;
+}
+
+async function uploadMediaMultipart(m, teamId) {
+  const initRes = await apiFetch(`/api/media/multipart/init`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({
+      fileName: m.file.name || "video.mp4",
+      mimeType: m.file.type || "video/mp4",
+      fileSize: m.file.size,
+      teamId: teamId || undefined,
+    }),
+  });
+  const init = await readJson(initRes);
+  if (!initRes.ok || !init?.uploadId || !init?.path || !init?.partSize) {
+    throw new Error(init?.error || `Could not start video upload (${initRes.status}).`);
+  }
+
+  const { uploadId, path, partSize, partCount, teamId: bundleTeamId } = init;
+  const total = partCount || Math.ceil(m.file.size / partSize);
+  const uploaded = [];
+
+  for (let partNumber = 1; partNumber <= total; partNumber++) {
+    const start = (partNumber - 1) * partSize;
+    const end = Math.min(start + partSize, m.file.size);
+    const chunk = m.file.slice(start, end);
+    const qs = new URLSearchParams({ uploadId, path, partNumber: String(partNumber) });
+    if (bundleTeamId) qs.set("teamId", bundleTeamId);
+
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await apiFetch(`/api/media/multipart/part?${qs.toString()}`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/octet-stream",
+          },
+          body: chunk,
+        });
+        const data = await readJson(res);
+        if (!res.ok || !data?.etag) {
+          throw new Error(data?.error || `Upload part ${partNumber} failed (${res.status}).`);
+        }
+        uploaded.push({ partNumber, etag: data.etag });
+        lastError = null;
+        break;
+      } catch (e) {
+        lastError = e;
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+    if (lastError) throw lastError;
+  }
+
+  const doneRes = await apiFetch(`/api/media/multipart/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ uploadId, path, parts: uploaded, teamId: bundleTeamId }),
+  });
+  const done = await readJson(doneRes);
+  if (!doneRes.ok || !done?.id) {
+    throw new Error(done?.error || `Could not finish video upload (${doneRes.status}).`);
+  }
+  m.uploadId = done.id;
+  return done.id;
 }
 
 function formatApiError(data, fallback) {
@@ -2188,6 +2460,7 @@ function computeMediaWarnings(platforms) {
 }
 
 function updateComposeWarnings() {
+  renderVideoFormatPanel();
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const textLen = textarea ? textarea.value.length : 0;
   const bsky = $("#bsky-warning");
@@ -2256,7 +2529,7 @@ async function handleMediaUpload(files) {
     uploadedMedia.push(item);
   }
   composeVideoError = rejected.length
-    ? `${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the ${VIDEO_LIMIT_MB} MB upload limit. Target 90 MB or less (a 2-minute 1080p clip is usually 30-50 MB; for 4 minutes or more, use 720p or a lower bitrate). Compress or trim ${rejected.length === 1 ? "it" : "them"} with CapCut (export at a lower bitrate), HandBrake, or another free tool, then re-add.`
+    ? `${rejected.join(", ")} exceed${rejected.length === 1 ? "s" : ""} the 5 GB upload limit. Compress or trim ${rejected.length === 1 ? "it" : "them"} with CapCut (export at a lower bitrate), HandBrake, or another free tool, then re-add.`
     : "";
   renderMediaPreview();
   updateComposeWarnings();
@@ -2284,7 +2557,7 @@ function renderMediaPreview() {
   const dropText = mediaDropzone.querySelector(".media-dropzone-text");
   const dropSubtext = mediaDropzone.querySelector(".media-dropzone-subtext");
   if (dropText) dropText.textContent = hasMedia ? "Add more images or videos" : "Drop images or videos here";
-  if (dropSubtext) dropSubtext.textContent = hasMedia ? "drag and drop or click to browse · max 100 MB per file" : "or click to browse · max 100 MB per file";
+  if (dropSubtext) dropSubtext.textContent = hasMedia ? "drag and drop or click to browse · videos up to 5 GB" : "or click to browse · videos up to 5 GB";
   updatePostButtonState();
   if (mediaMeta) {
     const lines = uploadedMedia

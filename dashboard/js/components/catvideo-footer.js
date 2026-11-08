@@ -28,6 +28,29 @@ const FOOTER_TEMPLATE = `
           <a href="https://post.freesurf.tools/llms.txt">API reference</a>
         </div>
         <div class="freesurf-footer-col">
+          <span class="freesurf-footer-heading">Review Us</span>
+          <a href="https://play.google.com/store/apps/details?id=tools.freesurf.post" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;" aria-label="Rate CatVideo on Google Play">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/></svg>
+            Google Play
+          </a>
+          <a href="https://www.producthunt.com/products/catvideo?launch=catvideo" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;" aria-label="Review CatVideo on Product Hunt">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8v8 M10 8h3a2.5 2.5 0 0 1 0 5h-3"/></svg>
+            Product Hunt
+          </a>
+          <a href="https://www.trustpilot.com/review/catvideo.app" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;" aria-label="Review CatVideo on Trustpilot">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Trustpilot
+          </a>
+          <a href="https://www.g2.com/products/catvideo/reviews" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;" aria-label="Review CatVideo on G2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><text x="12" y="15.5" text-anchor="middle" font-size="8" font-family="Arial, sans-serif" font-weight="700" fill="currentColor" stroke="none">G2</text></svg>
+            G2
+          </a>
+          <a href="https://www.capterra.com/p/10283793/CatVideo/" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;" aria-label="Review CatVideo on Capterra">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M16.5 9.5a5 5 0 1 0 0 5"/></svg>
+            Capterra
+          </a>
+        </div>
+        <div class="freesurf-footer-col">
           <span class="freesurf-footer-heading">Legal</span>
           <a href="/privacy/">Privacy</a>
           <a href="/terms/">Terms</a>

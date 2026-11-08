@@ -15,6 +15,7 @@ import ScheduleScreen from "./screens/ScheduleScreen";
 import DraftsScreen from "./screens/DraftsScreen";
 import AccountsScreen from "./screens/AccountsScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
+import ReviewScreen from "./screens/ReviewScreen";
 import { loadOnboardingState, onboardingComplete, OnboardingState } from "./lib/onboarding";
 import { useAppLanguage, LanguageProvider } from "./lib/useAppLanguage";
 import LanguageChooser from "./screens/LanguageChooser";
@@ -26,6 +27,7 @@ export type RootStackParamList = {
   Drafts: undefined;
   Accounts: undefined;
   Analytics: undefined;
+  Review: undefined;
   Auth: undefined;
   Language: undefined;
 };
@@ -124,6 +126,7 @@ function ThemedNavigator() {
               <Stack.Screen name="Drafts" component={DraftsScreen} />
               <Stack.Screen name="Accounts" component={AccountsScreen} />
               <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+              <Stack.Screen name="Review" component={ReviewScreen} />
               <Stack.Screen name="Language" component={LanguageScreen} />
             </>
           ) : (

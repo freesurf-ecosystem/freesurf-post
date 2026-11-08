@@ -5,7 +5,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Menu, Send, CalendarClock, FileText, Users, LogOut, Globe, Shield, Mail, Code2, Activity } from "lucide-react-native";
+import { Menu, Send, CalendarClock, FileText, Users, LogOut, Globe, Shield, Mail, Code2, Activity, Star } from "lucide-react-native";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
 import { useAppLanguage } from "../lib/useAppLanguage";
@@ -67,6 +67,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
     { key: "Drafts", label: T.drafts, Icon: FileText },
     { key: "Analytics", label: T.analytics, Icon: Activity },
     { key: "Accounts", label: T.accounts, Icon: Users },
+    { key: "Review", label: T.review, Icon: Star },
   ] as const;
 
   return (

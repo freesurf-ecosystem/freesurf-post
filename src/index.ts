@@ -218,6 +218,9 @@ function normalizeMediaRefs(mediaUrls?: string[], media?: MediaRef[]): MediaRef[
         if (m?.kind === "image" || m?.kind === "video") ref.kind = m.kind;
         if (m?.mime) ref.mime = m.mime;
         if (m?.altText) ref.altText = m.altText;
+        if (Number.isFinite(m?.width) && Number(m.width) > 0) ref.width = Number(m.width);
+        if (Number.isFinite(m?.height) && Number(m.height) > 0) ref.height = Number(m.height);
+        if (Number.isFinite(m?.duration) && Number(m.duration) > 0) ref.duration = Number(m.duration);
         return ref;
       })
       .filter((m) => m.uploadId);
@@ -645,6 +648,23 @@ async function handleApi(
   // --- POST /api/media/upload — multipart file upload to Bundle ---
   if (url.pathname === "/api/media/upload" && request.method === "POST") {
     return handleMediaUploadFile(request, env, origin, h);
+  }
+
+  // --- Bundle multipart uploads (large videos) ---
+  // The browser slices the file into <=64 MiB parts; each part is proxied
+  // through the Worker so the inbound request stays under Cloudflare's 100 MB
+  // body cap. Bundle assembles the parts server-side.
+  if (url.pathname === "/api/media/multipart/init" && request.method === "POST") {
+    return handleMediaMultipartInit(request, env, origin, h);
+  }
+  if (url.pathname === "/api/media/multipart/part" && request.method === "POST") {
+    return handleMediaMultipartPart(request, env, origin, h, url);
+  }
+  if (url.pathname === "/api/media/multipart/complete" && request.method === "POST") {
+    return handleMediaMultipartComplete(request, env, origin, h);
+  }
+  if (url.pathname === "/api/media/multipart/abort" && request.method === "POST") {
+    return handleMediaMultipartAbort(request, env, origin, h);
   }
 
   // --- POST /api/import — start Bundle post history import ---
@@ -2762,6 +2782,197 @@ async function handleMediaUploadFile(
 }
 
 /**
+ * Large-video uploads via Bundle's multipart API.
+ *
+ * Why: Cloudflare caps inbound request bodies at 100 MB on Free/Pro, but
+ * Bundle accepts videos up to 5 GB through multipart. The browser splits the
+ * file into the partSize Bundle returns (64 MiB) and POSTs each part here; we
+ * re-sign that one part with Bundle and PUT the bytes to the returned storage
+ * URL. Bundle reassembles on complete. Each inbound request stays well under
+ * the Cloudflare cap and the Bundle API key never reaches the browser.
+ */
+const BUNDLE_MULTIPART_INIT = "https://api.bundle.social/api/v1/upload/multipart/init";
+const BUNDLE_MULTIPART_SIGN = "https://api.bundle.social/api/v1/upload/multipart/sign";
+const BUNDLE_MULTIPART_COMPLETE = "https://api.bundle.social/api/v1/upload/multipart/complete";
+const BUNDLE_MULTIPART_ABORT = "https://api.bundle.social/api/v1/upload/multipart/abort";
+const MULTIPART_MAX_BYTES = 5 * 1024 * 1024 * 1024;
+const MULTIPART_MIME_TYPES = new Set([
+  "image/jpg", "image/jpeg", "image/png", "image/gif",
+  "video/mp4", "video/quicktime", "application/pdf",
+]);
+
+function normalizeUploadMime(mimeType: unknown, fileName: string): string | null {
+  const declared = String(mimeType || "").toLowerCase();
+  if (MULTIPART_MIME_TYPES.has(declared)) return declared;
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  const byExt: Record<string, string> = {
+    mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime",
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+    gif: "image/gif", pdf: "application/pdf",
+  };
+  return byExt[ext] || null;
+}
+
+async function handleMediaMultipartInit(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY || !env.SUPABASE_SECRET_KEY) {
+    return errorResponse("Not configured", 501, origin);
+  }
+
+  let body: { fileName?: string; mimeType?: string; fileSize?: number; teamId?: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+
+  const fileName = typeof body.fileName === "string" ? body.fileName.trim() : "";
+  const fileSize = Number(body.fileSize);
+  if (!fileName) return errorResponse("fileName is required", 400, origin);
+  if (!Number.isFinite(fileSize) || fileSize <= 0) return errorResponse("fileSize is required", 400, origin);
+  if (fileSize > MULTIPART_MAX_BYTES) {
+    return errorResponse("File is too large. Max 5 GB per video.", 400, origin);
+  }
+  const mimeType = normalizeUploadMime(body.mimeType, fileName);
+  if (!mimeType) return errorResponse("Unsupported file type for multipart upload.", 400, origin);
+
+  const teamId = await resolveBundleTeamId(user.sub, body.teamId, env);
+  if (!teamId) return errorResponse("Could not provision a team", 502, origin);
+
+  try {
+    const res = await fetch(BUNDLE_MULTIPART_INIT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ fileName, mimeType, fileSize, teamId }),
+    });
+    const data = (await res.json().catch(() => null)) as any;
+    if (!res.ok || !data?.uploadId || !data?.path || !data?.partSize) {
+      console.error("[multipart] init failed", res.status, JSON.stringify(data));
+      return errorResponse(data?.message || "Could not start the upload", res.status || 502, origin);
+    }
+    return json({
+      uploadId: data.uploadId,
+      path: data.path,
+      partSize: data.partSize,
+      partCount: Array.isArray(data.parts) ? data.parts.length : undefined,
+      teamId, // Bundle team id, needed to sign/complete later
+    }, 200, headers);
+  } catch (e) {
+    console.error("[multipart] init exception", e instanceof Error ? e.message : String(e));
+    return errorResponse("Could not start the upload", 502, origin);
+  }
+}
+
+async function handleMediaMultipartPart(
+  request: Request, env: Env, origin: string, headers: Record<string, string>, url: URL
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+
+  const uploadId = url.searchParams.get("uploadId") || "";
+  const path = url.searchParams.get("path") || "";
+  const teamId = url.searchParams.get("teamId") || undefined;
+  const partNumber = Number(url.searchParams.get("partNumber"));
+  if (!uploadId || !path || !Number.isInteger(partNumber) || partNumber < 1) {
+    return errorResponse("Invalid part request", 400, origin);
+  }
+
+  let bytes: ArrayBuffer;
+  try { bytes = await request.arrayBuffer(); } catch { return errorResponse("Could not read part", 400, origin); }
+  if (!bytes.byteLength) return errorResponse("Empty part", 400, origin);
+
+  try {
+    const signRes = await fetch(BUNDLE_MULTIPART_SIGN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ partNumbers: [partNumber], path, uploadId, ...(teamId ? { teamId } : {}) }),
+    });
+    const signData = (await signRes.json().catch(() => null)) as any;
+    if (!signRes.ok) {
+      console.error("[multipart] sign failed", signRes.status, JSON.stringify(signData));
+      return errorResponse(signData?.message || "Could not sign the upload part", signRes.status || 502, origin);
+    }
+    const partUrl = signData?.parts?.find((p: any) => Number(p.partNumber) === partNumber)?.url;
+    if (!partUrl) return errorResponse("Upload provider did not return a part URL", 502, origin);
+
+    const putRes = await fetch(partUrl, { method: "PUT", body: bytes });
+    if (!putRes.ok) {
+      const text = await putRes.text().catch(() => "");
+      console.error("[multipart] part PUT failed", partNumber, putRes.status, text.slice(0, 300));
+      return errorResponse("Upload provider rejected the part", putRes.status || 502, origin);
+    }
+    const etag = putRes.headers.get("etag") || putRes.headers.get("ETag");
+    if (!etag) return errorResponse("Upload provider did not return an ETag", 502, origin);
+
+    return json({ partNumber, etag }, 200, headers);
+  } catch (e) {
+    console.error("[multipart] part exception", partNumber, e instanceof Error ? e.message : String(e));
+    return errorResponse("Could not upload the part", 502, origin);
+  }
+}
+
+async function handleMediaMultipartComplete(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { uploadId?: string; path?: string; parts?: Array<{ partNumber: number; etag: string }>; teamId?: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+
+  const uploadId = typeof body.uploadId === "string" ? body.uploadId : "";
+  const path = typeof body.path === "string" ? body.path : "";
+  const parts = Array.isArray(body.parts) ? body.parts : [];
+  if (!uploadId || !path || !parts.length) return errorResponse("uploadId, path and parts are required", 400, origin);
+  const cleanParts = parts.map((p) => ({ partNumber: Number(p.partNumber), etag: String(p.etag || "") }))
+    .filter((p) => Number.isInteger(p.partNumber) && p.partNumber > 0 && p.etag);
+  if (!cleanParts.length) return errorResponse("No valid parts supplied", 400, origin);
+
+  try {
+    const res = await fetch(BUNDLE_MULTIPART_COMPLETE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ path, uploadId, parts: cleanParts, ...(body.teamId ? { teamId: body.teamId } : {}) }),
+    });
+    const data = (await res.json().catch(() => null)) as any;
+    if (!res.ok || !data?.id) {
+      console.error("[multipart] complete failed", res.status, JSON.stringify(data));
+      return errorResponse(data?.message || "Could not finish the upload", res.status || 502, origin);
+    }
+    console.log("[multipart] complete", JSON.stringify({ id: data.id, type: data.type, fileSize: data.fileSize }));
+    return json(data, 200, headers);
+  } catch (e) {
+    console.error("[multipart] complete exception", e instanceof Error ? e.message : String(e));
+    return errorResponse("Could not finish the upload", 502, origin);
+  }
+}
+
+async function handleMediaMultipartAbort(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { uploadId?: string; path?: string };
+  try { body = (await request.json()) as any; } catch { return errorResponse("Invalid JSON", 400, origin); }
+  if (!body.uploadId || !body.path) return errorResponse("uploadId and path are required", 400, origin);
+
+  try {
+    await fetch(BUNDLE_MULTIPART_ABORT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ path: body.path, uploadId: body.uploadId }),
+    });
+    return json({ aborted: true }, 200, headers);
+  } catch (e) {
+    console.error("[multipart] abort exception", e instanceof Error ? e.message : String(e));
+    return errorResponse("Could not abort the upload", 502, origin);
+  }
+}
+
+/**
  * POST /api/import — Start a Bundle post history import (backfill posts a social
  * account published before it was connected, together with analytics when the
  * platform supports it). Async job → poll GET /api/imports.
@@ -3576,6 +3787,19 @@ async function postViaProvider(
     platformData.type = "POST";
   }
 
+  if (platform === "youtube" && media.length) {
+    // Bundle defaults YOUTUBE.type to SHORT, which is wrong for long-form or
+    // horizontal videos. YouTube only turns a video into a Short when it is
+    // <=3 minutes AND vertical/square (1:3 to 1:1); otherwise send VIDEO.
+    const video = media.find((m) => mediaKind(m) === "video");
+    if (video) {
+      const duration = Number(video.duration) || 0;
+      const ratio = video.width && video.height ? Number(video.width) / Number(video.height) : 0;
+      const isShort = duration > 0 && duration <= 180 && ratio >= 1 / 3 && ratio <= 1;
+      platformData.type = isShort ? "SHORT" : "VIDEO";
+    }
+  }
+
   // Platforms that require a target on every post (channel/board/subreddit).
   const target = platformTargets?.[platform];
   if (target) {
@@ -3584,9 +3808,17 @@ async function postViaProvider(
     if (platform === "reddit") platformData.sr = target;
   }
 
-  // Optional per-platform title (YouTube requires one for videos).
+  // Optional per-platform title. YouTube is special: data.YOUTUBE.text is the
+  // video TITLE (required for both Shorts and regular videos, max 100 chars),
+  // while the post caption becomes the video description.
   const title = titles?.[platform];
-  if (title) platformData.title = title;
+  if (platform === "youtube") {
+    const ytTitle = (title && title.trim()) || text.trim() || "Untitled video";
+    platformData.text = ytTitle.slice(0, 100);
+    platformData.description = text.slice(0, 5000);
+  } else if (title) {
+    platformData.title = title;
+  }
 
   // Optional per-platform flags (AI disclosure, branded content, etc.) passed
   // straight through to Bundle's data.<PLATFORM> object.
