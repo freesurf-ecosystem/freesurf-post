@@ -26,18 +26,18 @@ reviewer@freesurf.tools
 template for every venue
 
 Platform:
-App name: CatVideo by FreeSurf
+App name: FreeSurf Post
 
-CatVideo is an open-source, free social media scheduler and cross-poster for creators and small businesses.
+FreeSurf Post is an open-source, free social media scheduler and cross-poster for creators and small businesses.
 
 What the app does:
 Compose once, schedule/publish to the user's own connected accounts, and show analytics.
 
 How we use [Platform]:
 1. User connects their account via [Platform] OAuth/Login.
-2. User composes or schedules content in CatVideo.
-3. CatVideo publishes only at the user's direction/schedule using [API].
-4. CatVideo reads profile/post metrics using [API] to show analytics.
+2. User composes or schedules content in FreeSurf Post.
+3. FreeSurf Post publishes only at the user's direction/schedule using [API].
+4. FreeSurf Post reads profile/post metrics using [API] to show analytics.
 
 Permissions/scopes and why:
 - [scope] — [user-facing reason]
@@ -363,11 +363,11 @@ For TikTok, the credentials you need are:
 - Redirect URI → TIKTOK_REDIRECT_URI
 - For sandbox testing: access token + open ID → TIKTOK_ACCESS_TOKEN, TIKTOK_OPEN_ID
 Get them from developers.tiktok.com → Manage apps → your app → Credentials. Store the client secret as a Worker secret (wrangler secret put TIKTOK_CLIENT_SECRET) or in local .dev.vars; don’t put it in wrangler.toml.
-Use CatVideo for the app setup, not the old subdomain:
-- Website: https://catvideo.app
-- Privacy: https://catvideo.app/privacy or the existing FreeSurf policy if it explicitly covers CatVideo
-- Terms: https://catvideo.app/terms
-- Redirect URI: https://catvideo.app/api/oauth/tiktok/callback
+Use FreeSurf Post for the app setup, not the old subdomain:
+- Website: https://post.freesurf.tools
+- Privacy: https://post.freesurf.tools/privacy or the existing FreeSurf policy if it explicitly covers FreeSurf Post
+- Terms: https://post.freesurf.tools/terms
+- Redirect URI: https://post.freesurf.tools/api/oauth/tiktok/callback
 
 ### Bluesky
 

@@ -17,7 +17,7 @@
  *   const config: LinkedInOAuthConfig = {
  *     clientId: env.LINKEDIN_CLIENT_ID,
  *     clientSecret: env.LINKEDIN_CLIENT_SECRET,
- *     redirectUri: "https://catvideo.app/api/oauth/linkedin/callback",
+ *     redirectUri: "https://post.freesurf.tools/api/oauth/linkedin/callback",
  *     scope: LINKEDIN_ORGANIZATION_SCOPE, // or LINKEDIN_MEMBER_SCOPE
  *   };
  *

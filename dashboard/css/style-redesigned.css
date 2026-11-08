@@ -2722,6 +2722,6 @@ cat-walker.is-sleeping .cat-rig__ear { transform-origin: 0% 100%; animation: cat
 }
 
 /* Standalone marketing pages (no app shell): match the home page nav spacing. */
-body:not(:has(#view-welcome)) catvideo-nav .marketing-header {
+body:not(:has(#view-welcome)) freesurf-post-nav .marketing-header {
   padding: 20px 24px 18px;
 }

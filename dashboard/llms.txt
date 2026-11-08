@@ -1,18 +1,18 @@
-# CatVideo - Free social media scheduler and API
+# FreeSurf Post - Free social media scheduler and API
 
-CatVideo (by FreeSurf) is a **free to use**, open-source social media scheduler
+FreeSurf Post (by FreeSurf) is a **free to use**, open-source social media scheduler
 and cross-posting service. There is no subscription, per-seat, or per-channel
 fee. X is the only metered network: its API costs are passed through at cost
 ($0.015 per plain post, $0.20 for a post with a link) through optional credits.
 Everything else is free.
 
 Publish to X, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube, and
-Bluesky from the web app at https://catvideo.app, or from your own apps through
+Bluesky from the web app at https://post.freesurf.tools, or from your own apps through
 the API below. Posting and analytics are proxied through Bundle.social, so you
 don't manage platform credentials.
 
 Base URL: https://post.freesurf.tools
-Web app: https://catvideo.app
+Web app: https://post.freesurf.tools
 
 > This file and the in-app API tab (dashboard -> API) are the source of truth.
 > `archive/API_REFERENCE.md` is the old, superseded doc.
@@ -43,7 +43,7 @@ HTTP 429 with a structured body:
     "window": "day",
     "resetAt": "2026-11-02T00:00:00.000Z"
   },
-  "docs": "https://catvideo.app/llms.txt#rate-limits"
+  "docs": "https://post.freesurf.tools/llms.txt#rate-limits"
 }
 ```
 

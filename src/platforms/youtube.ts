@@ -43,7 +43,7 @@ export async function postToYouTube(
         },
         body: JSON.stringify({
           snippet: {
-            title: (text || "CatVideo upload").slice(0, 100),
+            title: (text || "FreeSurf Post upload").slice(0, 100),
             description: text,
           },
           status: { privacyStatus: "public" },

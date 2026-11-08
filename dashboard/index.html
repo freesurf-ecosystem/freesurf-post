@@ -18,19 +18,19 @@
     html.is-loading[data-theme="dark"] { background: #0a0a0c; }
     html.is-loading body { visibility: hidden; }
   </style>
-  <title>CatVideo by FreeSurf — Free social media scheduler</title>
+  <title>FreeSurf Post — Free social media scheduler</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
   <link rel="mask-icon" href="/favicon.svg" color="#000000" />
   <meta name="description" content="Schedule and cross-post to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube. Free, open source, with an API and Android app." />
-  <link rel="canonical" href="https://catvideo.app/" />
+  <link rel="canonical" href="https://post.freesurf.tools/" />
   <meta name="robots" content="index,follow" />
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="CatVideo" />
-  <meta property="og:title" content="CatVideo by FreeSurf — Free social media scheduler" />
+  <meta property="og:site_name" content="FreeSurf Post" />
+  <meta property="og:title" content="FreeSurf Post — Free social media scheduler" />
   <meta property="og:description" content="Schedule once and publish everywhere. Free, open-source cross-posting to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube." />
-  <meta property="og:url" content="https://catvideo.app/" />
+  <meta property="og:url" content="https://post.freesurf.tools/" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="CatVideo by FreeSurf — Free social media scheduler" />
+  <meta name="twitter:title" content="FreeSurf Post — Free social media scheduler" />
   <meta name="twitter:description" content="Schedule once and publish everywhere. Free, open-source cross-posting to Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, and YouTube." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -64,7 +64,7 @@
   <div class="app-shell">
     <!-- Mobile Header -->
     <header class="mobile-header">
-      <a href="/" class="mobile-logo"><svg class="logo-mark" width="28" height="28" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>CatVideo</a>
+      <a href="/" class="mobile-logo"><svg class="logo-mark" width="28" height="28" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>FreeSurf Post</a>
       <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
@@ -75,7 +75,7 @@
       <div class="sidebar-header">
         <a href="/" class="sidebar-logo">
           <svg class="logo-mark" width="28" height="28" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>
-          <span>CatVideo</span>
+          <span>FreeSurf Post</span>
         </a>
         <button class="sidebar-close" id="sidebar-close" aria-label="Close sidebar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -164,7 +164,7 @@
     <main class="main-content">
       <!-- Welcome / Landing (when signed out) -->
       <section id="view-welcome" class="view">
-        <catvideo-nav></catvideo-nav>
+        <freesurf-post-nav></freesurf-post-nav>
         <div class="hero">
           <div class="hero-content">
             <div class="hero-logo">
@@ -303,7 +303,7 @@
           <div class="card auth-card">
             <div class="card-header">
               <div>
-                <h2 class="card-title" id="onboarding-title">Welcome to CatVideo</h2>
+                <h2 class="card-title" id="onboarding-title">Welcome to FreeSurf Post</h2>
                 <p class="card-subtitle" id="onboarding-subtitle">Step 1 of 2</p>
               </div>
             </div>
@@ -534,30 +534,14 @@
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Review CatVideo</h2>
-              <p class="card-subtitle">If CatVideo has been useful, a quick review helps other creators find it. Thank you!</p>
+              <h2 class="card-title">Review FreeSurf Post</h2>
+              <p class="card-subtitle">If FreeSurf Post has been useful, a quick review helps other creators find it. Thank you!</p>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:0 16px 16px;">
             <a href="https://play.google.com/store/apps/details?id=tools.freesurf.post" target="_blank" rel="noopener" style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-alt);text-decoration:none;">
               <strong style="color:var(--text);font-size:1rem;">Google Play</strong>
               <span style="color:var(--text-muted);font-size:0.85rem;">Rate the Android app</span>
-            </a>
-            <a href="https://www.producthunt.com/products/catvideo?launch=catvideo" target="_blank" rel="noopener" style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-alt);text-decoration:none;">
-              <strong style="color:var(--text);font-size:1rem;">Product Hunt</strong>
-              <span style="color:var(--text-muted);font-size:0.85rem;">Leave a review</span>
-            </a>
-            <a href="https://www.trustpilot.com/review/catvideo.app" target="_blank" rel="noopener" style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-alt);text-decoration:none;">
-              <strong style="color:var(--text);font-size:1rem;">Trustpilot</strong>
-              <span style="color:var(--text-muted);font-size:0.85rem;">Share your experience</span>
-            </a>
-            <a href="https://www.g2.com/products/catvideo/reviews" target="_blank" rel="noopener" style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-alt);text-decoration:none;">
-              <strong style="color:var(--text);font-size:1rem;">G2</strong>
-              <span style="color:var(--text-muted);font-size:0.85rem;">Write a software review</span>
-            </a>
-            <a href="https://www.capterra.com/p/10283793/CatVideo/" target="_blank" rel="noopener" style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-alt);text-decoration:none;">
-              <strong style="color:var(--text);font-size:1rem;">Capterra</strong>
-              <span style="color:var(--text-muted);font-size:0.85rem;">Rate CatVideo on Capterra</span>
             </a>
           </div>
         </div>
@@ -1019,14 +1003,14 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
     </main>
 
     <!-- FreeSurf footer -->
-    <catvideo-footer theme-toggle></catvideo-footer>
+    <freesurf-post-footer theme-toggle></freesurf-post-footer>
   </div>
 
   <cat-walker></cat-walker>
 
   <script type="module" src="./js/dashboard.js?v=20261106a"></script>
-  <script src="/js/components/catvideo-nav.js?v=20261104a" defer></script>
-  <script src="/js/components/catvideo-footer.js?v=20261107a" defer></script>
+  <script src="/js/components/freesurf-post-nav.js?v=20261104a" defer></script>
+  <script src="/js/components/freesurf-post-footer.js?v=20261107a" defer></script>
   <script src="./js/components/cat-walker.js?v=20261103p" defer></script>
 <script>
 // Typing animation
@@ -1034,7 +1018,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
   const cur = document.querySelector(".hero-cursor");
   const subline = document.getElementById("hero-subline");
   const targets = [
-    [document.getElementById("hero-line0"),    "CatVideo"],
+    [document.getElementById("hero-line0"),    "FreeSurf Post"],
     [document.getElementById("hero-line1"),    "A FreeSurf tool"],
     [document.getElementById("hero-line2"),    "Post everywhere, from one place"],
     [document.getElementById("hero-asterisk"), "Free except for X API fees passed through at cost"],

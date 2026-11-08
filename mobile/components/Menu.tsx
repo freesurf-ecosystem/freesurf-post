@@ -78,7 +78,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={close} />
           <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.panelHeader}>
-              <Text style={[styles.brand, { color: colors.text }]}>CatVideo</Text>
+              <Text style={[styles.brand, { color: colors.text }]}>FreeSurf Post</Text>
             </View>
 
             <ScrollView>

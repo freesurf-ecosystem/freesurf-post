@@ -11,7 +11,7 @@ let _supabasePromise = null;
 
 function cookieDomain() {
   const host = location.hostname;
-  if (host === "catvideo.app" || host.endsWith(".catvideo.app")) return config.APP.COOKIE_DOMAIN;
+  if (host === "post.freesurf.tools" || host.endsWith(".post.freesurf.tools")) return config.APP.COOKIE_DOMAIN;
   if (host === config.ROOT_DOMAIN || host.endsWith(`.${config.ROOT_DOMAIN}`)) return config.COOKIE_DOMAIN;
   return "";
 }

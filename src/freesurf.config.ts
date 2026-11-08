@@ -12,9 +12,9 @@ export const FREESURF = {
   BRAND_NAME: "FreeSurf" as const,
   BRAND_TAGLINE: "Free tools for freelancers & small businesses" as const,
   APP: {
-    NAME: "CatVideo" as const,
-    URL: "https://catvideo.app" as const,
-    COOKIE_DOMAIN: ".catvideo.app" as const,
+    NAME: "FreeSurf Post" as const,
+    URL: `https://post.${ROOT_DOMAIN}` as const,
+    COOKIE_DOMAIN: `.${ROOT_DOMAIN}` as const,
   } as const,
   URLS: {
     home: `https://${ROOT_DOMAIN}`,
@@ -36,8 +36,6 @@ export const FREESURF = {
   } as const,
   CORS_ORIGINS: {
     post: [
-      "https://catvideo.app",
-      "https://www.catvideo.app",
       `https://post.${ROOT_DOMAIN}`,
       `https://${ROOT_DOMAIN}`,
       "http://localhost:5173",

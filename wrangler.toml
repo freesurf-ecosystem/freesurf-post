@@ -5,11 +5,9 @@ compatibility_date = "2024-12-01"
 # NOTE: this account is on the Cloudflare Free plan (no [limits] overrides —
 # subrequests stay at the 50 default; the analytics refresh enforces its own budget).
 
-# Custom domains. post.freesurf.tools keeps serving the API and legacy callbacks;
-# catvideo.app is the canonical UI. Both are attached to this Worker.
+# Custom domain. post.freesurf.tools serves both the API and the dashboard UI.
 routes = [
   { pattern = "post.freesurf.tools", custom_domain = true },
-  { pattern = "catvideo.app", custom_domain = true },
 ]
 
 # Static dashboard (landing + compose UI) served from ./dashboard
@@ -39,7 +37,7 @@ POST_MONTHLY_GLOBAL = "9000"
 
 # Direct media (reviewer/sandbox scaffold). Disabled by default; the Bundle
 # upload path stays active. To enable:
-#   1. npx wrangler r2 bucket create catvideo-media
+#   1. npx wrangler r2 bucket create freesurf-post-media
 #   2. Uncomment the [[r2_buckets]] binding below
 #   3. Set MEDIA_DIRECT_ENABLED = "1"
 #   4. Optional: MEDIA_PUBLIC_BASE = "https://media.example.com"
@@ -47,13 +45,14 @@ MEDIA_DIRECT_ENABLED = "1"
 
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"
+# Legacy bucket name retained to avoid migrating existing media objects.
 bucket_name = "catvideo-media"
 FACEBOOK_CLIENT_ID = "1013002711832420"
-FACEBOOK_REDIRECT_URI = "https://catvideo.app/api/oauth/meta/callback"
+FACEBOOK_REDIRECT_URI = "https://post.freesurf.tools/api/oauth/meta/callback"
 META_CONFIG_ID = "1471152441532955"
 THREADS_CLIENT_ID = "995653886194880"
-THREADS_REDIRECT_URI = "https://catvideo.app/api/oauth/threads/callback"
-TIKTOK_REDIRECT_URI = "https://catvideo.app/api/oauth/tiktok/callback"
+THREADS_REDIRECT_URI = "https://post.freesurf.tools/api/oauth/threads/callback"
+TIKTOK_REDIRECT_URI = "https://post.freesurf.tools/api/oauth/tiktok/callback"
 
 # Observability — capture Worker logs (console.*) so proxy errors are visible.
 # Mirrors the Cloudflare dashboard settings so deployments stay consistent.

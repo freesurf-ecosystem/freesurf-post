@@ -14,13 +14,13 @@
  * Wiring sketch:
  *
  *   const config: BlueskyOAuthConfig = {
- *     clientId: "https://catvideo.app/oauth/bluesky/client-metadata.json",
- *     clientName: "CatVideo",
- *     clientUri: "https://catvideo.app",
- *     redirectUri: "https://catvideo.app/api/oauth/bluesky/callback",
- *     logoUri: "https://catvideo.app/catvideo-icon-400.png",
- *     tosUri: "https://catvideo.app/terms/",
- *     policyUri: "https://catvideo.app/privacy/",
+ *     clientId: "https://post.freesurf.tools/oauth/bluesky/client-metadata.json",
+ *     clientName: "FreeSurf Post",
+ *     clientUri: "https://post.freesurf.tools",
+ *     redirectUri: "https://post.freesurf.tools/api/oauth/bluesky/callback",
+ *     logoUri: "https://post.freesurf.tools/freesurf-post-icon-400.png",
+ *     tosUri: "https://post.freesurf.tools/terms/",
+ *     policyUri: "https://post.freesurf.tools/privacy/",
  *   };
  *
  *   // 1. Serve clientMetadataResponse(config) at config.clientId (200, JSON).

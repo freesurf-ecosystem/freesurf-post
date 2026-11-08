@@ -18,7 +18,7 @@ const NATIVE: Record<LangCode, string> = {
 const translations = {
   en: {
     // Onboarding
-    welcome: "Welcome to CatVideo",
+    welcome: "Welcome to FreeSurf Post",
     almost_there: "Almost there",
     step1: "Step 1 of 2",
     step2: "Step 2 of 2",
@@ -32,7 +32,7 @@ const translations = {
     remind_later: "Remind me later",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "Cross-post everywhere from your phone.",
     sign_in: "Sign in",
     create_account: "Create account",
@@ -107,14 +107,14 @@ const translations = {
     analytics: "Analytics",
     accounts: "Accounts",
     review: "Review us",
-    review_title: "Enjoying CatVideo?",
-    review_subtitle: "A quick review helps other creators find CatVideo. Thank you!",
+    review_title: "Enjoying FreeSurf Post?",
+    review_subtitle: "A quick review helps other creators find FreeSurf Post. Thank you!",
     leave_review: "Leave a review",
     cancel: "Cancel",
   },
   es: {
     // Onboarding
-    welcome: "Bienvenido a CatVideo",
+    welcome: "Bienvenido a FreeSurf Post",
     almost_there: "Casi ahí",
     step1: "Paso 1 de 2",
     step2: "Paso 2 de 2",
@@ -128,7 +128,7 @@ const translations = {
     remind_later: "Recuérdame luego",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "Publicar en todas partes desde tu teléfono.",
     sign_in: "Iniciar sesión",
     create_account: "Crear cuenta",
@@ -206,7 +206,7 @@ const translations = {
   },
   fr: {
     // Onboarding
-    welcome: "Bienvenue sur CatVideo",
+    welcome: "Bienvenue sur FreeSurf Post",
     almost_there: "Presque au bout",
     step1: "Étape 1 sur 2",
     step2: "Étape 2 sur 2",
@@ -220,7 +220,7 @@ const translations = {
     remind_later: "Rappeler plus tard",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "Publiez partout depuis votre téléphone.",
     sign_in: "Se connecter",
     create_account: "Créer un compte",
@@ -298,7 +298,7 @@ const translations = {
   },
   hi: {
     // Onboarding
-    welcome: "CatVideo में स्वागत है",
+    welcome: "FreeSurf Post में स्वागत है",
     almost_there: "आधे रास्ते",
     step1: "चरण 1 of 2",
     step2: "चरण 2 of 2",
@@ -312,7 +312,7 @@ const translations = {
     remind_later: "बाद में याद दिलाएं",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "अपने फोन से हर जगह पोस्ट करें।",
     sign_in: "साइन इन करें",
     create_account: "खाता बनाएं",
@@ -390,7 +390,7 @@ const translations = {
   },
   it: {
     // Onboarding
-    welcome: "Benvenuto su CatVideo",
+    welcome: "Benvenuto su FreeSurf Post",
     almost_there: "Quasi lì",
     step1: "Passo 1 di 2",
     step2: "Passo 2 di 2",
@@ -404,7 +404,7 @@ const translations = {
     remind_later: "Ricordami dopo",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "Pubblica ovunque dal tuo telefono.",
     sign_in: "Accedi",
     create_account: "Crea account",
@@ -482,7 +482,7 @@ const translations = {
   },
   pt: {
     // Onboarding
-    welcome: "Bem-vindo ao CatVideo",
+    welcome: "Bem-vindo ao FreeSurf Post",
     almost_there: "Quase lá",
     step1: "Passo 1 de 2",
     step2: "Passo 2 de 2",
@@ -496,7 +496,7 @@ const translations = {
     remind_later: "Lembre-me depois",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "Poste em todo lugar do seu telefone.",
     sign_in: "Entrar",
     create_account: "Criar conta",
@@ -574,7 +574,7 @@ const translations = {
   },
   ja: {
     // Onboarding
-    welcome: "CatVideoへようこそ",
+    welcome: "FreeSurf Postへようこそ",
     almost_there: "もうすぐ",
     step1: "ステップ1 of 2",
     step2: "ステップ2 of 2",
@@ -588,7 +588,7 @@ const translations = {
     remind_later: "後で思い出させて",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "携帯電話からあらどこでもポスト",
     sign_in: "サインイン",
     create_account: "アカウント作成",
@@ -666,7 +666,7 @@ const translations = {
   },
   zh: {
     // Onboarding
-    welcome: "欢迎使用 CatVideo",
+    welcome: "欢迎使用 FreeSurf Post",
     almost_there: "进行到一半",
     step1: "步骤 1 of 2",
     step2: "步骤 2 of 2",
@@ -680,7 +680,7 @@ const translations = {
     remind_later: "稍后提醒",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "从手机 überall 发布",
     sign_in: "登录",
     create_account: "创建账户",
@@ -758,7 +758,7 @@ const translations = {
   },
   ar: {
     // Onboarding
-   welcome: "مرحبا بك في CatVideo",
+   welcome: "مرحبا بك في FreeSurf Post",
     almost_there: "بientôt la fin",
     step1: "الخطوة 1 من 2",
     step2: "الخطوة 2 من 2",
@@ -772,7 +772,7 @@ const translations = {
     remind_later: "ذكّرني لاحقاً",
 
     // Auth
-    free_surf_post: "CatVideo",
+    free_surf_post: "FreeSurf Post",
     cross_post_everywhere: "نشر في كل مكان من هاتفك.",
     sign_in: "تسجيل الدخول",
     create_account: "إنشاء حساب",

@@ -12,7 +12,7 @@
  * Optional env:
  *   PORT=8788
  *   LINKEDIN_SCOPE="openid profile email w_member_social w_organization_social r_organization_social rw_organization_admin"
- *   LINKEDIN_POST_TEXT="Hello from the CatVideo demo"
+ *   LINKEDIN_POST_TEXT="Hello from the FreeSurf Post demo"
  *   LINKEDIN_ORGANIZATION_URN="urn:li:organization:123"  (default: first admin org)
  *
  * Notes:

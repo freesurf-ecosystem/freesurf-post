@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * X Recent Search - CatVideo
+ * X Recent Search - FreeSurf Post
  *
  * Queries the X API v2 recent-search endpoint for posts about a topic, prints
  * a compact summary, and optionally saves the raw JSON for downstream work.
@@ -127,7 +127,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log([
-    'X Recent Search - CatVideo',
+    'X Recent Search - FreeSurf Post',
     '',
     'Usage:',
     '  npm run x:search -- "<query>" [options]',

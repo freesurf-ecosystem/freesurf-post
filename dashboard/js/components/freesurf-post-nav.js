@@ -1,8 +1,8 @@
 const NAV_TEMPLATE = `
   <header class="marketing-header">
-    <a href="/" class="marketing-logo" aria-label="CatVideo home">
+    <a href="/" class="marketing-logo" aria-label="FreeSurf Post home">
       <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask-nav" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask-nav)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>
-      <span>CatVideo</span>
+      <span>FreeSurf Post</span>
     </a>
     <button class="marketing-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -26,7 +26,7 @@ const NAV_TEMPLATE = `
   </header>
 `;
 
-class CatVideoNav extends HTMLElement {
+class FreeSurfPostNav extends HTMLElement {
   connectedCallback() {
     if (this.dataset.rendered === "true") return;
     this.dataset.rendered = "true";
@@ -73,6 +73,6 @@ class CatVideoNav extends HTMLElement {
   }
 }
 
-if (!customElements.get("catvideo-nav")) {
-  customElements.define("catvideo-nav", CatVideoNav);
+if (!customElements.get("freesurf-post-nav")) {
+  customElements.define("freesurf-post-nav", FreeSurfPostNav);
 }

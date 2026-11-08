@@ -1,4 +1,4 @@
-// ── CatVideo — Dashboard ──
+// ── FreeSurf Post — Dashboard ──
 import { getSharedSession, clearSharedSession, getSupabase } from "./freesurf-auth.js";
 import config from "./freesurf.config.js";
 
@@ -726,7 +726,7 @@ function renderOnboarding() {
   const termsDone = onboarding.terms;
   const errEl = $("#onboarding-error");
   if (errEl) { errEl.className = "feedback"; errEl.textContent = ""; }
-  $("#onboarding-title").textContent = termsDone ? "Almost there" : "Welcome to CatVideo";
+  $("#onboarding-title").textContent = termsDone ? "Almost there" : "Welcome to FreeSurf Post";
   $("#onboarding-subtitle").textContent = termsDone ? "Step 2 of 2" : "Step 1 of 2";
   $("#onboarding-step-1").classList.toggle("hidden", termsDone);
   $("#onboarding-step-2").classList.toggle("hidden", !termsDone);

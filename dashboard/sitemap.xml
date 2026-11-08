@@ -3,229 +3,229 @@
 
   <!-- Cross-posting dashboard -->
   <url>
-    <loc>https://catvideo.app/</loc>
+    <loc>https://post.freesurf.tools/</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/support/</loc>
+    <loc>https://post.freesurf.tools/support/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/resources/</loc>
+    <loc>https://post.freesurf.tools/resources/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-buffer-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-buffer-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/best-first-comment-schedulers/</loc>
+    <loc>https://post.freesurf.tools/comparisons/best-first-comment-schedulers/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/best-open-source-social-media-schedulers/</loc>
+    <loc>https://post.freesurf.tools/comparisons/best-open-source-social-media-schedulers/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/best-social-media-apis/</loc>
+    <loc>https://post.freesurf.tools/comparisons/best-social-media-apis/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-agorapulse-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-agorapulse-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-ayrshare-api-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-ayrshare-api-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-blotato-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-blotato-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-hootsuite-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-hootsuite-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-later-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-later-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-loomly-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-loomly-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-metricool-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-metricool-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-mixpost-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-mixpost-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-postiz-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-postiz-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-publer-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-publer-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-sendible-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-sendible-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-socialpilot-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-socialpilot-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-sprout-social-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-sprout-social-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-trypost-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-trypost-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-upload-post-api-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-upload-post-api-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-zernio-api-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-zernio-api-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/comparisons/free-zoho-social-alternative/</loc>
+    <loc>https://post.freesurf.tools/comparisons/free-zoho-social-alternative/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-bluesky-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-bluesky-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-facebook-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-facebook-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-instagram-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-instagram-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-linkedin-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-linkedin-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-pinterest-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-pinterest-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-threads-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-threads-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-tiktok-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-tiktok-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-x-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-x-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://catvideo.app/tools/free-youtube-api-and-scheduler/</loc>
+    <loc>https://post.freesurf.tools/tools/free-youtube-api-and-scheduler/</loc>
     <lastmod>2026-10-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

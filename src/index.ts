@@ -89,10 +89,6 @@ export interface Env {
 }
 
 const ALLOWED_ORIGINS: string[] = [...FREESURF.CORS_ORIGINS.post];
-const LEGACY_REDIRECT_HOSTS = new Set([
-  "post.freesurf.tools",
-  "www.catvideo.app",
-]);
 const SUPABASE_URL = "https://jstojewashwoswsskwjk.supabase.co";
 
 function isAllowedOrigin(origin: string): boolean {
@@ -407,21 +403,12 @@ export default {
       }
     }
 
-    // --- Canonical UI host: legacy page URLs redirect to CatVideo ---
-    if (
-      (request.method === "GET" || request.method === "HEAD") &&
-      LEGACY_REDIRECT_HOSTS.has(url.hostname)
-    ) {
-      const target = new URL(url.pathname + url.search, FREESURF.APP.URL);
-      return new Response(null, { status: 301, headers: { Location: target.toString() } });
-    }
-
     // --- Static dashboard (Workers Assets) ---
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
 
-    return new Response("CatVideo — API", {
+    return new Response("FreeSurf Post — API", {
       status: 200,
       headers: { "Content-Type": "text/plain" },
     });
@@ -1389,7 +1376,7 @@ function handleConnectCallback(url: URL): Response {
   const to = url.searchParams.get("to") || "";
   const allowed =
     /^freesurf-post:\/\/connected/.test(to) ||
-    /^https?:\/\/(?:catvideo\.app|www\.catvideo\.app|post\.freesurf\.tools)(\/|$)/.test(to);
+    /^https?:\/\/post\.freesurf\.tools(\/|$)/.test(to);
   const target = allowed ? to : `${FREESURF.APP.URL}/`;
   return new Response(null, { status: 302, headers: { Location: target } });
 }
@@ -4202,7 +4189,7 @@ async function handleTopUp(
         "metadata[user_id]": user.sub,
         "line_items[0][price_data][currency]": "usd",
         "line_items[0][price_data][unit_amount]": String(cents),
-        "line_items[0][price_data][product_data][name]": "CatVideo credits",
+        "line_items[0][price_data][product_data][name]": "FreeSurf Post credits",
         "line_items[0][price_data][product_data][tax_code]": "txcd_10000000",
         "line_items[0][price_data][tax_behavior]": "exclusive",
         "line_items[0][quantity]": "1",

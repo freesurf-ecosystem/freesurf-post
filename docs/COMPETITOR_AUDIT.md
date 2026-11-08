@@ -1,6 +1,6 @@
 # Competitor Feature Mapping
 
-Targeted comparison of Buffer, Later, and CatVideo — focused on features that matter to solo creators and small teams. AI features are noted only where they affect packaging or price.
+Targeted comparison of Buffer, Later, and FreeSurf Post — focused on features that matter to solo creators and small teams. AI features are noted only where they affect packaging or price.
 
 Last updated: 2026-07-17
 Landscape snapshot: 2026-10-30
@@ -42,9 +42,9 @@ Names seen in competitor sitemaps/comparison pages that are either adjacent cate
 
 ### Pricing & positioning snapshot
 
-| Competitor | Free tier | Entry paid | Account model | Standout | Useful angle for CatVideo |
+| Competitor | Free tier | Entry paid | Account model | Standout | Useful angle for FreeSurf Post |
 |---|---|---|---|---|---|
-| **CatVideo** | Yes — free, pay-as-you-go X fees at cost | $0 | No per-channel or per-seat fee | Open source, API included, Android app, 13 platforms via Bundle | The baseline for every "Free X alternative" article |
+| **FreeSurf Post** | Yes — free, pay-as-you-go X fees at cost | $0 | No per-channel or per-seat fee | Open source, API included, Android app, 13 platforms via Bundle | The baseline for every "Free X alternative" article |
 | **Buffer** | Yes — 3 channels, 10 queued posts/channel | $5/channel/mo (Essentials, annual) → $10/channel/mo (Team) | Per channel | Simple UI, strong free plan, community inbox, API | Per-channel pricing compounds for multi-platform users |
 | **Hootsuite** | No — 14-day trial | $99/user/mo (Standard) → $199 (Professional) → $399 (Advanced) | Per seat + account caps | Enterprise listening, approvals, large-team workflows | Per-seat pricing and a $99 floor are overkill for solos |
 | **Later** | No — 14-day trial | $18.75/mo (Starter, annual) → $37.50 (Growth) → $82.50 (Scale) | Social sets (8 profiles per set) | Visual/Instagram-first planning, link-in-bio, UGC | No free tier; Starter caps posts at 30/profile/mo |
@@ -77,7 +77,7 @@ Names seen in competitor sitemaps/comparison pages that are either adjacent cate
 
 | Competitor | Cross-post | Scheduling | Analytics | Unified inbox | Approvals | Public API | Mobile app | Open source / self-host |
 |---|---|---|---|---|---|---|---|---|
-| **CatVideo** | Yes | Yes | Yes | Comments/replies (expanding) | No | Yes, free | Android (iOS coming) | Yes |
+| **FreeSurf Post** | Yes | Yes | Yes | Comments/replies (expanding) | No | Yes, free | Android (iOS coming) | Yes |
 | **Buffer** | Yes | Yes | Yes | Yes | Team plan | Yes, rate-limited | Yes | No |
 | **Hootsuite** | Yes | Yes | Yes | Yes | Advanced+ | Higher tiers | Yes | No |
 | **Later** | Yes | Yes | Yes | Growth+ | Growth+ | Limited/none | Yes | No |
@@ -123,7 +123,7 @@ This is the shortlist for a long-form “best social media posting APIs” compa
 | **Social Champ** | Scheduler + API | Free 3 profiles / 15 posts; $5/profile/mo → bundled $29/mo (6 profiles) | 12+ | REST API on Agency+ | Free plan and low per-profile entry; API gated to Agency |
 | **Genviral** | AI studio + API | $29/mo (Creator, 5 accounts) → $49 → $99 → $199 | 5 to 100 accounts | REST + CLI on every plan | AI video/content generation plus scheduling; credits meter AI only |
 | **Hootsuite** | SMM + API | Standard $99/user/mo → Professional $199 → Advanced $399 → Enterprise | 14+ | REST Publish, Analytics, Inbox, Apps APIs; MCP servers | Broad API surface (publishing, analytics, inbox); access process/plan gating needs verification |
-| **TryPost** | Open-source scheduler + API | Self-host free; cloud $19/mo (1 workspace) → $99/mo (unlimited) | 13 | REST + MCP (31 tools) | AGPL-3.0, flat pricing, AI/approvals; closest open-source peer to CatVideo |
+| **TryPost** | Open-source scheduler + API | Self-host free; cloud $19/mo (1 workspace) → $99/mo (unlimited) | 13 | REST + MCP (31 tools) | AGPL-3.0, flat pricing, AI/approvals; closest open-source peer to FreeSurf Post |
 | **Mixpost** | Self-hosted scheduler + API | Lite free; Pro $299 one-time; Enterprise $1,199 one-time | 12 | REST + MCP + webhooks | One-time license, multi-tenant, white-label; no recurring fee |
 | **Planable** | Collaboration + API | 50 free posts; Basic $33/workspace/mo → Pro $49 | 9+ | REST on Pro + MCP | Approval-first; API is a Pro feature, not a developer-first product |
 
@@ -138,17 +138,17 @@ Title: “The Best Social Media Posting APIs in 2026: Ayrshare vs Zernio vs Uplo
 
 Sections: build vs buy, per-profile vs per-account vs per-post pricing, platform coverage, OAuth/approval burden, white-label/multi-tenant support, MCP/AI-agent support, rate limits, analytics and inbox APIs, self-hosting/data ownership, migration checklist, and a decision matrix by use case (solo app, SaaS, agency, self-hoster).
 
-### Where CatVideo can win the comparison
+### Where FreeSurf Post can win the comparison
 
-- **No per-channel or per-seat math.** Buffer charges per channel; Hootsuite/Sprout/Agorapulse charge per seat. CatVideo is free with the API included.
+- **No per-channel or per-seat math.** Buffer charges per channel; Hootsuite/Sprout/Agorapulse charge per seat. FreeSurf Post is free with the API included.
 - **Free tier that is actually usable.** Later, Hootsuite, Sprout, SocialPilot, Sendible, Loomly, and Agorapulse have no free plan; Metricool's free tier excludes LinkedIn/X; Zoho caps at 6 channels.
-- **API is not an enterprise upsell.** Buffer rate-limits API access; SocialPilot gates it to Enterprise; Agorapulse gates it to Custom. CatVideo exposes it on the free plan.
+- **API is not an enterprise upsell.** Buffer rate-limits API access; SocialPilot gates it to Enterprise; Agorapulse gates it to Custom. FreeSurf Post exposes it on the free plan.
 - **Open source + self-host path.** Postiz, Mixpost, and TryPost are the closest peers here.
-- **Honest X pricing.** CatVideo passes X API fees through at cost instead of bundling them into a subscription.
+- **Honest X pricing.** FreeSurf Post passes X API fees through at cost instead of bundling them into a subscription.
 
 ### Suggested "Free [Competitor] Alternative" articles
 
-Prioritize competitors where CatVideo has a clear structural advantage:
+Prioritize competitors where FreeSurf Post has a clear structural advantage:
 
 1. Free Buffer Alternative — per-channel pricing vs free
 2. Free Hootsuite Alternative — per-seat pricing and account caps
@@ -181,7 +181,7 @@ Prioritize competitors where CatVideo has a clear structural advantage:
 29. Free TryPost Alternative — free/open-source vs $19 flat cloud
 30. Free Planable Alternative — approval-first vs simple cross-poster
 
-Each article should include: a short definition of who the competitor is best for, a pricing table, a feature table, a "when CatVideo is the better fit" section, a "when the competitor is still better" section (honesty improves trust), and a migration/how-to section.
+Each article should include: a short definition of who the competitor is best for, a pricing table, a feature table, a "when FreeSurf Post is the better fit" section, a "when the competitor is still better" section (honesty improves trust), and a migration/how-to section.
 
 ### Comparison-page patterns worth studying
 
@@ -314,7 +314,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | | Team members | Single user | Unlimited | Launch and above |
 | | Free trial | No | 28 days | Launch trial |
 
-**CatVideo counterpoint:** Ayrshare is infrastructure for products; CatVideo is a ready-made consumer/SMB app with a free API. The comparison should focus on build-vs-buy and per-profile pricing, not feature parity.
+**FreeSurf Post counterpoint:** Ayrshare is infrastructure for products; FreeSurf Post is a ready-made consumer/SMB app with a free API. The comparison should focus on build-vs-buy and per-profile pricing, not feature parity.
 
 ---
 
@@ -346,7 +346,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | | Pricing model | Usage-based | Daily metering and proration |
 | | Calls/SMS/RCS | Add-on | Priced per number/minute/message |
 
-**CatVideo counterpoint:** Zernio is a broad communications/marketing API; CatVideo is a focused social cross-poster. Zernio's free tier and usage pricing are the strongest direct API comparison, but its surface area is much larger than posting.
+**FreeSurf Post counterpoint:** Zernio is a broad communications/marketing API; FreeSurf Post is a focused social cross-poster. Zernio's free tier and usage pricing are the strongest direct API comparison, but its surface area is much larger than posting.
 
 ---
 
@@ -381,7 +381,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | | Uploads | 10/mo | Unlimited | Paid plans |
 | | X links | Stripped | Add-on | $19/mo link add-on |
 
-**CatVideo counterpoint:** Upload-Post is the closest “cheap API wedge” to CatVideo. CatVideo has a UI and free app; Upload-Post has broader platform coverage and developer tooling but no consumer-facing workflow.
+**FreeSurf Post counterpoint:** Upload-Post is the closest “cheap API wedge” to FreeSurf Post. FreeSurf Post has a UI and free app; Upload-Post has broader platform coverage and developer tooling but no consumer-facing workflow.
 
 ---
 
@@ -416,7 +416,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Channels | 5 | 10/30/100 | No per-post limits |
 | | Free trial | 7 days | 7 days | No free forever plan |
 
-**CatVideo counterpoint:** Postiz is the closest open-source peer. Compare self-host maintenance, platform coverage, and whether a user wants a hosted UI or an API-first stack.
+**FreeSurf Post counterpoint:** Postiz is the closest open-source peer. Compare self-host maintenance, platform coverage, and whether a user wants a hosted UI or an API-first stack.
 
 ---
 
@@ -449,7 +449,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | 3 | Per-account | Extra accounts billed monthly |
 | | X/Twitter | Limited | Paid only | X API cost passed through |
 
-**CatVideo counterpoint:** Publer is a strong like-for-like SMB scheduler. CatVideo's wedge is no per-account fee plus an open-source/API story; Publer's wedge is bulk scheduling and a mature media workflow.
+**FreeSurf Post counterpoint:** Publer is a strong like-for-like SMB scheduler. FreeSurf Post's wedge is no per-account fee plus an open-source/API story; Publer's wedge is bulk scheduling and a mature media workflow.
 
 ---
 
@@ -480,7 +480,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | 15 | 99+ | $1/account after 99 |
 | | Free tier | 5 posts | 5 posts | 7-day trial |
 
-**CatVideo counterpoint:** Post Bridge is the best “solo operator simplicity” comparison. CatVideo is free/open-source and adds analytics/comments/drafts; Post Bridge is narrower but very clean.
+**FreeSurf Post counterpoint:** Post Bridge is the best “solo operator simplicity” comparison. FreeSurf Post is free/open-source and adds analytics/comments/drafts; Post Bridge is narrower but very clean.
 
 ---
 
@@ -512,7 +512,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | 20 | 40 | Agency has higher limits |
 | | Free tier | Trial only | Trial only | 60 AI credits |
 
-**CatVideo counterpoint:** Blotato is an AI content engine with posting attached. CatVideo should not compete on AI generation; compete on free/open-source, API access, and “bring your own content” simplicity.
+**FreeSurf Post counterpoint:** Blotato is an AI content engine with posting attached. FreeSurf Post should not compete on AI generation; compete on free/open-source, API access, and “bring your own content” simplicity.
 
 ---
 
@@ -549,7 +549,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | | Users | 1 | 2/unlimited | Agency = unlimited |
 | | Free tier | Trial only | Trial only | 7 days |
 
-**CatVideo counterpoint:** ContentStudio is the closest “API on every plan” commercial tool. CatVideo's wedge is free + open-source; ContentStudio's wedge is a mature all-in-one suite with AI and approvals.
+**FreeSurf Post counterpoint:** ContentStudio is the closest “API on every plan” commercial tool. FreeSurf Post's wedge is free + open-source; ContentStudio's wedge is a mature all-in-one suite with AI and approvals.
 
 ---
 
@@ -584,7 +584,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Profiles | 3 | Per-profile/bundled | X is a paid add-on |
 | | Free tier | 3 profiles/15 posts | — | Keep an eye on fair use |
 
-**CatVideo counterpoint:** Social Champ's free plan is comparable to CatVideo's, but it gates X, API, and advanced workflows. CatVideo's wedge is no X markup, free API, and open source.
+**FreeSurf Post counterpoint:** Social Champ's free plan is comparable to FreeSurf Post's, but it gates X, API, and advanced workflows. FreeSurf Post's wedge is no X markup, free API, and open source.
 
 ---
 
@@ -619,7 +619,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | | Credits | 200-3,000/mo | AI generation only |
 | | Hosted accounts | Add-on | $90 Android/$120 iPhone per month |
 
-**CatVideo counterpoint:** Genviral is an AI content factory; CatVideo is a posting tool. Compare “bring your own content” vs “generate content,” not raw feature counts.
+**FreeSurf Post counterpoint:** Genviral is an AI content factory; FreeSurf Post is a posting tool. Compare “bring your own content” vs “generate content,” not raw feature counts.
 
 ---
 
@@ -652,7 +652,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | | Users | Per seat | Per seat | Custom Enterprise |
 | | Free tier | No | No | 14-day trial |
 
-**CatVideo counterpoint:** Hootsuite is the enterprise comparison. CatVideo wins on price, simplicity, and API access; Hootsuite wins on listening, governance, approvals, and large-team support.
+**FreeSurf Post counterpoint:** Hootsuite is the enterprise comparison. FreeSurf Post wins on price, simplicity, and API access; Hootsuite wins on listening, governance, approvals, and large-team support.
 
 ---
 
@@ -687,7 +687,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Social accounts | Unlimited | Unlimited | Even multiple per network |
 | | Free tier | No | No | No free cloud plan; self-host is free |
 
-**CatVideo counterpoint:** TryPost is the closest “open-source + API + flat price” peer. CatVideo is free and more cross-poster-focused; TryPost has more collaboration, approvals, AI, and workspace depth. Compare self-host effort, approvals, and AI needs.
+**FreeSurf Post counterpoint:** TryPost is the closest “open-source + API + flat price” peer. FreeSurf Post is free and more cross-poster-focused; TryPost has more collaboration, approvals, AI, and workspace depth. Compare self-host effort, approvals, and AI needs.
 
 ---
 
@@ -721,7 +721,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Profiles | 5 | 5/unlimited | Unlimited on Professional+ |
 | | Free tier | No | No | 30-day trial |
 
-**CatVideo counterpoint:** Sprout is the “enterprise depth” comparison. CatVideo wins on price and simplicity; Sprout wins on reporting, listening, inbox, and governance.
+**FreeSurf Post counterpoint:** Sprout is the “enterprise depth” comparison. FreeSurf Post wins on price and simplicity; Sprout wins on reporting, listening, inbox, and governance.
 
 ---
 
@@ -755,7 +755,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | 5 | 10/20/40 | Extra accounts sold |
 | | Free tier | No | No | 14-day trial |
 
-**CatVideo counterpoint:** SocialPilot is a direct SMB/agency alternative. CatVideo wins on free pricing and API access; SocialPilot wins on bulk scheduling, approvals, and white-label reports.
+**FreeSurf Post counterpoint:** SocialPilot is a direct SMB/agency alternative. FreeSurf Post wins on free pricing and API access; SocialPilot wins on bulk scheduling, approvals, and white-label reports.
 
 ---
 
@@ -788,7 +788,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Free posts | 20/mo | Unlimited | Fair use on paid |
 | | Free brands | 1 | 5+ | LinkedIn/X excluded/add-on |
 
-**CatVideo counterpoint:** Metricool is the analytics-first comparison. CatVideo wins on free posting breadth and API access; Metricool wins on analytics, competitor tracking, and ads reporting.
+**FreeSurf Post counterpoint:** Metricool is the analytics-first comparison. FreeSurf Post wins on free posting breadth and API access; Metricool wins on analytics, competitor tracking, and ads reporting.
 
 ---
 
@@ -823,7 +823,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Profiles | 6/workspace | 18-300 | Daily send limits apply |
 | | Free tier | No | No | 14-day trial |
 
-**CatVideo counterpoint:** Sendible is the agency-workspace comparison. CatVideo wins on free access and API; Sendible wins on client workspaces, unlimited users, and approvals.
+**FreeSurf Post counterpoint:** Sendible is the agency-workspace comparison. FreeSurf Post wins on free access and API; Sendible wins on client workspaces, unlimited users, and approvals.
 
 ---
 
@@ -859,7 +859,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | 12 | 60 | Enterprise 61+ |
 | | Free tier | No | No | Free trial |
 
-**CatVideo counterpoint:** Loomly is the approval/calendar comparison. CatVideo wins on price and API; Loomly wins on collaborative planning and review workflows.
+**FreeSurf Post counterpoint:** Loomly is the approval/calendar comparison. FreeSurf Post wins on price and API; Loomly wins on collaborative planning and review workflows.
 
 ---
 
@@ -893,7 +893,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Profiles | 10 | 10/unlimited | 10 on all self-serve tiers |
 | | Free tier | No | No | 30-day trial |
 
-**CatVideo counterpoint:** Agorapulse is the inbox/moderation comparison. CatVideo wins on price and API; Agorapulse wins on engagement workflows, moderation, and ROI reporting.
+**FreeSurf Post counterpoint:** Agorapulse is the inbox/moderation comparison. FreeSurf Post wins on price and API; Agorapulse wins on engagement workflows, moderation, and ROI reporting.
 
 ---
 
@@ -928,7 +928,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Brands/channels | 1 brand/6 channels | 1 brand/13-16 channels | Agency plans scale clients |
 | | Free tier | Yes | — | 1 brand/6 channels |
 
-**CatVideo counterpoint:** Zoho Social is the ecosystem-value comparison. CatVideo wins on free channel breadth and API; Zoho wins on CRM/Desk integration and Native Zoho workflows.
+**FreeSurf Post counterpoint:** Zoho Social is the ecosystem-value comparison. FreeSurf Post wins on free channel breadth and API; Zoho wins on CRM/Desk integration and Native Zoho workflows.
 
 ---
 
@@ -964,7 +964,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Profiles | 5 | 10/25 | Extra profile packs sold |
 | | Free tier | No | No | 14-day trial |
 
-**CatVideo counterpoint:** SocialBee is the evergreen/category comparison. CatVideo wins on free access, API, and channel breadth; SocialBee wins on recycling workflows, categories, and approvals.
+**FreeSurf Post counterpoint:** SocialBee is the evergreen/category comparison. FreeSurf Post wins on free access, API, and channel breadth; SocialBee wins on recycling workflows, categories, and approvals.
 
 ---
 
@@ -998,7 +998,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | 5 | 25 | Extra accounts $3.99/$1.99 |
 | | Free tier | No | No | 30-day trial |
 
-**CatVideo counterpoint:** MeetEdgar is the “set-and-forget evergreen” comparison. CatVideo wins on free access, API, and scheduling breadth; MeetEdgar wins on automatic recycling and long-running queues.
+**FreeSurf Post counterpoint:** MeetEdgar is the “set-and-forget evergreen” comparison. FreeSurf Post wins on free access, API, and scheduling breadth; MeetEdgar wins on automatic recycling and long-running queues.
 
 ---
 
@@ -1032,7 +1032,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Channels | 1 | All | $6/channel on Flexible |
 | | Free tier | No | No | 7-day trial |
 
-**CatVideo counterpoint:** Hypefury is the creator-writing comparison, but it no longer supports X. CatVideo wins on channel breadth, free access, API, and mobile; Hypefury wins on writing UX and engagement prompts.
+**FreeSurf Post counterpoint:** Hypefury is the creator-writing comparison, but it no longer supports X. FreeSurf Post wins on channel breadth, free access, API, and mobile; Hypefury wins on writing UX and engagement prompts.
 
 ---
 
@@ -1066,7 +1066,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | 2 | 5/20 | Extra accounts $4/mo |
 | | Free tier | No | No | 14-day trial |
 
-**CatVideo counterpoint:** RecurPost is the budget/evergreen comparison. CatVideo wins on free access, API, and channel breadth; RecurPost wins on low entry price and recycling depth.
+**FreeSurf Post counterpoint:** RecurPost is the budget/evergreen comparison. FreeSurf Post wins on free access, API, and channel breadth; RecurPost wins on low entry price and recycling depth.
 
 ---
 
@@ -1099,7 +1099,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Profiles | 3 | 10/25 | Plan-based |
 | | Free tier | No | No | Free trial |
 
-**CatVideo counterpoint:** Missinglettr is not a general scheduler; it is a blog-promotion drip engine. CatVideo wins on channel breadth, free access, API, and normal scheduling; Missinglettr wins on article-to-social campaigns.
+**FreeSurf Post counterpoint:** Missinglettr is not a general scheduler; it is a blog-promotion drip engine. FreeSurf Post wins on channel breadth, free access, API, and normal scheduling; Missinglettr wins on article-to-social campaigns.
 
 ---
 
@@ -1130,7 +1130,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts | Free limits | Paid limits | Verify in-app |
 | | Free tier | Yes | — | Ad-supported/limited |
 
-**CatVideo counterpoint:** Hookle is the mobile-first small-business comparison. CatVideo wins on free channel breadth, API, and web workflow; Hookle wins on phone-first simplicity and AI captions.
+**FreeSurf Post counterpoint:** Hookle is the mobile-first small-business comparison. FreeSurf Post wins on free channel breadth, API, and web workflow; Hookle wins on phone-first simplicity and AI captions.
 
 ---
 
@@ -1165,7 +1165,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Accounts/users | Unlimited | Unlimited | No per-seat/per-account fee |
 | | Native mobile app | No | No | Web only |
 
-**CatVideo counterpoint:** Mixpost is the “own your data, pay once” comparison. CatVideo is free and hosted; Mixpost is cheaper long-term for self-hosters but requires server ownership and maintenance.
+**FreeSurf Post counterpoint:** Mixpost is the “own your data, pay once” comparison. FreeSurf Post is free and hosted; Mixpost is cheaper long-term for self-hosters but requires server ownership and maintenance.
 
 ---
 
@@ -1203,11 +1203,11 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | **Limits** | Free tier | 50 posts | — | No time limit |
 | | Workspaces | Per workspace | Per workspace | Volume pricing available |
 
-**CatVideo counterpoint:** Planable is the approval-first comparison. CatVideo is free and simple; Planable wins on client review, approvals, and collaborative planning, but it is not a low-cost cross-poster.
+**FreeSurf Post counterpoint:** Planable is the approval-first comparison. FreeSurf Post is free and simple; Planable wins on client review, approvals, and collaborative planning, but it is not a low-cost cross-poster.
 
 ---
 
-## CatVideo
+## FreeSurf Post
 
 **Pricing:** Free; X API fees passed through at cost
 **Platforms:** 13 (Bluesky, X, LinkedIn, Facebook, Instagram, Threads, TikTok, YouTube, Reddit, Pinterest, Slack, Discord, Google Business)
@@ -1216,7 +1216,7 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 
 ### Feature breakdown
 
-| Category | Feature | CatVideo | Notes |
+| Category | Feature | FreeSurf Post | Notes |
 |---|---|---|---|
 | **Publishing** | Cross-post to multiple platforms | Yes | Compose once, select platforms |
 | | Scheduling + calendar | Yes | Cron publishes within ~5 minutes |
@@ -1243,18 +1243,18 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | | Webhooks | No | Roadmap opportunity |
 | | MCP server | No | Roadmap opportunity |
 | | SDKs | No | Roadmap opportunity |
-| **Platform** | Web app | Yes | catvideo.app |
+| **Platform** | Web app | Yes | post.freesurf.tools |
 | | Mobile app | Android | iOS coming soon |
 | | Open source | Yes | Self-host path |
 | | White-label | No | Not offered |
 | **Limits** | Free tier | Yes | No per-channel/per-seat fee |
 | | X costs | At cost | $0.015 plain, $0.20 with link |
 
-**Positioning:** CatVideo is the free, open-source, API-included cross-poster for people who already know what they want to say. It should not compete on AI generation or enterprise listening. The core comparison claims are: no per-channel math, no per-seat math, no API upsell, no X markup, and a usable mobile/web workflow.
+**Positioning:** FreeSurf Post is the free, open-source, API-included cross-poster for people who already know what they want to say. It should not compete on AI generation or enterprise listening. The core comparison claims are: no per-channel math, no per-seat math, no API upsell, no X markup, and a usable mobile/web workflow.
 
 ---
 
-## CatVideo gaps & next steps
+## FreeSurf Post gaps & next steps
 
 ### Already shipped (do not describe these as gaps)
 
@@ -1280,13 +1280,13 @@ Common structure: intro + "best for", pricing table, feature checklist, pros/con
 | iOS app | Medium | High | Android is live; iOS is in progress. |
 | Browser extension | Low | Low | Buffer/Sendible use this for quick capture. |
 | Approval workflows / client workspaces | Out of scope | — | Deliberately not competing with agency suites. |
-| AI generation / listening | Out of scope | — | Not part of the CatVideo wedge. |
+| AI generation / listening | Out of scope | — | Not part of the FreeSurf Post wedge. |
 
 ### Positioning guardrails for comparison articles
 
 - **Do not claim feature parity** with Buffer/Later/Sprout on inbox, reporting, approvals, or AI.
 - **Do claim structural advantages:** free, no per-channel/per-seat fees, API included, open source, X fees at cost, Android app.
-- **Name the trade-offs:** CatVideo has less reporting depth, no DM inbox yet, no AI generation, and a smaller platform/integration ecosystem.
+- **Name the trade-offs:** FreeSurf Post has less reporting depth, no DM inbox yet, no AI generation, and a smaller platform/integration ecosystem.
 - **Best-fit reader:** a solo creator or small business that already creates content and wants a free, simple cross-poster with an API.
 - **Worst-fit reader:** an agency needing approvals, client workspaces, deep reporting, listening, or AI content generation.
 
