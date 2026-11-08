@@ -3,7 +3,7 @@ const FOOTER_TEMPLATE = `
     <div class="freesurf-footer-inner">
       <div class="freesurf-footer-brand">
         <a href="https://post.freesurf.tools" class="freesurf-footer-logo"><svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="card-mask-footer" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)" fill="#000000" stroke="#000000" stroke-width="6"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="18" y="12" width="34" height="68" rx="7" transform="rotate(-12 35 46)" mask="url(#card-mask-footer)"/><rect x="44" y="24" width="34" height="60" rx="7" transform="rotate(8 61 54)"/></g></svg>FreeSurf Post</a>
-        <p class="freesurf-footer-tagline">FreeSurf Post is a social media scheduler developed by FreeSurf. We create free tools for freelancers, small businesses, and independent workers.</p>
+        <p class="freesurf-footer-tagline">FreeSurf Post is a social media scheduler and part of the FreeSurf ecosystem of products. We create free tools for freelancers, small businesses, and independent workers.</p>
       </div>
       <div class="freesurf-footer-links">
         <div class="freesurf-footer-col">
