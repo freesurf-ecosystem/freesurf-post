@@ -8,6 +8,8 @@ import { FloatingMenuButton } from "../components/Menu";
 
 const LINKS = [
   { key: "googleplay", label: "Google Play", url: "https://play.google.com/store/apps/details?id=tools.freesurf.post" },
+  { key: "g2", label: "G2", url: "https://www.g2.com/products/freesurf-post" },
+  { key: "capterra", label: "Capterra", url: "https://www.capterra.com/p/10283793/CatVideo/" },
 ] as const;
 
 export default function ReviewScreen() {
