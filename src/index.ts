@@ -405,7 +405,18 @@ export default {
 
     // --- Static dashboard (Workers Assets) ---
     if (env.ASSETS) {
-      return env.ASSETS.fetch(request);
+      const res = await env.ASSETS.fetch(request);
+      // Workers Assets normalises URLs (/comparisons/x -> /comparisons/x/,
+      // /privacy.html -> /privacy/) with a temporary 307. Make those same-site
+      // redirects permanent so search engines consolidate on the slash form
+      // that the canonicals and sitemap use.
+      if (res.status === 307) {
+        const loc = res.headers.get("Location");
+        if (loc && new URL(loc, url).origin === url.origin) {
+          return new Response(null, { status: 301, headers: { Location: loc } });
+        }
+      }
+      return res;
     }
 
     return new Response("FreeSurf Post — API", {
