@@ -1583,6 +1583,41 @@ html:not([data-reviewer="true"]) .reviewer-only {
   justify-content: flex-end;
 }
 
+.draft-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.draft-edit-text {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.draft-edit-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.draft-platform-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.draft-edit-status {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.draft-edit-status.error { color: var(--error); }
+.draft-edit-status.success { color: var(--success); }
+
 /* ── HASHTAG GROUPS VIEW ── */
 .hashtag-groups {
   display: grid;

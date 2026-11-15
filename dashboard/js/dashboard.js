@@ -2690,23 +2690,100 @@ function renderDrafts(drafts) {
     return;
   }
   
-  container.innerHTML = drafts.map((draft) => `
-    <div class="draft-card">
+  container.innerHTML = drafts.map((draft) => {
+    const platforms = Array.isArray(draft.platforms) ? draft.platforms : [];
+    return `
+    <div class="draft-card" data-draft-id="${draft.id}">
       <div class="draft-header">
         <div>
           <div class="draft-meta">Last updated ${new Date(draft.updated_at).toLocaleDateString()}</div>
           <div class="draft-platforms">
-            ${draft.platforms.map((p) => `<span class="draft-platform-tag">${p}</span>`).join("")}
+            ${platforms.map((p) => `<span class="draft-platform-tag">${p}</span>`).join("")}
           </div>
         </div>
       </div>
       <div class="draft-text">${escapeHtml(draft.text.substring(0, 200))}${draft.text.length > 200 ? "..." : ""}</div>
-      <div class="draft-actions">
+      <div class="draft-editor hidden">
+        <textarea class="form-textarea draft-edit-text" rows="5" aria-label="Draft text">${escapeHtml(draft.text)}</textarea>
+        <div class="draft-edit-platforms">
+          ${PLATFORMS.filter((p) => !IN_PROGRESS_PLATFORMS.has(p.key)).map((p) => `
+            <label class="draft-platform-check">
+              <input type="checkbox" value="${p.key}" ${platforms.includes(p.key) ? "checked" : ""} />
+              ${p.name}
+            </label>
+          `).join("")}
+        </div>
+        <div class="draft-edit-status"></div>
+        <div class="draft-actions">
+          <button class="btn btn-sm btn-primary" data-draft-save onclick="saveDraftEdit('${draft.id}')">Save</button>
+          <button class="btn btn-sm btn-ghost" onclick="cancelDraftEdit('${draft.id}')">Cancel</button>
+        </div>
+      </div>
+      <div class="draft-actions draft-view-actions">
+        <button class="btn btn-sm btn-secondary" onclick="editDraft('${draft.id}')">Edit</button>
         <button class="btn btn-sm btn-secondary" onclick="loadDraftIntoCompose('${draft.id}')">Load</button>
         <button class="btn btn-sm btn-ghost" onclick="deleteDraft('${draft.id}')">Delete</button>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
+}
+
+function editDraft(draftId) {
+  const card = document.querySelector(`.draft-card[data-draft-id="${draftId}"]`);
+  if (!card) return;
+  card.querySelector(".draft-text")?.classList.add("hidden");
+  card.querySelector(".draft-view-actions")?.classList.add("hidden");
+  card.querySelector(".draft-editor")?.classList.remove("hidden");
+  card.querySelector(".draft-edit-text")?.focus();
+}
+
+function cancelDraftEdit(draftId) {
+  const card = document.querySelector(`.draft-card[data-draft-id="${draftId}"]`);
+  if (!card) return;
+  card.querySelector(".draft-text")?.classList.remove("hidden");
+  card.querySelector(".draft-view-actions")?.classList.remove("hidden");
+  card.querySelector(".draft-editor")?.classList.add("hidden");
+}
+
+async function saveDraftEdit(draftId) {
+  const card = document.querySelector(`.draft-card[data-draft-id="${draftId}"]`);
+  if (!card) return;
+  const text = card.querySelector(".draft-edit-text")?.value.trim() || "";
+  const platforms = Array.from(card.querySelectorAll(".draft-edit-platforms input:checked"))
+    .map((input) => input.value);
+  const status = card.querySelector(".draft-edit-status");
+  const saveBtn = card.querySelector("[data-draft-save]");
+
+  if (!text) {
+    status.textContent = "Add content to save the draft.";
+    status.className = "draft-edit-status error";
+    return;
+  }
+
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
+  status.textContent = "";
+  status.className = "draft-edit-status";
+
+  try {
+    const res = await apiFetch(`/api/drafts/${draftId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, platforms }),
+    });
+    if (res.ok) {
+      fetchDrafts();
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    status.textContent = data.error || "Failed to save draft.";
+    status.className = "draft-edit-status error";
+  } catch {
+    status.textContent = "Network error.";
+    status.className = "draft-edit-status error";
+  }
+
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save"; }
 }
 
 async function loadDraftIntoCompose(draftId) {
@@ -2721,6 +2798,13 @@ async function loadDraftIntoCompose(draftId) {
       const data = await res.json();
       const draft = data.drafts.find((d) => d.id === draftId);
       if (draft) {
+        const platforms = Array.isArray(draft.platforms) ? draft.platforms : [];
+        document.querySelectorAll("#platform-toggles .platform-chip").forEach((chip) => {
+          const on = platforms.includes(chip.dataset.platform) && !chip.classList.contains("disabled");
+          chip.classList.toggle("selected", on);
+          const input = chip.querySelector("input");
+          if (input) input.checked = on;
+        });
         $("#post-text").value = draft.text;
         updatePostButtonState();
         updatePlatformPreviews();
@@ -4073,6 +4157,9 @@ $("#btn-topup")?.addEventListener("click", topUp);
 // module, so these must be attached to the global scope for inline handlers).
 Object.assign(window, {
   loadDraftIntoCompose,
+  editDraft,
+  cancelDraftEdit,
+  saveDraftEdit,
   deleteDraft,
   addHashtagsToCompose,
   deleteHashtagGroup,

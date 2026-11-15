@@ -741,9 +741,12 @@ async function handleApi(
   if (url.pathname === "/api/drafts" && request.method === "POST") {
     return handleCreateDraft(request, env, origin, h);
   }
-  const draftDeleteMatch = url.pathname.match(/^\/api\/drafts\/([a-f0-9-]+)$/);
-  if (draftDeleteMatch && request.method === "DELETE") {
-    return handleDeleteDraft(request, env, draftDeleteMatch[1], origin, h);
+  const draftIdMatch = url.pathname.match(/^\/api\/drafts\/([a-f0-9-]+)$/);
+  if (draftIdMatch && request.method === "DELETE") {
+    return handleDeleteDraft(request, env, draftIdMatch[1], origin, h);
+  }
+  if (draftIdMatch && request.method === "PATCH") {
+    return handleUpdateDraft(request, env, draftIdMatch[1], origin, h);
   }
 
   // --- Hashtag Groups API ---
@@ -4886,6 +4889,74 @@ async function handleCreateDraft(
   } catch (error) {
     console.error("Draft creation error:", error);
     return errorResponse("Failed to create draft", 500, origin);
+  }
+}
+
+/**
+ * PATCH /api/drafts/:id — Edit a draft's text and/or platforms in place
+ */
+async function handleUpdateDraft(
+  request: Request,
+  env: Env,
+  draftId: string,
+  origin: string,
+  headers: Record<string, string>
+): Promise<Response> {
+  const user = await validateSupabaseJWT(env.SUPABASE_JWT_SECRET, request.headers.get("Authorization"));
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
+
+  let body: { text?: string; platforms?: Platform[] };
+  try {
+    body = (await request.json()) as any;
+  } catch {
+    return errorResponse("Invalid JSON body", 400, origin);
+  }
+
+  const hasText = typeof body.text === "string";
+  const hasPlatforms = Array.isArray(body.platforms);
+  if (!hasText && !hasPlatforms) {
+    return errorResponse("Nothing to update", 400, origin);
+  }
+
+  const text = hasText ? body.text!.trim() : undefined;
+  if (hasText && !text) {
+    return errorResponse("Text content is required", 400, origin);
+  }
+
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (hasText) updates.text = text;
+  if (hasPlatforms) updates.platforms = body.platforms;
+
+  try {
+    const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_posts?id=eq.${draftId}&user_id=eq.${user.sub}&status=eq.draft`,
+      {
+        method: "PATCH",
+        headers: {
+          apikey: env.SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(updates),
+      }
+    );
+
+    if (!res.ok) {
+      const errorData = await res.json() as { message?: string };
+      return errorResponse(errorData.message || "Failed to update draft", 500, origin);
+    }
+
+    const rows = await res.json() as any[];
+    if (!rows || rows.length === 0) {
+      return errorResponse("Draft not found", 404, origin);
+    }
+    return json({ draft: rows[0] }, 200, headers);
+  } catch (error) {
+    console.error("Draft update error:", error);
+    return errorResponse("Failed to update draft", 500, origin);
   }
 }
 

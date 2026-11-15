@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,7 +7,7 @@ import { FileText } from "lucide-react-native";
 import { useTheme } from "../lib/theme";
 import { useAppLanguage } from "../lib/useAppLanguage";
 import { FloatingMenuButton } from "../components/Menu";
-import { listDrafts, deleteDraft, type Draft } from "../lib/api";
+import { listDrafts, updateDraft, deleteDraft, type Draft } from "../lib/api";
 import type { RootStackParamList } from "../App";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -19,6 +19,8 @@ export default function DraftsScreen() {
   const nav = useNavigation<Nav>();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   useFocusEffect(useCallback(() => { fetchDrafts(); }, []));
 
@@ -30,6 +32,31 @@ export default function DraftsScreen() {
 
   function load(d: Draft) {
     nav.navigate("Compose", { draftText: d.text, draftPlatforms: d.platforms || [] });
+  }
+
+  function startEdit(d: Draft) {
+    setEditingId(d.id);
+    setEditText(d.text);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText("");
+  }
+
+  async function saveEdit(d: Draft) {
+    const text = editText.trim();
+    if (!text) {
+      Alert.alert(T.error_title, T.add_content_draft);
+      return;
+    }
+    try {
+      await updateDraft(d.id, text, d.platforms || []);
+      setDrafts((prev) => prev.map((x) => (x.id === d.id ? { ...x, text } : x)));
+      cancelEdit();
+    } catch (e: any) {
+      Alert.alert(T.error_title, e?.message || T.failed);
+    }
   }
 
   function remove(d: Draft) {
@@ -68,15 +95,41 @@ export default function DraftsScreen() {
                 {item.platforms?.length ? item.platforms.join(", ") : T.no_platforms} · {new Date(item.updated_at).toLocaleDateString()}
               </Text>
             </View>
-            <Text style={[styles.text, { color: colors.text }]} numberOfLines={3}>{item.text}</Text>
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.brand }]} onPress={() => load(item)}>
-                <Text style={styles.actionText}>{T.load}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => remove(item)}>
-                <Text style={[styles.actionGhostText, { color: colors.error }]}>{T.delete}</Text>
-              </TouchableOpacity>
-            </View>
+            {editingId === item.id ? (
+              <View style={styles.editWrap}>
+                <TextInput
+                  style={[styles.editInput, { backgroundColor: colors.bg, color: colors.text, borderColor: colors.border }]}
+                  multiline
+                  value={editText}
+                  onChangeText={setEditText}
+                  textAlignVertical="top"
+                  autoFocus
+                />
+                <View style={styles.actions}>
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.brand }]} onPress={() => saveEdit(item)}>
+                    <Text style={styles.actionText}>{T.save}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={cancelEdit}>
+                    <Text style={[styles.actionGhostText, { color: colors.textSecondary }]}>{T.cancel}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.text, { color: colors.text }]} numberOfLines={3}>{item.text}</Text>
+                <View style={styles.actions}>
+                  <TouchableOpacity style={[styles.actionBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => startEdit(item)}>
+                    <Text style={[styles.actionGhostText, { color: colors.text }]}>{T.edit}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.brand }]} onPress={() => load(item)}>
+                    <Text style={styles.actionText}>{T.load}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, { borderWidth: 1, borderColor: colors.border }]} onPress={() => remove(item)}>
+                    <Text style={[styles.actionGhostText, { color: colors.error }]}>{T.delete}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         )}
       />
@@ -97,6 +150,8 @@ const styles = StyleSheet.create({
   rowTop: { marginBottom: 6 },
   meta: { fontSize: 12 },
   text: { fontSize: 14, marginBottom: 12 },
+  editWrap: { gap: 10, marginBottom: 12 },
+  editInput: { borderWidth: 1, borderRadius: 8, padding: 10, minHeight: 110, fontSize: 14 },
   actions: { flexDirection: "row", gap: 8 },
   actionBtn: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   actionText: { color: "#fff", fontSize: 14, fontWeight: "600" },

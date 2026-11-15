@@ -67,6 +67,8 @@ export const cancelScheduled = (id: string) => api(`/api/scheduled/${id}`, { met
 export const listDrafts = () => api("/api/drafts").then((d) => (d?.drafts || []) as Draft[]);
 export const saveDraft = (text: string, platforms: string[]) =>
   api("/api/drafts", { method: "POST", body: JSON.stringify({ text, platforms }) });
+export const updateDraft = (id: string, text: string, platforms: string[]) =>
+  api(`/api/drafts/${id}`, { method: "PATCH", body: JSON.stringify({ text, platforms }) });
 export const deleteDraft = (id: string) => api(`/api/drafts/${id}`, { method: "DELETE" });
 
 export type PostMetrics = {
