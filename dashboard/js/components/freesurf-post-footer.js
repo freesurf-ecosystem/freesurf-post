@@ -37,9 +37,9 @@ const FOOTER_TEMPLATE = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><text x="12" y="15.5" text-anchor="middle" font-size="8" font-family="Arial, sans-serif" font-weight="700" fill="currentColor" stroke="none">G2</text></svg>
             G2
           </a>
-          <a href="https://www.capterra.com/p/10283793/CatVideo/" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;" aria-label="Review FreeSurf Post on Capterra">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M16.5 9.5a5 5 0 1 0 0 5"/></svg>
-            Capterra
+          <a href="https://www.trustpilot.com/review/catvideo.app" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;" aria-label="Review FreeSurf Post on Trustpilot">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>
+            Trustpilot
           </a>
         </div>
         <div class="freesurf-footer-col">
