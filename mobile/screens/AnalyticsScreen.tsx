@@ -33,6 +33,7 @@ function platformName(key: string): string {
 
 const STAT_KEYS: (keyof PostMetrics)[] = ["impressions", "likes", "comments", "shares"];
 const RICH_KEYS: { key: keyof PostMetrics; label: string }[] = [
+  { key: "views", label: "views" },
   { key: "reach", label: "reach" },
   { key: "saves", label: "saves" },
   { key: "dislikes", label: "dislikes" },
@@ -46,13 +47,14 @@ function statsFor(m: PostMetrics | undefined): { key: string; value: string }[] 
   return [...core, ...rich];
 }
 
-function aggregateStats(posts: RecentPost[]): { impressions: number; likes: number; comments: number; shares: number; byPlatform: Record<string, { impressions: number; likes: number; comments: number; shares: number }> } {
-  const totals = { impressions: 0, likes: 0, comments: 0, shares: 0 };
-  const byPlatform: Record<string, { impressions: number; likes: number; comments: number; shares: number }> = {};
+function aggregateStats(posts: RecentPost[]): { impressions: number; views: number; likes: number; comments: number; shares: number; byPlatform: Record<string, { impressions: number; views: number; likes: number; comments: number; shares: number }> } {
+  const totals = { impressions: 0, views: 0, likes: 0, comments: 0, shares: 0 };
+  const byPlatform: Record<string, { impressions: number; views: number; likes: number; comments: number; shares: number }> = {};
   for (const p of posts) {
     for (const [platform, m] of Object.entries(p.metrics || {}) as [string, PostMetrics][]) {
-      const row = (byPlatform[platform] ||= { impressions: 0, likes: 0, comments: 0, shares: 0 });
+      const row = (byPlatform[platform] ||= { impressions: 0, views: 0, likes: 0, comments: 0, shares: 0 });
       row.impressions += Number(m?.impressions) || 0;
+      row.views += Number(m?.views) || 0;
       row.likes += Number(m?.likes) || 0;
       row.comments += Number(m?.comments) || 0;
       row.shares += Number(m?.shares) || 0;
@@ -60,6 +62,7 @@ function aggregateStats(posts: RecentPost[]): { impressions: number; likes: numb
   }
   for (const row of Object.values(byPlatform)) {
     totals.impressions += row.impressions;
+    totals.views += row.views;
     totals.likes += row.likes;
     totals.comments += row.comments;
     totals.shares += row.shares;
@@ -367,6 +370,7 @@ export default function AnalyticsScreen() {
       <View style={[styles.summary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.summaryGrid}>
           <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.impressions)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).impressions || "Impressions"}</Text></View>
+          <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.views)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).views || "Views"}</Text></View>
           <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.likes)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).likes || "Likes"}</Text></View>
           <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.comments)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).comments || "Comments"}</Text></View>
           <View style={styles.summaryStat}><Text style={[styles.summaryValue, { color: colors.brand }]}>{fmtNum(totals.shares)}</Text><Text style={[styles.summaryLabel, { color: colors.textMuted }]}>{(T as any).shares || "Shares"}</Text></View>

@@ -2277,7 +2277,7 @@ html:not([data-reviewer="true"]) .reviewer-only {
 
 .freesurf-footer-links {
   display: flex;
-  gap: 24px;
+  gap: 56px;
   flex-wrap: wrap;
 }
 

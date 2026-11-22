@@ -118,6 +118,7 @@ export async function getTikTokMetrics(
       shares: video?.share_count ?? 0,
       comments: video?.comment_count ?? 0,
       impressions: video?.view_count ?? 0,
+      views: video?.view_count ?? 0,
       clicks: 0,
     };
   } catch {

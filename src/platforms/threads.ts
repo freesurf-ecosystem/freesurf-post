@@ -112,6 +112,7 @@ export async function getThreadsMetrics(
       shares: metrics["reposts"] ?? 0,
       comments: metrics["replies"] ?? 0,
       impressions: metrics["views"] ?? 0,
+      views: metrics["views"] ?? 0,
       clicks: 0,
     };
   } catch {

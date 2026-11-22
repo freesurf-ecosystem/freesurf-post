@@ -67,7 +67,6 @@ let connectedRedirectHandled = false;
 let directMediaMode = false;
 let connectedProfiles = []; // { platform, label, handle, id }[]
 let composeAccounts = [];   // accounts for the team selected in the compose dropdown
-let postHistory = [];
 let scheduledPosts = [];
 let currentView = "compose";
 // Onboarding (post-sign-in): terms/privacy acceptance + the two marketing
@@ -980,6 +979,7 @@ function updateDisclosures(platforms) {
   const tiktok = platforms.includes("tiktok");
   panel.classList.toggle("hidden", !aiPlatforms.length);
   $("#opt-tiktok-brand-wrap")?.classList.toggle("hidden", !tiktok);
+  updateMusicPanel(platforms);
 }
 
 function updateYouTubeTitlePanel(platforms) {
@@ -1115,6 +1115,112 @@ for (const key of ["reel", "feed", "story"]) {
   });
 }
 
+// ── Music (TikTok + Instagram Reels) ──
+let musicSelection = { instagram: null, tiktok: null }; // { musicSoundId, title } | null
+
+function updateMusicPanel(platforms) {
+  const panel = $("#music-panel");
+  if (!panel) return;
+  const hasTikTok = platforms.includes("tiktok");
+  const hasInstagramReel = platforms.includes("instagram") && selectedVideoFormat() === "reel";
+  panel.classList.toggle("hidden", !hasTikTok && !hasInstagramReel);
+  $("#music-tiktok-section")?.classList.toggle("hidden", !hasTikTok);
+  $("#music-instagram-section")?.classList.toggle("hidden", !hasInstagramReel);
+}
+
+function renderMusicSelection() {
+  const wrap = $("#music-selection");
+  const label = $("#music-selection-label");
+  if (!wrap || !label) return;
+  const parts = [];
+  if (musicSelection.tiktok) parts.push(`TikTok: ${musicSelection.tiktok.title}`);
+  if (musicSelection.instagram) parts.push(`Instagram: ${musicSelection.instagram.title}`);
+  wrap.classList.toggle("hidden", !parts.length);
+  label.textContent = parts.join(" · ");
+}
+
+function selectMusic(platform, musicSoundId, title) {
+  musicSelection[platform] = { musicSoundId, title };
+  renderMusicSelection();
+}
+
+function clearMusic() {
+  musicSelection = { instagram: null, tiktok: null };
+  if ($("#opt-tiktok-auto-music")) $("#opt-tiktok-auto-music").checked = false;
+  renderMusicSelection();
+}
+
+async function searchInstagramMusic() {
+  const list = $("#instagram-music-list");
+  if (!list) return;
+  const q = ($("#instagram-music-query")?.value || "").trim();
+  const teamId = $("#post-team")?.value || "";
+  const params = new URLSearchParams({ audioType: "music" });
+  if (q) params.set("searchQuery", q);
+  if (teamId) params.set("teamId", teamId);
+  list.innerHTML = `<span style="font-size:0.78rem;color:var(--text-muted);">Searching…</span>`;
+  try {
+    const res = await apiFetch(`/api/music/instagram?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    const items = data.audio || [];
+    if (!items.length) {
+      list.innerHTML = `<span style="font-size:0.78rem;color:var(--text-muted);">No results.</span>`;
+      return;
+    }
+    list.innerHTML = items.map((a) => {
+      const title = a.title || a.display_artist || "Untitled";
+      const artist = a.display_artist && a.display_artist !== title ? ` · ${a.display_artist}` : "";
+      return `<button type="button" class="btn btn-ghost btn-xs" data-music-pick="instagram" data-music-id="${escapeHtml(a.audio_id)}" data-music-title="${escapeHtml(title)}" style="justify-content:flex-start;text-align:left;">${escapeHtml(title)}${escapeHtml(artist)}</button>`;
+    }).join("");
+  } catch {
+    list.innerHTML = `<span style="font-size:0.78rem;color:var(--text-muted);">Search failed.</span>`;
+  }
+}
+
+async function loadTiktokMusic() {
+  const list = $("#tiktok-music-list");
+  if (!list) return;
+  const genre = $("#tiktok-music-genre")?.value || "POP";
+  const teamId = $("#post-team")?.value || "";
+  const params = new URLSearchParams({ genre, dateRange: "7DAY" });
+  if (teamId) params.set("teamId", teamId);
+  list.innerHTML = `<span style="font-size:0.78rem;color:var(--text-muted);">Loading…</span>`;
+  try {
+    const res = await apiFetch(`/api/music/tiktok?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const items = (await res.json().catch(() => [])) || [];
+    if (!items.length) {
+      list.innerHTML = `<span style="font-size:0.78rem;color:var(--text-muted);">No tracks.</span>`;
+      return;
+    }
+    list.innerHTML = items.map((t) => {
+      const clip = t.full_duration_song_clip || t.trending_song_clip || {};
+      const id = clip.song_clip_id;
+      if (!id) return "";
+      const name = t.commercial_music_name || "Untitled";
+      const artist = t.artist ? ` · ${t.artist}` : "";
+      return `<button type="button" class="btn btn-ghost btn-xs" data-music-pick="tiktok" data-music-id="${escapeHtml(id)}" data-music-title="${escapeHtml(name)}" style="justify-content:flex-start;text-align:left;">${escapeHtml(name)}${escapeHtml(artist)}</button>`;
+    }).join("");
+  } catch {
+    list.innerHTML = `<span style="font-size:0.78rem;color:var(--text-muted);">Failed to load.</span>`;
+  }
+}
+
+$("#btn-instagram-music")?.addEventListener("click", searchInstagramMusic);
+$("#instagram-music-query")?.addEventListener("keydown", (e) => { if (e.key === "Enter") searchInstagramMusic(); });
+$("#btn-tiktok-music")?.addEventListener("click", loadTiktokMusic);
+$("#btn-clear-music")?.addEventListener("click", clearMusic);
+["#instagram-music-list", "#tiktok-music-list"].forEach((sel) => {
+  $(sel)?.addEventListener("click", (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest("[data-music-pick]") : null;
+    if (!btn) return;
+    selectMusic(btn.dataset.musicPick, btn.dataset.musicId, btn.dataset.musicTitle);
+  });
+});
+
 function collectPlatformOptions() {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const opts = {};
@@ -1141,6 +1247,20 @@ function collectPlatformOptions() {
       opts.facebook = { ...(opts.facebook || {}), type };
     }
   }
+
+  // Music: TikTok + Instagram Reels (via Bundle musicSoundInfo / autoAddMusic).
+  if (platforms.includes("tiktok")) {
+    if (musicSelection.tiktok?.musicSoundId) {
+      opts.tiktok = { ...(opts.tiktok || {}), musicSoundInfo: { musicSoundId: musicSelection.tiktok.musicSoundId } };
+    }
+    if ($("#opt-tiktok-auto-music")?.checked) {
+      opts.tiktok = { ...(opts.tiktok || {}), autoAddMusic: true };
+    }
+  }
+  if (platforms.includes("instagram") && musicSelection.instagram?.musicSoundId) {
+    opts.instagram = { ...(opts.instagram || {}), musicSoundInfo: { musicSoundId: musicSelection.instagram.musicSoundId } };
+  }
+
   return opts;
 }
 
@@ -1151,6 +1271,7 @@ function resetDisclosures() {
   const share = $("#opt-share-to-feed");
   if (share) { share.checked = true; delete share.dataset.userTouched; }
   const yt = $("#youtube-title"); if (yt) yt.value = "";
+  clearMusic();
 }
 
 function collectPlatformTargets() {
@@ -1281,8 +1402,6 @@ btnPost.addEventListener("click", async () => {
       const fail = results.filter((r) => !r.success).length;
       showFeedback(fail === 0 ? `Posted to ${ok} platform(s)!` : `${ok} OK, ${fail} failed.`, fail === 0 ? "success" : "warning");
       feedback.insertAdjacentHTML("beforeend", `<div class="feedback-results">${html}</div>`);
-      postHistory.unshift({ id: data?.id, text, results, postedAt: data?.postedAt });
-      saveHistory();
       textarea.value = "";
       uploadedMedia = [];
       renderMediaPreview();
@@ -1553,11 +1672,6 @@ function localDateStr(date, tz) {
 }
 initTzSelect();
 
-// ── History (kept in localStorage, surfaced in Analytics) ──
-
-function saveHistory() { try { localStorage.setItem("freesurf-post-history", JSON.stringify(postHistory.slice(0, 50))); } catch {} }
-function loadHistory() { try { postHistory = JSON.parse(localStorage.getItem("freesurf-post-history") || "[]"); } catch { postHistory = []; } }
-
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 function fmtDate(iso) {
   const d = new Date(iso), n = new Date(), m = Math.floor((n - d) / 60000);
@@ -1702,6 +1816,8 @@ let accountsTeamId = "";
 let analyticsTeamId = "";
 let recentPostsAll = [];
 let recentPostsShown = 500;
+let analyticsPlatformFilter = ""; // "" = all platforms
+let analyticsTeamFilter = "";     // "" = all teams (matches bundle_team_id)
 
 async function fetchTeams() {
   if (!session?.access_token) { teams = []; renderTeams(); return; }
@@ -1713,6 +1829,7 @@ async function fetchTeams() {
     teams = data.teams || [];
   } catch { teams = []; }
   renderTeams();
+  populateAnalyticsFilters();
 }
 
 function renderTeams() {
@@ -2278,38 +2395,6 @@ async function fetchScheduled() {
   } catch { scheduledPosts = []; }
   renderCalendar();
   renderUpcoming();
-}
-
-async function fetchHistory() {
-  const container = $("#history-list");
-  if (!container || !session?.access_token) return;
-  try {
-    const res = await apiFetch(`/api/posts/recent?limit=15`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const posts = (await res.json()) || [];
-    container.innerHTML = posts.length === 0
-      ? `<div class="empty-state-text">Nothing published yet. Posts you send or schedule will show up here.</div>`
-      : posts.map((p) => {
-          const rows = (p.results || []);
-          const seen = new Set(rows.map((r) => r.platform));
-          const pending = (p.platforms || []).filter((pl) => !seen.has(pl));
-          const chips = rows.map((r) => r.success
-            ? `<span style="font-size:0.75rem;color:var(--success);white-space:nowrap;">${escapeHtml(r.platform)} ✓</span>`
-            : `<span style="font-size:0.75rem;color:var(--error);">${escapeHtml(r.platform)} ✗</span>`).join("")
-            + (pending.map((pl) => `<span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(pl)} …</span>`).join(""));
-          const fails = rows.filter((r) => !r.success);
-          return `
-            <div class="account-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
-              <div class="account-item-status" style="font-size:0.72rem;color:var(--text-muted);">${new Date(p.postedAt).toLocaleString()}</div>
-              <div class="account-item-name">${escapeHtml(p.text.length > 120 ? p.text.slice(0, 120) + "…" : p.text)}</div>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;">${chips}</div>
-              ${fails.length ? `<div style="font-size:0.75rem;color:var(--text-muted);">${fails.map((r) => `<span><strong style="color:var(--error);">${escapeHtml(r.platform)}:</strong> ${escapeHtml(humanError(r.error) || "failed")}</span>`).join("<br/>")}</div>` : ""}
-            </div>`;
-        }).join("");
-  } catch {
-    container.innerHTML = `<div class="empty-state-text">Could not load history.</div>`;
-  }
 }
 
 async function schedulePost() {
@@ -2997,6 +3082,8 @@ async function deleteHashtagGroup(groupId) {
 
 // ── Saved Replies Feature ──
 
+let savedRepliesData = [];
+
 async function fetchSavedReplies() {
   if (!session) return;
   
@@ -3007,12 +3094,60 @@ async function fetchSavedReplies() {
     
     if (res.ok) {
       const data = await res.json();
-      renderSavedReplies(data.replies || []);
+      savedRepliesData = data.replies || [];
+      renderSavedReplies(savedRepliesData);
     }
   } catch (error) {
     console.error("Failed to fetch saved replies:", error);
   }
 }
+
+async function toggleComposeSavedDropdown() {
+  const dd = $("#compose-saved-dropdown");
+  if (!dd) return;
+  if (!dd.classList.contains("hidden")) { dd.classList.add("hidden"); return; }
+  if (!savedRepliesData.length && session?.access_token) await fetchSavedReplies();
+  renderComposeSavedDropdown();
+  dd.classList.remove("hidden");
+}
+
+function renderComposeSavedDropdown() {
+  const dd = $("#compose-saved-dropdown");
+  if (!dd) return;
+  if (!savedRepliesData.length) {
+    dd.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted);padding:4px;">No saved text yet. Save a snippet from the Content tab.</div>`;
+    return;
+  }
+  dd.innerHTML = savedRepliesData.map((r) => `
+    <button type="button" class="btn btn-ghost btn-xs" data-insert-saved="${escapeHtml(r.id)}" style="display:block;width:100%;text-align:left;margin:2px 0;">
+      <span style="display:block;font-weight:600;">${escapeHtml(r.title || "Untitled")}</span>
+      <span style="color:var(--text-muted);font-size:0.72rem;">${escapeHtml((r.content || "").slice(0, 60))}${(r.content || "").length > 60 ? "…" : ""}</span>
+    </button>`).join("");
+}
+
+function insertSavedTextIntoCompose(id) {
+  const r = savedRepliesData.find((x) => x.id === id);
+  if (!r) return;
+  const ta = $("#post-text");
+  if (!ta) return;
+  const snippet = r.content || "";
+  ta.value = ta.value ? `${ta.value}\n\n${snippet}` : snippet;
+  $("#compose-saved-dropdown")?.classList.add("hidden");
+  ta.focus();
+}
+
+$("#btn-compose-saved-text")?.addEventListener("click", toggleComposeSavedDropdown);
+$("#compose-saved-dropdown")?.addEventListener("click", (e) => {
+  const btn = e.target && e.target.closest ? e.target.closest("[data-insert-saved]") : null;
+  if (btn) insertSavedTextIntoCompose(btn.dataset.insertSaved);
+});
+document.addEventListener("click", (e) => {
+  const dd = $("#compose-saved-dropdown");
+  if (!dd || dd.classList.contains("hidden")) return;
+  if (!e.target.closest("#compose-saved-dropdown") && !e.target.closest("#btn-compose-saved-text")) {
+    dd.classList.add("hidden");
+  }
+});
 
 function renderSavedReplies(replies) {
   const container = $("#saved-replies");
@@ -3341,6 +3476,7 @@ async function loadAnalyticsView() {
   if (!session?.access_token) return;
   populateImportPlatforms();
   updateImportEstimate();
+  fetchTeams();
   fetchRecentPosts();
   loadAnalyticsPrefs();
   loadAnalyticsChart();
@@ -3382,38 +3518,68 @@ async function loadAnalyticsChart() {
   const el = $("#analytics-chart");
   if (!el) return;
   try {
-    const res = await apiFetch(`/api/analytics/trends?days=${chartRange}`, {
+    const params = new URLSearchParams({ days: String(chartRange) });
+    if (analyticsPlatformFilter) params.set("platform", analyticsPlatformFilter);
+    if (analyticsTeamFilter) params.set("teamId", analyticsTeamFilter);
+    const res = await apiFetch(`/api/analytics/trends?${params.toString()}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json().catch(() => ({}));
     const trends = data?.trends || {};
     renderAnalyticsChart(el, trends);
+    renderPlatformSummary(data?.byPlatform || {});
   } catch {
     el.innerHTML = `<div class="chart-empty">Unable to load chart.</div>`;
   }
 }
 
+function renderPlatformSummary(byPlatform) {
+  const el = $("#analytics-platform-summary");
+  if (!el) return;
+  const entries = Object.entries(byPlatform || {}).sort((a, b) => b[1].impressions - a[1].impressions);
+  if (!entries.length) { el.innerHTML = ""; return; }
+  const total = entries.reduce((sum, [, v]) => sum + (v.impressions + v.likes + v.comments + v.shares), 0) || 1;
+  el.innerHTML = `<div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Engagement by channel</div>` +
+    entries.map(([platform, v]) => {
+      const eng = v.impressions + v.likes + v.comments + v.shares;
+      const pct = Math.max(1, Math.round((eng / total) * 100));
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <span style="font-size:0.78rem;font-weight:700;text-transform:uppercase;min-width:70px;color:var(--text-secondary);">${escapeHtml(platform)}</span>
+        <div style="flex:1;height:8px;background:var(--bg-alt);border-radius:999px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:var(--brand);border-radius:999px;"></div>
+        </div>
+        <span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">${fmtNum(v.posts)} posts · ${fmtNum(v.impressions)} imp · ${fmtNum(v.likes)} likes · ${fmtNum(v.comments)} cmts</span>
+      </div>`;
+    }).join("");
+}
+
 function renderAnalyticsChart(el, trends) {
   const legendEl = $("#analytics-chart-legend");
   const days = Object.keys(trends).sort();
-  if (!days.length) {
-    el.innerHTML = `<div class="chart-empty">No published posts in this period yet.</div>`;
-    if (legendEl) legendEl.innerHTML = "";
-    return;
-  }
   const series = [
     { key: "impressions", label: "Impressions", color: "var(--brand)" },
     { key: "likes", label: "Likes", color: "#e0245e" },
     { key: "comments", label: "Comments", color: "#1d9bf0" },
     { key: "shares", label: "Shares", color: "#00ba7c" },
   ];
+  if (!days.length) {
+    el.innerHTML = `<div class="chart-empty">No published posts in this period yet.</div>`;
+    if (legendEl) legendEl.innerHTML = "";
+    return;
+  }
   const totals = series.map((s) => days.reduce((sum, d) => sum + (Number(trends[d][s.key]) || 0), 0));
+  const hasEngagement = totals.some((v) => v > 0);
+  if (!hasEngagement) {
+    el.innerHTML = `<div class="chart-empty">No engagement data yet — click <strong>Refresh</strong> to pull metrics.</div>`;
+    if (legendEl) legendEl.innerHTML = "";
+    return;
+  }
   const max = Math.max(1, ...totals);
   const cols = days.map((d) => {
     const t = trends[d];
     const total = series.reduce((sum, s) => sum + (Number(t[s.key]) || 0), 0);
-    const h = Math.max(0, Math.round((total / max) * 100));
-    return `<div class="chart-col" title="${d}: ${fmtNum(total)}">
+    const h = Math.max(total > 0 ? 3 : 0, Math.round((total / max) * 100));
+    return `<div class="chart-col" title="${d}: ${fmtNum(total)} engagement">
       <div class="chart-bar" style="height:${h}%"></div>
       <div class="chart-label">${d.slice(5)}</div>
     </div>`;
@@ -3442,13 +3608,14 @@ async function refreshAnalytics() {
   if (!btn || btn.disabled) return;
   btn.disabled = true;
   const original = btn.textContent;
-  const pulling = Math.min(Math.max(Number($("#refresh-count")?.value) || 50, 1), 100);
+  const pulling = Math.min(Math.max(Number($("#refresh-count")?.value) || 50, 1), 500);
   btn.textContent = `Pulling ${pulling} posts…`;
   let refreshed = 0;
   let processed = 0;
   let skippedX = 0;
   let rateLimited = 0;
   let failed = false;
+  const failures = [];
   try {
     let offset = 0;
     let guard = 0;
@@ -3456,7 +3623,7 @@ async function refreshAnalytics() {
       const res = await apiFetch(`/api/analytics/refresh?limit=${pulling}&offset=${offset}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: "{}",
+        body: JSON.stringify({ skipXAnalytics: Boolean($("#skip-x-analytics")?.checked) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -3468,6 +3635,7 @@ async function refreshAnalytics() {
       processed += Number(data?.processed) || 0;
       skippedX += Number(data?.skippedX) || 0;
       rateLimited += Number(data?.rateLimited) || 0;
+      for (const d of data?.details || []) if (!d.ok) failures.push(d);
       const next = Number(data?.nextOffset);
       if (data?.done || !Number.isFinite(next) || next <= offset) break;
       offset = next;
@@ -3477,9 +3645,14 @@ async function refreshAnalytics() {
       let msg = refreshed
         ? `Refreshed ${processed} posts (${refreshed} with new engagement).`
         : `Checked ${processed} posts — no fresh metrics yet (the platform may still be reporting zeros).`;
-      if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"} (no X credit — enable "Skip X" or top up).`;
+      if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"} ("Skip X in bulk refresh" is on).`;
       if (rateLimited) msg += ` ${rateLimited} live read${rateLimited === 1 ? "" : "s"} hit the platform's 6-refresh/day limit — showing cached numbers for those.`;
+      if (failures.length) {
+        const sample = failures.slice(0, 3).map((f) => `${f.platform}: ${f.error || "read failed"}`).join("; ");
+        msg += ` ${failures.length} read${failures.length === 1 ? "" : "s"} failed — ${sample}${failures.length > 3 ? "; see console for the rest" : ""}.`;
+      }
       showAnalyticsFeedback(msg, refreshed ? "success" : "warning");
+      if (failures.length) console.warn("[analytics] post read failures", failures);
     }
   } catch (e) {
     showAnalyticsFeedback("Refresh failed — " + (e?.message || "network error"), "error");
@@ -3546,11 +3719,39 @@ async function pollImport(jobId, platform, count, status) {
   if (status) status.textContent = "Still processing — check back shortly.";
 }
 
+function populateAnalyticsFilters() {
+  const pf = $("#analytics-platform-filter");
+  if (pf && pf.options.length <= 1) {
+    pf.innerHTML = `<option value="">All platforms</option>` +
+      PLATFORMS.map((p) => `<option value="${p.key}" ${analyticsPlatformFilter === p.key ? "selected" : ""}>${p.name}</option>`).join("");
+  }
+  const tf = $("#analytics-team-filter");
+  if (tf) {
+    const cur = tf.value || analyticsTeamFilter;
+    tf.innerHTML = `<option value="">All teams</option>` +
+      teams.map((t) => {
+        const v = t.bundle_team_id || t.id;
+        return `<option value="${v}" ${cur === v ? "selected" : ""}>${escapeHtml(t.label)}</option>`;
+      }).join("");
+  }
+}
+
+$("#analytics-platform-filter")?.addEventListener("change", (e) => {
+  analyticsPlatformFilter = e.target.value;
+  renderRecentPosts();
+  loadAnalyticsChart();
+});
+$("#analytics-team-filter")?.addEventListener("change", (e) => {
+  analyticsTeamFilter = e.target.value;
+  renderRecentPosts();
+  loadAnalyticsChart();
+});
+
 async function fetchRecentPosts() {
   if (!session?.access_token) return;
   // Keep the list + status reconciliation scoped to the same "Last X" the Refresh
   // button uses, so the pills and the analytics pull stay in lockstep.
-  const limit = Math.min(Math.max(Number($("#refresh-count")?.value) || 50, 1), 200);
+  const limit = Math.min(Math.max(Number($("#refresh-count")?.value) || 50, 1), 500);
   let app = [];
   try {
     const res = await apiFetch(`/api/posts/recent?limit=${limit}`, {
@@ -3562,12 +3763,14 @@ async function fetchRecentPosts() {
   const appItems = (app || []).map((p) => ({
     id: p.id, kind: "app", date: p.postedAt || p.created_at, text: p.text || "",
     results: p.results || [], metrics: p.metrics || {},
+    mediaUrls: p.mediaUrls || [], teamId: p.teamId || "",
   }));
 
   recentPostsAll = appItems.filter((x) => x.date).sort((a, b) => new Date(b.date) - new Date(a.date));
   // Keep however far the user expanded (Load more) across refreshes, but never
   // show fewer than the first page or more than we actually have.
   recentPostsShown = Math.min(Math.max(recentPostsShown, 6), Math.max(recentPostsAll.length, 6));
+  populateAnalyticsFilters();
   renderRecentPosts();
 }
 
@@ -3598,9 +3801,19 @@ function renderRecentPosts() {
   const loadMore = $("#btn-load-more-posts");
   if (!container) return;
 
-  const posts = recentPostsAll || [];
-  if (!posts.length) {
+  const all = recentPostsAll || [];
+  const posts = all.filter((p) => {
+    if (analyticsPlatformFilter && !(p.results || []).some((r) => r.platform === analyticsPlatformFilter)) return false;
+    if (analyticsTeamFilter && (p.teamId || "") !== analyticsTeamFilter) return false;
+    return true;
+  });
+  if (!all.length) {
     container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No posts yet. Publish something, or use <strong>Import past posts</strong> to pull in history.</p></div>`;
+    if (loadMore) loadMore.classList.add("hidden");
+    return;
+  }
+  if (!posts.length) {
+    container.innerHTML = `<div class="empty-state"><p class="empty-state-text">No posts match the current filters.</p></div>`;
     if (loadMore) loadMore.classList.add("hidden");
     return;
   }
@@ -3692,10 +3905,28 @@ function renderRecentPosts() {
       <div class="account-item" style="flex-direction:column;align-items:stretch;gap:4px;">
         <div class="sli-meta" style="font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${when} ${itemBadge(p, p.text)}</div>
         <div class="account-item-name">${name || "<i>untitled</i>"}</div>
+        ${p.mediaUrls?.length ? `<div class="recent-post-media" data-media-for="${p.id}" style="display:flex;gap:6px;flex-wrap:wrap;margin:2px 0;"></div>` : ""}
         ${platformChips}
         ${failedText}
       </div>`;
   }).join("");
+
+  // Resolve + render media thumbnails for posts that carry uploads (best-effort,
+  // async so a slow upload lookup never blocks the list).
+  visible.forEach((p) => {
+    if (!p.mediaUrls?.length) return;
+    const slot = container.querySelector(`[data-media-for="${p.id}"]`);
+    if (!slot) return;
+    (async () => {
+      try {
+        const idsStr = p.mediaUrls.join(",");
+        const items = await getUploads(idsStr);
+        slot.innerHTML = items.slice(0, 3).map((u) => u.thumbnailUrl
+          ? `<img src="${esc(u.thumbnailUrl)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border);" alt="media" loading="lazy" />`
+          : "").join("");
+      } catch {}
+    })();
+  });
 
   if (loadMore) {
     const remaining = Math.max(0, posts.length - recentPostsShown);
@@ -3805,8 +4036,8 @@ function commentsHtml(platform, postId) {
     <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-light);">
       ${target ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">Replying to a comment <button type="button" class="btn btn-xs btn-ghost" data-cancel-reply="${escapeHtml(key)}">Cancel</button></div>` : ""}
       <textarea class="form-input" data-reply-input="${escapeHtml(key)}" rows="2" placeholder="${target ? "Write a reply…" : `Reply to this ${escapeHtml(label)} post…`}" style="width:100%;resize:vertical;font-family:inherit;font-size:0.85rem;"></textarea>
-      <div style="display:flex;justify-content:flex-end;margin-top:6px;">
-        <button class="btn btn-xs btn-primary" data-submit-reply="1" data-reply-platform="${escapeHtml(platform)}" data-reply-post-id="${escapeHtml(postId)}" data-reply-key="${escapeHtml(key)}">Reply</button>
+      <div style="display:flex;justify-content:flex-start;margin-top:6px;">
+        <button class="btn btn-xs btn-primary" data-submit-reply="1" data-reply-platform="${escapeHtml(platform)}" data-reply-post-id="${escapeHtml(postId)}" data-reply-key="${escapeHtml(key)}">${target ? "Post reply" : "Reply to post"}</button>
       </div>
     </div>`;
 
@@ -3832,13 +4063,13 @@ function commentsHtml(platform, postId) {
       ? `<img src="${escapeHtml(c.authorAvatarUrl)}" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
       : "";
     const replyLink = c.id
-      ? `<button class="btn btn-xs btn-ghost" data-reply-comment="1" data-reply-key="${escapeHtml(key)}" data-reply-comment-id="${escapeHtml(c.id)}">Reply</button>`
+      ? `<button class="btn btn-xs btn-ghost" data-reply-comment="1" data-reply-key="${escapeHtml(key)}" data-reply-comment-id="${escapeHtml(c.id)}">Reply to comment</button>`
       : "";
     return `
       <div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border-light);">
         ${avatar}
         <div style="min-width:0;flex:1;">
-          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;justify-content:space-between;">
+          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">
             <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">
               ${c.authorProfileUrl
                 ? `<a href="${escapeHtml(c.authorProfileUrl)}" target="_blank" rel="noopener" style="font-weight:700;color:var(--text);">${author}</a>`
@@ -3846,9 +4077,9 @@ function commentsHtml(platform, postId) {
               ${handle ? `<span>${handle}</span>` : ""}
               ${when ? `<span>${escapeHtml(when)}</span>` : ""}
             </span>
-            ${replyLink}
           </div>
           <div style="font-size:0.85rem;white-space:pre-wrap;margin-top:2px;">${escapeHtml(c.text || "")}</div>
+          ${replyLink ? `<div style="margin-top:4px;">${replyLink}</div>` : ""}
         </div>
       </div>`;
   }).join("");
@@ -4040,12 +4271,10 @@ function escapeHtml(text) {
 
 async function init() {
   const initialHash = location.hash.replace("#", "");
-  loadHistory();
   renderAccounts();
   renderPlatformChips();
   await refreshAuth();
   await fetchScheduled();
-  await fetchHistory();
 
   // Re-render accounts now that profiles are loaded (connection state + handles)
   renderAccounts();
@@ -4097,8 +4326,7 @@ async function init() {
   }
   
   // Initialize new feature views
-  if ($("#view-drafts")) fetchDrafts();
-  if ($("#view-saved-text")) fetchSavedReplies();
+  if ($("#view-drafts")) { fetchDrafts(); fetchSavedReplies(); }
   if ($("#view-queue")) fetchQueue();
   if ($("#view-analytics")) loadAnalyticsView();
 }
@@ -4137,10 +4365,8 @@ function switchView(viewName) {
   if (viewName === "compose") fetchTeams();
   if (viewName === "accounts") { fetchTeams(); fetchProfiles().then(renderAccounts); }
   if (viewName === "docs") fetchKeys();
-  if (viewName === "drafts") fetchDrafts();
-  if (viewName === "saved-text") fetchSavedReplies();
+  if (viewName === "drafts") { fetchDrafts(); fetchSavedReplies(); }
   if (viewName === "queue") fetchQueue();
-  if (viewName === "history") fetchHistory();
   if (viewName === "analytics") loadAnalyticsView();
   if (viewName === "fees") fetchCredits();
   if (viewName === "schedule") fetchScheduled();

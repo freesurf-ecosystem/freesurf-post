@@ -79,6 +79,7 @@ export interface PlatformMetrics {
   shares: number;
   comments: number;
   impressions?: number;
+  views?: number;
   clicks?: number;
 }
 

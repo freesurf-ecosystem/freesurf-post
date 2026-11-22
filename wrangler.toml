@@ -22,6 +22,16 @@ run_worker_first = true
 binding = "RATE_LIMITS"
 id = "0a83c67d64d5484e96cb732f64e19c89"
 
+# D1 for rate-limit counters (atomic upserts, higher free write quota than KV).
+# Create it once with:
+#   npx wrangler d1 create freesurf-post-rate-limits
+# then paste the returned database_id below. The code falls back to the KV
+# namespace above until D1 is wired up.
+[[d1_databases]]
+binding = "DB"
+database_name = "freesurf-post-rate-limits"
+database_id = "fe8e69a8-c62d-43d9-ada7-4ef12f155445"
+
 # Cron: process due scheduled posts every 5 minutes
 [triggers]
 crons = ["*/5 * * * *"]

@@ -16,6 +16,12 @@ import { startStandardOAuth, completeStandardOAuth, type StandardProvider } from
 import { startXAuth, completeXAuth } from "./oauth/x";
 import { encryptAccountRow } from "./crypto";
 import { FREESURF } from "./freesurf.config";
+import {
+  counterStoreAvailable,
+  getCounter,
+  incrementCounter,
+  cleanupExpiredCounters,
+} from "./rate-limits";
 
 export interface Env {
   SUPABASE_JWT_SECRET: string;
@@ -85,6 +91,7 @@ export interface Env {
   TOKEN_ENCRYPTION_KEY?: string;
 
   RATE_LIMITS?: KVNamespace;
+  DB?: D1Database;                  // Rate-limit counters (primary store)
   ASSETS?: Fetcher;                 // Workers Assets binding (static dashboard)
 }
 
@@ -578,6 +585,16 @@ async function handleApi(
   const analyticsMatch = url.pathname.match(/^\/api\/analytics\/([a-z]+)$/);
   if (analyticsMatch && request.method === "GET") {
     return handleBundleAnalytics(request, env, analyticsMatch[1], origin, h);
+  }
+
+  // --- GET /api/music/instagram — search Instagram music/original sounds ---
+  if (url.pathname === "/api/music/instagram" && request.method === "GET") {
+    return handleInstagramMusicSearch(request, env, origin, h);
+  }
+
+  // --- GET /api/music/tiktok — TikTok CML trending tracks ---
+  if (url.pathname === "/api/music/tiktok" && request.method === "GET") {
+    return handleTiktokMusicSearch(request, env, origin, h);
   }
 
   // --- POST /api/comments/import — start Bundle comment import ---
@@ -2086,6 +2103,77 @@ async function normDirectMetrics(
   return null;
 }
 
+export interface ForcedMetrics {
+  metrics: Record<string, number> | null;
+  metered: boolean;
+  rateLimited: boolean;
+  error?: string;
+}
+
+/**
+ * Force a live analytics read for one published post/platform. This is the
+ * single code path shared by the bulk Refresh and the per-post Refresh button,
+ * so both give the same answer:
+ *   1. Read directly when the post bypassed Bundle (via === "direct").
+ *   2. Otherwise force through Bundle's `/analytics/post/force`.
+ *   3. If Bundle doesn't know the post (401/403/404 — posts we published
+ *      directly, or lost external ids), fall back to a direct platform read.
+ * Returns a result object instead of throwing, so callers can report why a
+ * post was skipped.
+ */
+async function forcePostMetrics(
+  env: Env,
+  platform: Platform,
+  postId: string,
+  via: "direct" | "bundle" | undefined,
+  reviewerTokens: PlatformToken[] = []
+): Promise<ForcedMetrics> {
+  const direct = async (): Promise<ForcedMetrics> => {
+    try {
+      const metrics = await normDirectMetrics(env, platform, postId, reviewerTokens);
+      return metrics
+        ? { metrics, metered: false, rateLimited: false }
+        : { metrics: null, metered: false, rateLimited: false, error: "no direct reader configured" };
+    } catch (e) {
+      return { metrics: null, metered: false, rateLimited: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  };
+
+  if (via === "direct") return direct();
+  if (!env.SOCIAL_API_PROVIDER_KEY) {
+    return { metrics: null, metered: false, rateLimited: false, error: "provider not configured" };
+  }
+  const bs = bundlePlatform(platform);
+  if (!bs) return { metrics: null, metered: false, rateLimited: false, error: "unknown platform" };
+
+  try {
+    const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+      body: JSON.stringify({ postId, platformType: bs }),
+    });
+    if (res.ok) {
+      return { metrics: normBundleMetrics(await res.json()), metered: true, rateLimited: false };
+    }
+    if (res.status === 429) {
+      return { metrics: null, metered: false, rateLimited: true, error: "platform refresh limit (6/day)" };
+    }
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
+      // Bundle can't read this post back — try the platform directly.
+      return direct();
+    }
+    const body = await res.text().catch(() => "");
+    return {
+      metrics: null,
+      metered: false,
+      rateLimited: false,
+      error: `Bundle ${res.status}${body ? `: ${body.slice(0, 120)}` : ""}`,
+    };
+  } catch (e) {
+    return { metrics: null, metered: false, rateLimited: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** Merge fresh metrics for one platform into a post row (best-effort). */
 async function persistMetricsToRow(
   env: Env,
@@ -2225,19 +2313,16 @@ async function handleAnalyticsRefresh(
   // Users can opt out of pulling X in the bulk refresh (X reads are metered at
   // $0.005/post). The deliberate per-post "Refresh" action still works.
   const prefs = await getAnalyticsPrefs(env, user.sub);
-  const skipX = prefs.skipXAnalytics;
+  let skipX = prefs.skipXAnalytics;
 
   // Bundle meters X reads: TWITTER_POST_READ $0.005 per per-post analytics fetch
   // (confirmed via /billing/billable-usage/quote → "X post read", 5000 micros).
   const X_POST_READ_FEE_MICROS = 5_000;
 
-  // X credit guard: if the user hasn't opted out of X, only force X reads while
-  // they actually have credit — otherwise skip X (and report how many we skipped)
-  // rather than silently running their balance negative / failing on Bundle.
-  let xBalanceMicros = 0;
-  if (!skipX) {
-    try { xBalanceMicros = await getUserBalanceMicros(user.sub, env); } catch { xBalanceMicros = 0; }
-  }
+  // Bulk Refresh mirrors the per-post button: it attempts every post, including
+  // X. The only opt-out is the explicit "Skip X in bulk refresh" preference —
+  // we no longer silently drop X just because the ledger balance is low, which
+  // made posts look like they had "no metrics yet" until clicked individually.
   let skippedX = 0;
   let rateLimited = 0;
 
@@ -2249,13 +2334,16 @@ async function handleAnalyticsRefresh(
   let offset = 0;
   const url = new URL(request.url);
   const qLimit = Number(url.searchParams.get("limit"));
-  if (Number.isFinite(qLimit) && qLimit > 0) limit = Math.min(Math.max(Math.floor(qLimit), 1), 100);
+  if (Number.isFinite(qLimit) && qLimit > 0) limit = Math.min(Math.max(Math.floor(qLimit), 1), 500);
   const qOffset = Number(url.searchParams.get("offset"));
   if (Number.isFinite(qOffset) && qOffset > 0) offset = Math.max(Math.floor(qOffset), 0);
   try {
-    const body = (await request.json().catch(() => null)) as { limit?: number; offset?: number } | null;
-    if (typeof body?.limit === "number") limit = Math.min(Math.max(Math.floor(body.limit), 1), 100);
+    const body = (await request.json().catch(() => null)) as { limit?: number; offset?: number; skipXAnalytics?: boolean } | null;
+    if (typeof body?.limit === "number") limit = Math.min(Math.max(Math.floor(body.limit), 1), 500);
     if (typeof body?.offset === "number") offset = Math.max(Math.floor(body.offset), 0);
+    // The dashboard sends the live checkbox state so a stale saved preference
+    // can't surprise the user into skipping X.
+    if (typeof body?.skipXAnalytics === "boolean") skipX = body.skipXAnalytics;
   } catch { /* ignore malformed body */ }
 
   const BATCH_POSTS = 10;
@@ -2305,6 +2393,7 @@ async function handleAnalyticsRefresh(
     }
 
     const refreshed: string[] = [];
+    const details: Array<{ postRowId: string; postId: string; platform: string; ok: boolean; error?: string }> = [];
     let processed = 0;
     for (const post of posts) {
       const results = ((post.results || []) as any[]).filter((r) => r?.success && r?.postId);
@@ -2312,74 +2401,40 @@ async function handleAnalyticsRefresh(
       // Keep one subrequest in reserve so merged metrics can be persisted.
       if (budget <= 1) break;
 
-      const metrics: Record<string, any> = post.metrics || {};
+      const metrics: Record<string, any> =
+        post.metrics && typeof post.metrics === "object" ? { ...post.metrics } : {};
       let changed = false;
       for (const r of results) {
-        if (skipX && r.platform === "x") continue;
+        if (skipX && r.platform === "x") {
+          skippedX++;
+          continue;
+        }
         if (budget <= 1) break;
+        budget--;
         try {
-          let normalized: Record<string, number> | null = null;
-          let metered = false;
-          if (r.via === "direct") {
-            // We published this ourselves, so Bundle can't read it back.
-            budget--;
-            normalized = await normDirectMetrics(env, r.platform, r.postId, reviewerTokens);
-          } else if (r.platform === "x") {
-            // X is metered: only force if the user has credit, otherwise skip.
-            if (!env.SOCIAL_API_PROVIDER_KEY) continue;
-            if (xBalanceMicros < X_POST_READ_FEE_MICROS) { skippedX++; continue; }
-            if (budget < 3) break; // force + fee ledger + patch
-            const bs = bundlePlatform(r.platform);
-            budget--;
-            const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-              body: JSON.stringify({ postId: r.postId, platformType: bs }),
-            });
-            if (res.ok) {
-              normalized = normBundleMetrics(await res.json());
-              metered = true;
-              xBalanceMicros -= X_POST_READ_FEE_MICROS;
-            } else if (res.status === 429) {
-              rateLimited++;
-            } else if (res.status === 401 || res.status === 403 || res.status === 404) {
-              // Directly-published posts aren't known to Bundle — read directly.
-              budget--;
-              normalized = await normDirectMetrics(env, r.platform, r.postId, reviewerTokens);
-            } else {
-              const t = await res.text();
-              console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
-            }
-          } else if (env.SOCIAL_API_PROVIDER_KEY) {
-            // Force a live read for non-X posts too. The passive bulk snapshot is
-            // only refreshed by Bundle every ~24h, so without this a newly
-            // published post shows "no metrics yet" until its per-post Refresh
-            // is clicked. Fall back to the snapshot if the force fails.
-            const bs = bundlePlatform(r.platform);
-            if (!bs) continue;
-            budget--;
-            const res = await fetch("https://api.bundle.social/api/v1/analytics/post/force", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-              body: JSON.stringify({ postId: r.postId, platformType: bs }),
-            });
-            if (res.ok) {
-              normalized = normBundleMetrics(await res.json());
-            } else {
-              if (res.status === 429) rateLimited++;
-              const t = await res.text();
-              if (res.status !== 429) {
-                console.error(`[analytics-refresh] platform=${r.platform} post=${r.postId} status=${res.status} body=${t.slice(0, 300)}`);
-              }
-              normalized = bulk.get(`${r.platform}::${r.postId}`) || null;
-            }
+          const out = await forcePostMetrics(
+            env, r.platform as Platform, r.postId, r.via, reviewerTokens
+          );
+          if (out.rateLimited) rateLimited++;
+          let normalized = out.metrics;
+          // Non-X fallback to the passive snapshot when a live force returns
+          // nothing (rate limit / provider hiccup). X has no passive snapshot.
+          if (!normalized && r.platform !== "x") {
+            normalized = bulk.get(`${r.platform}::${r.postId}`) || null;
           }
-          if (!normalized) continue;
+          if (!normalized) {
+            details.push({
+              postRowId: post.id, postId: r.postId, platform: r.platform, ok: false,
+              error: out.error || "no metrics returned",
+            });
+            continue;
+          }
           metrics[r.platform] = normalized;
           changed = true;
+          details.push({ postRowId: post.id, postId: r.postId, platform: r.platform, ok: true });
           // X per-post analytics reads are metered by Bundle ($0.005/read, POST_READ).
           // Tabulate them in the X-fee ledger so refreshes show up on the fees page.
-          if (metered && r.platform === "x") {
+          if (out.metered && r.platform === "x") {
             if (budget <= 1) break;
             budget--;
             try {
@@ -2399,7 +2454,12 @@ async function handleAnalyticsRefresh(
               console.error("record X analytics read fee failed:", e instanceof Error ? e.message : String(e));
             }
           }
-        } catch { /* best-effort per result */ }
+        } catch (e) {
+          details.push({
+            postRowId: post.id, postId: r.postId, platform: r.platform, ok: false,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
 
       if (changed) {
@@ -2415,11 +2475,19 @@ async function handleAnalyticsRefresh(
       processed++;
     }
 
+    const failed = details.filter((d) => !d.ok);
     const nextOffset = offset + processed;
     const done = nextOffset >= limit || posts.length < take;
-    console.log(`[analytics-refresh] limit=${limit} offset=${offset} processed=${processed} postsLoaded=${posts.length} refreshed=${refreshed.length} skippedX=${skippedX} rateLimited=${rateLimited} nextOffset=${nextOffset} done=${done}`);
+    console.log(`[analytics-refresh] limit=${limit} offset=${offset} processed=${processed} postsLoaded=${posts.length} refreshed=${refreshed.length} skippedX=${skippedX} rateLimited=${rateLimited} failed=${failed.length} nextOffset=${nextOffset} done=${done}`);
+    if (failed.length) {
+      console.error(`[analytics-refresh] failed reads: ${JSON.stringify(failed.slice(0, 20))}`);
+    }
     return json(
-      { refreshed: refreshed.length, posts: refreshed, postsLoaded: posts.length, processed, limit, offset, nextOffset, done, skippedX, rateLimited },
+      {
+        refreshed: refreshed.length, posts: refreshed, postsLoaded: posts.length,
+        processed, limit, offset, nextOffset, done, skippedX, rateLimited,
+        details,
+      },
       200, headers
     );
   } catch (e) {
@@ -3196,6 +3264,13 @@ function dayStamp(): string {
   return `${monthStamp()}-${String(now.getUTCDate()).padStart(2, "0")}`;
 }
 
+function minuteStamp(): string {
+  const now = new Date();
+  return `${dayStamp()}T${String(now.getUTCHours()).padStart(2, "0")}:${String(
+    now.getUTCMinutes()
+  ).padStart(2, "0")}`;
+}
+
 /**
  * Shared quota gate for immediate posts and scheduled posts. Bundle counts its
  * monthly allowance at scheduling/creation time, so both endpoints must check.
@@ -3209,15 +3284,16 @@ async function enforcePostQuota(
   userTokens: PlatformToken[],
   origin: string
 ): Promise<Response | null> {
-  if (!env.RATE_LIMITS) return null;
-  const kv = env.RATE_LIMITS;
+  const store = { db: env.DB, kv: env.RATE_LIMITS };
+  if (!counterStoreAvailable(store)) return null;
   const month = monthStamp();
   const day = dayStamp();
+  const minute = minuteStamp();
   const limits = postingLimits(env);
 
-  // 1. Per-minute
-  const minKey = `rate:min:${user.sub}`;
-  const minCount = parseInt((await kv.get(minKey)) ?? "0");
+  // 1. Per-minute (window is baked into the key so it resets each minute)
+  const minKey = `rate:min:${minute}:${user.sub}`;
+  const minCount = await getCounter(store, minKey);
   if (minCount >= limits.perMinutePerUser) {
     return rateLimitResponse(
       `Rate limit exceeded. Max ${limits.perMinutePerUser} posts per minute.`,
@@ -3230,11 +3306,11 @@ async function enforcePostQuota(
       origin
     );
   }
-  await kv.put(minKey, String(minCount + 1), { expirationTtl: 60 });
+  await incrementCounter(store, minKey, 120);
 
   // 2. Per-day
   const dayKey = `rate:day:${day}:${user.sub}`;
-  const dayCount = parseInt((await kv.get(dayKey)) ?? "0");
+  const dayCount = await getCounter(store, dayKey);
   if (dayCount >= limits.perDayPerUser) {
     return rateLimitResponse(
       `Daily post limit reached (${limits.perDayPerUser}/day). Try again tomorrow.`,
@@ -3250,7 +3326,7 @@ async function enforcePostQuota(
 
   // 3. Per-user monthly
   const userMonthKey = `rate:user:${month}:${user.sub}`;
-  const userMonthCount = parseInt((await kv.get(userMonthKey)) ?? "0");
+  const userMonthCount = await getCounter(store, userMonthKey);
   if (userMonthCount >= limits.perMonthPerUser) {
     return rateLimitResponse(
       `Monthly post limit reached (${limits.perMonthPerUser}/mo). Contact support if you need more.`,
@@ -3266,7 +3342,7 @@ async function enforcePostQuota(
 
   // 4. Org-wide soft cap
   const globalKey = `rate:global:${month}`;
-  const globalCount = parseInt((await kv.get(globalKey)) ?? "0");
+  const globalCount = await getCounter(store, globalKey);
   if (globalCount >= limits.perMonthOrg) {
     return rateLimitResponse(
       "Monthly posting capacity reached. Please try again next month or contact support.",
@@ -3286,7 +3362,7 @@ async function enforcePostQuota(
     const directX = platform === "x" && hasDirectXCreds(env, userTokens);
     if (!directX) {
       const platKey = `rate:plat:${month}:${platform}:${user.sub}`;
-      const platCount = parseInt((await kv.get(platKey)) ?? "0");
+      const platCount = await getCounter(store, platKey);
       if (platCount >= limits.perMonthPerPlatformPerUser) {
         return rateLimitResponse(
           `${platform} monthly limit reached (${limits.perMonthPerPlatformPerUser} posts/mo).`,
@@ -3303,7 +3379,7 @@ async function enforcePostQuota(
     }
 
     const acctKey = `rate:acct:${month}:${platform}:${accountScope}`;
-    const acctCount = parseInt((await kv.get(acctKey)) ?? "0");
+    const acctCount = await getCounter(store, acctKey);
     if (acctCount >= limits.perMonthPerAccount) {
       return rateLimitResponse(
         `${platform} account monthly limit reached (${limits.perMonthPerAccount} posts/mo).`,
@@ -3331,41 +3407,33 @@ async function recordPostQuota(
   team: string | undefined,
   userTokens: PlatformToken[]
 ): Promise<void> {
-  if (!env.RATE_LIMITS) return;
-  const kv = env.RATE_LIMITS;
+  if (!counterStoreAvailable({ db: env.DB, kv: env.RATE_LIMITS })) return;
+  const store = { db: env.DB, kv: env.RATE_LIMITS };
   const month = monthStamp();
   const day = dayStamp();
   const accountScope = encodeURIComponent(`${user.sub}:${teamId || team || "default"}`);
 
   const dayKey = `rate:day:${day}:${user.sub}`;
-  await kv.put(dayKey, String(parseInt((await kv.get(dayKey)) ?? "0") + 1), {
-    expirationTtl: 86400,
-  });
+  await incrementCounter(store, dayKey, 86400);
+
+  const userKey = `rate:user:${month}:${user.sub}`;
+  const globalKey = `rate:global:${month}`;
 
   for (const platform of platforms) {
     const directX = platform === "x" && hasDirectXCreds(env, userTokens);
     if (!directX) {
       const platKey = `rate:plat:${month}:${platform}:${user.sub}`;
-      await kv.put(platKey, String(parseInt((await kv.get(platKey)) ?? "0") + 1), {
-        expirationTtl: 60 * 86400,
-      });
+      await incrementCounter(store, platKey, 60 * 86400);
     }
 
     const acctKey = `rate:acct:${month}:${platform}:${accountScope}`;
-    await kv.put(acctKey, String(parseInt((await kv.get(acctKey)) ?? "0") + 1), {
-      expirationTtl: 60 * 86400,
-    });
-
-    const userKey = `rate:user:${month}:${user.sub}`;
-    await kv.put(userKey, String(parseInt((await kv.get(userKey)) ?? "0") + 1), {
-      expirationTtl: 60 * 86400,
-    });
-
-    const globalKey = `rate:global:${month}`;
-    await kv.put(globalKey, String(parseInt((await kv.get(globalKey)) ?? "0") + 1), {
-      expirationTtl: 60 * 86400,
-    });
+    await incrementCounter(store, acctKey, 60 * 86400);
   }
+
+  // User-monthly and org-wide counters are incremented once per post, not once
+  // per platform (previously these sat inside the loop and were over-counted).
+  await incrementCounter(store, userKey, 60 * 86400);
+  await incrementCounter(store, globalKey, 60 * 86400);
 }
 
 /**
@@ -4402,7 +4470,9 @@ async function handleReply(
   // importedPostId), socialAccountTypes[], data.{PLATFORM}.text, title, and
   // status SCHEDULED + postDate to publish immediately.
   const bsPlatform = bundlePlatform(body.platform);
-  const teamId = await getOrCreateBundleTeam(user.sub, env);
+  // Resolve the team the post actually belongs to (a switched active team would
+  // otherwise route the reply to the wrong account and fail silently).
+  const teamId = (await findPostTeamId(env, user.sub, body.postId)) || (await getOrCreateBundleTeam(user.sub, env));
   if (bsPlatform && teamId && env.SOCIAL_API_PROVIDER_KEY) {
     try {
       const now = new Date().toISOString();
@@ -4431,6 +4501,16 @@ async function handleReply(
           : "";
         console.error(`Bundle reply failed (${body.platform}):`, res.status, JSON.stringify(data));
         return errorResponse(issues || data?.message || "Reply failed", res.status || 502, origin);
+      }
+      // Bundle can accept (200) yet error per-platform. Surface the real reason
+      // instead of reporting success, so a TikTok reply that didn't land is visible.
+      const platformErr =
+        data?.errors?.[bsPlatform] ||
+        data?.errorsVerbose?.[bsPlatform]?.userFacingMessage ||
+        data?.errorsVerbose?.[bsPlatform]?.errorMessage;
+      if (platformErr || data?.status === "ERROR") {
+        console.error(`Bundle reply errored (${body.platform}):`, JSON.stringify(data));
+        return errorResponse(platformErr || data?.error || "Reply accepted but errored", 502, origin);
       }
       return json({ id: data.id || "", platform: body.platform }, 200, headers);
     } catch (e) {
@@ -4637,10 +4717,17 @@ async function handleHealthCheck(
   const checks: Array<{ name: string; status: "healthy" | "degraded" | "unhealthy"; message?: string; response_time_ms: number }> = [];
   let overallStatus: "healthy" | "degraded" | "unhealthy" = "healthy";
 
-  // Check Cloudflare KV (rate limiting)
+  // Check rate-limit store (D1 primary, KV fallback)
   const kvStart = Date.now();
   try {
-    if (env.RATE_LIMITS) {
+    if (env.DB) {
+      await env.DB.prepare("SELECT count(*) AS n FROM post_counters").first();
+      checks.push({
+        name: "rate_limiter_d1",
+        status: "healthy",
+        response_time_ms: Date.now() - kvStart,
+      });
+    } else if (env.RATE_LIMITS) {
       const testKey = `health-check-${Date.now()}`;
       await env.RATE_LIMITS.put(testKey, "ok", { expirationTtl: 60 });
       await env.RATE_LIMITS.get(testKey);
@@ -4651,16 +4738,16 @@ async function handleHealthCheck(
       });
     } else {
       checks.push({
-        name: "rate_limiter_kv",
+        name: "rate_limiter",
         status: "degraded",
-        message: "KV not configured - rate limiting disabled",
+        message: "No rate-limit store configured",
         response_time_ms: 0,
       });
       overallStatus = "degraded";
     }
   } catch (error) {
     checks.push({
-      name: "rate_limiter_kv",
+      name: "rate_limiter",
       status: "unhealthy",
       message: error instanceof Error ? error.message : "Unknown error",
       response_time_ms: Date.now() - kvStart,
@@ -5703,6 +5790,8 @@ async function handleGetAnalyticsTrends(
 
   const url = new URL(request.url);
   const days = parseInt(url.searchParams.get("days") || "30");
+  const platformFilter = (url.searchParams.get("platform") || "").toLowerCase();
+  const teamFilter = url.searchParams.get("teamId") || "";
 
   try {
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
@@ -5712,7 +5801,7 @@ async function handleGetAnalyticsTrends(
     // row's created_at — so scheduled/older drafts count on the day they actually
     // went out, matching the Analytics list.
     const historyRes = await fetch(
-      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=500&select=posted_at,created_at,metrics`,
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=500&select=posted_at,created_at,metrics,bundle_team_id`,
       {
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
@@ -5731,6 +5820,7 @@ async function handleGetAnalyticsTrends(
     // bucketed by the post's publication day — a useful "which days did my
     // posts perform" view without a full per-day history table.
     const trends: Record<string, { posts: number; impressions: number; likes: number; comments: number; shares: number }> = {};
+    const byPlatform: Record<string, { posts: number; impressions: number; likes: number; comments: number; shares: number }> = {};
 
     const num = (n: unknown): number => {
       const v = Number(n);
@@ -5740,22 +5830,36 @@ async function handleGetAnalyticsTrends(
     posts.forEach((post: any) => {
       const published = new Date(post.posted_at || post.created_at);
       if (Number.isNaN(published.getTime()) || published.getTime() < startDate) return;
+      if (teamFilter && (post.bundle_team_id || "") !== teamFilter) return;
       const day = published.toISOString().split("T")[0];
       if (!trends[day]) {
         trends[day] = { posts: 0, impressions: 0, likes: 0, comments: 0, shares: 0 };
       }
       trends[day].posts++;
-      for (const m of Object.values(post.metrics || {}) as any[]) {
-        trends[day].impressions += num(m?.impressions ?? m?.views);
-        trends[day].likes += num(m?.likes);
-        trends[day].comments += num(m?.comments);
-        trends[day].shares += num(m?.shares);
+      for (const [platform, m] of Object.entries(post.metrics || {}) as [string, any][]) {
+        if (platformFilter && platform !== platformFilter) continue;
+        const imp = num(m?.impressions ?? m?.views);
+        const likes = num(m?.likes);
+        const comments = num(m?.comments);
+        const shares = num(m?.shares);
+        trends[day].impressions += imp;
+        trends[day].likes += likes;
+        trends[day].comments += comments;
+        trends[day].shares += shares;
+
+        if (!byPlatform[platform]) byPlatform[platform] = { posts: 0, impressions: 0, likes: 0, comments: 0, shares: 0 };
+        byPlatform[platform].posts++;
+        byPlatform[platform].impressions += imp;
+        byPlatform[platform].likes += likes;
+        byPlatform[platform].comments += comments;
+        byPlatform[platform].shares += shares;
       }
     });
 
     return json(
       {
         trends,
+        byPlatform,
         period: { start: new Date(startDate).toISOString(), end: new Date().toISOString(), days },
       },
       200,
@@ -5874,6 +5978,62 @@ async function handleUploads(
 }
 
 /**
+ * GET /api/music/instagram — search Instagram music / original sounds via Bundle.
+ * Returns the raw Bundle `{ audio: [...] }` payload. Requires the account to be
+ * connected through Facebook Login (direct Instagram OAuth can't use audio).
+ */
+async function handleInstagramMusicSearch(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+  const url = new URL(request.url);
+  const audioType = url.searchParams.get("audioType") === "original_sound" ? "original_sound" : "music";
+  const searchQuery = (url.searchParams.get("searchQuery") || "").trim().slice(0, 100);
+  const teamId = await resolveBundleTeamId(user.sub, url.searchParams.get("teamId") || undefined, env);
+  if (!teamId) return errorResponse("No active team", 400, origin);
+  const qs = new URLSearchParams({ teamId, audioType });
+  if (searchQuery) qs.set("searchQuery", searchQuery);
+  try {
+    const res = await fetch(`https://api.bundle.social/api/v1/misc/instagram/audio?${qs.toString()}`, {
+      headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+    });
+    const data = res.ok ? await res.json().catch(() => ({ audio: [] })) : { audio: [] };
+    return json(data, 200, headers);
+  } catch {
+    return json({ audio: [] }, 200, headers);
+  }
+}
+
+/**
+ * GET /api/music/tiktok — TikTok Commercial Music Library trending tracks via
+ * Bundle. Returns the raw flat track array (use song_clip_id for publishing).
+ */
+async function handleTiktokMusicSearch(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SOCIAL_API_PROVIDER_KEY) return errorResponse("Not configured", 501, origin);
+  const url = new URL(request.url);
+  const genre = (url.searchParams.get("genre") || "POP").toUpperCase().slice(0, 40);
+  const dateRange = url.searchParams.get("dateRange") || "7DAY";
+  const teamId = await resolveBundleTeamId(user.sub, url.searchParams.get("teamId") || undefined, env);
+  if (!teamId) return errorResponse("No active team", 400, origin);
+  const qs = new URLSearchParams({ teamId, genre, dateRange });
+  try {
+    const res = await fetch(`https://api.bundle.social/api/v1/misc/tiktok/cml/trending-list?${qs.toString()}`, {
+      headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
+    });
+    const data = res.ok ? await res.json().catch(() => []) : [];
+    return json(data, 200, headers);
+  } catch {
+    return json([], 200, headers);
+  }
+}
+
+/**
  * GET /api/posts/recent — recent published posts with per-platform results
  * (successes + errors surfaced from the cron), newest first.
  */
@@ -5885,9 +6045,9 @@ async function handleRecentPosts(
   if (!env.SUPABASE_SECRET_KEY) return json([], 200, headers);
   try {
     const url = new URL(request.url);
-    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 200);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 500);
     const res = await fetch(
-      `${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=${limit}&select=id,text,platforms,results,metrics,posted_at,created_at`,
+      `${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=${limit}&select=id,text,platforms,results,metrics,posted_at,created_at,media_urls,bundle_team_id`,
       { headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }
     );
     if (!res.ok) return json([], 200, headers);
@@ -5939,7 +6099,7 @@ async function handleRecentPosts(
         }
       }
     }
-    for (const id of missingIds.slice(0, 40)) {
+    for (const id of missingIds.slice(0, 10)) {
       try {
         const dr = await fetch(`https://api.bundle.social/api/v1/post/${id}`, {
           headers: { "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
@@ -5982,6 +6142,8 @@ async function handleRecentPosts(
         postedAt: p.posted_at || p.created_at,
         results,
         metrics: p.metrics || {},
+        mediaUrls: p.media_urls || [],
+        teamId: p.bundle_team_id || undefined,
       };
     }), 200, headers);
   } catch {
@@ -5998,6 +6160,15 @@ async function handleCron(env: Env): Promise<Response> {
   }
 
   try {
+    // Prune expired rate-limit counters (best-effort; D1 has no auto-expiry).
+    if (env.DB) {
+      try {
+        await cleanupExpiredCounters(env.DB);
+      } catch (e) {
+        console.error("Counter cleanup failed:", e instanceof Error ? e.message : String(e));
+      }
+    }
+
     const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
     const now = new Date().toISOString();
 

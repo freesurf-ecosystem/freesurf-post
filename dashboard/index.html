@@ -87,21 +87,13 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           <span>Compose</span>
         </button>
-        <button class="sidebar-nav-item" data-view="drafts">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <span>Drafts</span>
-        </button>
         <button class="sidebar-nav-item" data-view="schedule">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span>Scheduled</span>
         </button>
-        <button class="sidebar-nav-item" data-view="history">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
-          <span>History</span>
-        </button>
-        <button class="sidebar-nav-item" data-view="saved-text">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-          <span>Saved Text</span>
+        <button class="sidebar-nav-item" data-view="drafts">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Saved Content</span>
         </button>
         <button class="sidebar-nav-item" data-view="inbox">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -415,6 +407,11 @@
 
               <textarea id="post-text" class="compose-textarea" placeholder="What's on your mind?" maxlength="5000" rows="5"></textarea>
 
+              <div style="position:relative;margin-top:6px;">
+                <button type="button" class="btn btn-xs btn-secondary" id="btn-compose-saved-text">Insert saved text ▾</button>
+                <div id="compose-saved-dropdown" class="hidden" style="position:absolute;top:100%;left:0;z-index:30;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:8px;min-width:280px;max-height:240px;overflow:auto;margin-top:4px;"></div>
+              </div>
+
               <div class="first-comment-wrap">
                 <label class="form-label" for="first-comment">First comment (optional)</label>
                 <textarea id="first-comment" class="form-textarea" style="min-height:56px;" rows="2" maxlength="10000" placeholder="e.g. Which one do you agree with?"></textarea>
@@ -441,6 +438,40 @@
                   <span class="form-label" style="margin-bottom:2px;">Disclosures</span>
                   <label class="auth-checkbox"><input type="checkbox" id="opt-ai-generated" /> Mark content as AI-generated</label>
                   <label class="auth-checkbox" id="opt-tiktok-brand-wrap"><input type="checkbox" id="opt-tiktok-brand" /> TikTok: label as promoting my own business</label>
+                </div>
+                <div class="compose-disclosures hidden" id="music-panel">
+                  <span class="form-label" style="margin-bottom:2px;">Music <span style="font-weight:400;color:var(--text-muted);">(TikTok &amp; Instagram Reels)</span></span>
+                  <div id="music-tiktok-section" class="hidden" style="margin-bottom:8px;">
+                    <label class="auth-checkbox"><input type="checkbox" id="opt-tiktok-auto-music" /> TikTok: auto-add popular music</label>
+                    <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+                      <select id="tiktok-music-genre" class="form-input" style="max-width:150px;">
+                        <option value="POP">POP</option>
+                        <option value="LO-FI">LO-FI</option>
+                        <option value="ELECTRONIC">Electronic</option>
+                        <option value="HIP_HOP/RAP">Hip-hop / Rap</option>
+                        <option value="R&B/SOUL">R&amp;B / Soul</option>
+                        <option value="JAZZ">Jazz</option>
+                        <option value="CHILL_BEATS">Chill beats</option>
+                        <option value="K-POP">K-pop</option>
+                        <option value="ROCK">Rock</option>
+                        <option value="CLASSICAL">Classical</option>
+                      </select>
+                      <button type="button" class="btn btn-sm btn-secondary" id="btn-tiktok-music">Load trending</button>
+                    </div>
+                    <div id="tiktok-music-list" style="display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:160px;overflow:auto;"></div>
+                  </div>
+                  <div id="music-instagram-section" class="hidden" style="margin-bottom:8px;">
+                    <div style="display:flex;gap:6px;margin-top:2px;">
+                      <input type="text" id="instagram-music-query" class="form-input" placeholder="Search music or sounds" maxlength="100" autocomplete="off" style="max-width:200px;" />
+                      <button type="button" class="btn btn-sm btn-secondary" id="btn-instagram-music">Search</button>
+                    </div>
+                    <div id="instagram-music-list" style="display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:160px;overflow:auto;"></div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Instagram music works on Reels connected via Facebook Login.</div>
+                  </div>
+                  <div id="music-selection" class="hidden" style="font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:8px;">
+                    <span id="music-selection-label"></span>
+                    <button type="button" class="btn btn-ghost btn-xs" id="btn-clear-music">Clear</button>
+                  </div>
                 </div>
                 <div id="compose-warnings" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
                   <span id="bsky-warning" class="link-warning hidden">Bluesky only allows up to <strong>300 characters</strong> — this text is longer, so it won't post to Bluesky.</span>
@@ -501,16 +532,6 @@
             <div><h2 class="card-title">Upcoming posts</h2><p class="card-subtitle">All scheduled posts, with any media that will be attached.</p></div>
           </div>
           <div class="account-list" id="upcoming-list"></div>
-        </div>
-      </section>
-
-      <!-- History -->
-      <section id="view-history" class="view hidden">
-        <div class="card">
-          <div class="card-header">
-            <div><h2 class="card-title">History</h2><p class="card-subtitle">Published posts and per-platform results — a ✗ shows why a platform failed.</p></div>
-          </div>
-          <div class="account-list" id="history-list"><div class="empty-state-text">Nothing published yet.</div></div>
         </div>
       </section>
 
@@ -833,10 +854,12 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
         <div class="card">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Drafts & Content Library</h2>
-              <p class="card-subtitle">Save and reuse your content ideas.</p>
+              <h2 class="card-title">Saved Content</h2>
+              <p class="card-subtitle">Drafts and reusable saved text for your posts.</p>
             </div>
           </div>
+
+          <div style="padding:0 20px 6px;"><h3 style="font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);margin:0;">Drafts</h3></div>
           <div id="drafts-list" class="drafts-list">
             <div class="empty-state">
               <div class="empty-state-icon">
@@ -845,13 +868,8 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
               <p class="empty-state-text">No drafts yet. Save a post to get started.</p>
             </div>
           </div>
-        </div>
-      </section>
 
-      <!-- Saved Text -->
-      <section id="view-saved-text" class="view hidden">
-        <div class="card">
-          <div class="card-header">
+          <div class="card-header" style="margin-top:16px;">
             <div>
               <div style="display:flex;align-items:center;gap:12px;">
                 <h2 class="card-title">Saved Text</h2>
@@ -915,6 +933,7 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
                   <option value="10">Last 10</option>
                   <option value="50" selected>Last 50</option>
                   <option value="100">Last 100</option>
+                  <option value="500">Last 500</option>
                 </select>
                 <button class="btn btn-primary" id="btn-refresh-analytics">Refresh</button>
               </div>
@@ -943,8 +962,14 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
             </div>
             <div class="analytics-chart" id="analytics-chart"></div>
             <div class="analytics-chart-legend" id="analytics-chart-legend"></div>
+            <div id="analytics-platform-summary" style="margin-top:12px;"></div>
           </div>
 
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 4px;">
+            <span style="font-size:0.8rem;color:var(--text-muted);">Filter:</span>
+            <select id="analytics-platform-filter" class="form-input" style="max-width:170px;"><option value="">All platforms</option></select>
+            <select id="analytics-team-filter" class="form-input" style="max-width:170px;"><option value="">All teams</option></select>
+          </div>
           <div class="account-list" id="recent-posts-list"></div>
           <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
         </div>

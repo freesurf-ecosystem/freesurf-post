@@ -98,7 +98,7 @@ export async function getInstagramMetrics(
 ): Promise<PlatformMetrics> {
   try {
     const res = await fetch(
-      `${API_BASE}/${mediaId}/insights?metric=impressions,reach,likes,comments,shares&access_token=${accessToken}`
+      `${API_BASE}/${mediaId}/insights?metric=impressions,reach,likes,comments,shares,plays,views&access_token=${accessToken}`
     );
 
     if (!res.ok) {
@@ -120,6 +120,7 @@ export async function getInstagramMetrics(
       shares: metrics["shares"] ?? 0,
       comments: metrics["comments"] ?? 0,
       impressions: metrics["impressions"] ?? 0,
+      views: metrics["views"] ?? metrics["plays"] ?? 0,
       clicks: 0,
     };
   } catch {

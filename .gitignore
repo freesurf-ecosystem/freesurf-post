@@ -28,3 +28,6 @@ credentials/
 .dev.vars
 .dev.vars.*
 *.local
+
+# Wrangler local dev state (miniflare cache/D1/R2 sqlite files)
+.wrangler/

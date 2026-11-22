@@ -81,7 +81,7 @@ export async function getFacebookMetrics(
 ): Promise<PlatformMetrics> {
   try {
     const res = await fetch(
-      `${API_BASE}/${postId}/insights?metric=post_impressions,post_reactions_like_total,post_clicks&access_token=${accessToken}`
+      `${API_BASE}/${postId}/insights?metric=post_impressions,post_reactions_like_total,post_clicks,post_video_views&access_token=${accessToken}`
     );
 
     if (!res.ok) {
@@ -112,6 +112,7 @@ export async function getFacebookMetrics(
       shares: detail.shares?.count ?? 0,
       comments: detail.comments?.summary?.total_count ?? 0,
       impressions: metrics["post_impressions"] ?? 0,
+      views: metrics["post_video_views"] ?? 0,
       clicks: metrics["post_clicks"] ?? 0,
     };
   } catch {

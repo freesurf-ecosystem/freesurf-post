@@ -7,6 +7,40 @@ Landscape snapshot: 2026-10-30
 
 > Pricing below is vendor list pricing in USD, annual billing unless noted, pulled from vendor pricing pages on 2026-10-30. Prices and packaging change often — re-verify before publishing a comparison article. Sendible and Zoho Social use dynamic/regional pricing; their entries are marked accordingly.
 
+## Pricing page index
+
+Quick reference to every competitor's pricing page, so we can re-check features and limits without hunting through the sections below.
+
+- [Agorapulse](https://www.agorapulse.com/pricing/)
+- [Ayrshare](https://www.ayrshare.com/pricing/)
+- [Blotato](https://blotato.com/pricing)
+- [Buffer](https://buffer.com/pricing)
+- [ContentStudio](https://contentstudio.io/pricing)
+- [Genviral](https://genviral.io/pricing)
+- [Hookle](https://www.hookle.net/pricing)
+- [Hootsuite](https://www.hootsuite.com/plans)
+- [Hypefury](https://hypefury.com/features-pricing/)
+- [Later](https://later.com/pricing/)
+- [Loomly](https://loomly.com/pricing/)
+- [MeetEdgar](https://meetedgar.com/pricing)
+- [Metricool](https://metricool.com/pricing/)
+- [Missinglettr](https://missinglettr.com/pricing/)
+- [Mixpost](https://mixpost.app/pricing)
+- [Planable](https://planable.io/pricing/)
+- [Post Bridge](https://www.post-bridge.com/pricing)
+- [Postiz](https://postiz.com/pricing)
+- [Publer](https://publer.com/pricing)
+- [RecurPost](https://recurpost.com/plans-and-pricing/)
+- [Sendible](https://www.sendible.com/pricing)
+- [Social Champ](https://www.socialchamp.io/pricing/)
+- [SocialBee](https://socialbee.com/pricing/)
+- [SocialPilot](https://socialpilot.co/pricing)
+- [Sprout Social](https://sproutsocial.com/pricing/)
+- [TryPost](https://trypost.it/pricing)
+- [Upload-Post](https://www.upload-post.com/pricing)
+- [Zernio](https://zernio.com/pricing)
+- [Zoho Social](https://www.zoho.com/social/pricing.html)
+
 ## Watchlist (not yet audited)
 
 Names seen in competitor sitemaps/comparison pages that are either adjacent categories or still need a full audit. Keep them out of the main tables until there is a reason to write about them.
@@ -146,42 +180,7 @@ Sections: build vs buy, per-profile vs per-account vs per-post pricing, platform
 - **Open source + self-host path.** Postiz, Mixpost, and TryPost are the closest peers here.
 - **Honest X pricing.** FreeSurf Post passes X API fees through at cost instead of bundling them into a subscription.
 
-### Suggested "Free [Competitor] Alternative" articles
 
-Prioritize competitors where FreeSurf Post has a clear structural advantage:
-
-1. Free Buffer Alternative — per-channel pricing vs free
-2. Free Hootsuite Alternative — per-seat pricing and account caps
-3. Free Later Alternative — no free tier and post caps
-4. Free Sprout Social Alternative — enterprise pricing for solo users
-5. Free SocialPilot Alternative — paid-only entry and account caps
-6. Free Metricool Alternative — free-tier exclusions and X add-on
-7. Free Sendible Alternative — workspace/profile limits
-8. Free Loomly Alternative — minimum plan size
-9. Free Agorapulse Alternative — per-user pricing
-10. Free Zoho Social Alternative — channel caps and ecosystem lock-in
-11. Free Postiz Alternative — hosted price vs self-host maintenance
-12. Free Mixpost Alternative — one-time license vs server ownership
-13. Free Blotato Alternative — AI content engine vs plain cross-posting
-14. Free ContentStudio Alternative — API-first but no free forever plan
-15. Free SocialBee Alternative — evergreen queues and profile caps
-16. Free MeetEdgar Alternative — automation-first, no free plan
-17. Free Hypefury Alternative — creator scheduling without X support
-18. Free RecurPost Alternative — low entry price, account-based add-ons
-19. Free Missinglettr Alternative — blog-to-social drip vs full scheduler
-20. Free Upload-Post Alternative — unified API vs full UI
-21. Free Social Champ Alternative — per-profile pricing and X add-on
-22. Free Post Bridge Alternative — solo-operator scheduler vs free/open-source
-23. Free Publer Alternative — bulk scheduling and per-account pricing
-24. Free Ayrshare Alternative — per-profile API pricing vs open-source
-25. Free Zernio Alternative — usage-based API vs self-hosted API
-26. Free Genviral Alternative — AI content studio vs plain cross-posting
-27. Free Hookle Alternative — mobile-first scheduling vs web/API
-28. Free Hootsuite API Alternative — enterprise API surface vs open-source API
-29. Free TryPost Alternative — free/open-source vs $19 flat cloud
-30. Free Planable Alternative — approval-first vs simple cross-poster
-
-Each article should include: a short definition of who the competitor is best for, a pricing table, a feature table, a "when FreeSurf Post is the better fit" section, a "when the competitor is still better" section (honesty improves trust), and a migration/how-to section.
 
 ### Comparison-page patterns worth studying
 
