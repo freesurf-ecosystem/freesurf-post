@@ -582,8 +582,10 @@ async function handleApi(
   }
 
   // --- GET /api/analytics/:platform — proxy Bundle analytics ---
+  // `trends` is not a platform — let it fall through to the dedicated
+  // /api/analytics/trends route below instead of being rejected here.
   const analyticsMatch = url.pathname.match(/^\/api\/analytics\/([a-z]+)$/);
-  if (analyticsMatch && request.method === "GET") {
+  if (analyticsMatch && request.method === "GET" && analyticsMatch[1] !== "trends") {
     return handleBundleAnalytics(request, env, analyticsMatch[1], origin, h);
   }
 
