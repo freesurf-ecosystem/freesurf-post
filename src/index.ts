@@ -816,6 +816,9 @@ async function handleApi(
   if (url.pathname === "/api/analytics/trends" && request.method === "GET") {
     return handleGetAnalyticsTrends(request, env, origin, h);
   }
+  if (url.pathname === "/api/analytics/trends/debug" && request.method === "GET") {
+    return handleAnalyticsTrendsDebug(request, env, origin, h);
+  }
   // POST /api/analytics/refresh — pull post analytics from Bundle and cache in post_posts.metrics
   if (url.pathname === "/api/analytics/refresh" && request.method === "POST") {
     return handleAnalyticsRefresh(request, env, origin, h);
@@ -5868,6 +5871,87 @@ async function handleGetAnalyticsTrends(
   } catch (error) {
     console.error("Trends fetch error:", error);
     return errorResponse("Failed to fetch trends", 500, origin);
+  }
+}
+
+/**
+ * GET /api/analytics/trends/debug — diagnostic for the analytics chart.
+ * Dumps the raw posted-post rows (dates + metrics presence) so we can see why
+ * /api/analytics/trends returns an empty `trends` object ("No published posts
+ * in this period yet"). Returns no post content, only ids/dates/metric keys.
+ */
+async function handleAnalyticsTrendsDebug(
+  request: Request, env: Env, origin: string, headers: Record<string, string>
+): Promise<Response> {
+  const user = await authenticateRequest(request, env);
+  if (!user) return errorResponse("Unauthorized", 401, origin);
+  if (!env.SUPABASE_SECRET_KEY) return errorResponse("Not configured", 501, origin);
+
+  const supabaseUrl = env.SUPABASE_URL || "https://jstojewashwoswsskwjk.supabase.co";
+  const authHeaders = { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` };
+  const url = new URL(request.url);
+  const days = parseInt(url.searchParams.get("days") || "30");
+  const startDate = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/post_posts?user_id=eq.${user.sub}&status=eq.posted&order=posted_at.desc.nullslast&limit=500&select=id,posted_at,created_at,metrics,bundle_team_id`,
+      { headers: authHeaders }
+    );
+    if (!res.ok) return errorResponse(`Supabase ${res.status}`, 502, origin);
+    const posts = (await res.json()) as any[];
+
+    const postedAtVals: number[] = [];
+    const createdAtVals: number[] = [];
+    let withPostedAt = 0;
+    let withMetrics = 0;
+    const withinWindow: string[] = [];
+    const samples: any[] = [];
+
+    for (const p of posts) {
+      const pa = p.posted_at ? new Date(p.posted_at).getTime() : NaN;
+      const ca = p.created_at ? new Date(p.created_at).getTime() : NaN;
+      if (!Number.isNaN(pa)) { withPostedAt++; postedAtVals.push(pa); }
+      if (!Number.isNaN(ca)) createdAtVals.push(ca);
+      const metricKeys = Object.keys(p.metrics || {});
+      if (metricKeys.length) withMetrics++;
+
+      const published = Number.isNaN(pa) ? ca : pa;
+      const inWindow = !Number.isNaN(published) && published >= startDate;
+      if (inWindow) withinWindow.push(new Date(published).toISOString().split("T")[0]);
+
+      if (samples.length < 20) {
+        samples.push({
+          id: p.id,
+          posted_at: p.posted_at ?? null,
+          created_at: p.created_at ?? null,
+          published_in_window: inWindow,
+          has_metrics: metricKeys.length > 0,
+          metric_platforms: metricKeys,
+        });
+      }
+    }
+
+    const minMax = (vals: number[]) =>
+      vals.length ? { min: new Date(Math.min(...vals)).toISOString(), max: new Date(Math.max(...vals)).toISOString() } : null;
+
+    const withinByDay: Record<string, number> = {};
+    for (const d of withinWindow) withinByDay[d] = (withinByDay[d] || 0) + 1;
+
+    return json({
+      query: { days, startDate: new Date(startDate).toISOString(), now: new Date().toISOString() },
+      total_posted: posts.length,
+      with_posted_at: withPostedAt,
+      with_created_at: createdAtVals.length,
+      with_metrics: withMetrics,
+      posted_at_range: minMax(postedAtVals),
+      created_at_range: minMax(createdAtVals),
+      within_window_count: withinWindow.length,
+      within_window_by_day: withinByDay,
+      samples,
+    }, 200, headers);
+  } catch (e) {
+    return json({ error: "debug failed", detail: e instanceof Error ? e.message : String(e) }, 502, headers);
   }
 }
 
