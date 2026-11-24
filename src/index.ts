@@ -3617,7 +3617,7 @@ async function handlePost(
   );
 
   const postId = crypto.randomUUID();
-  await persistPostHistory(env, user.sub, postId, text, mediaIds, results);
+  await persistPostHistory(env, user.sub, postId, text, mediaIds, results, bundleTeamId);
 
   // Record X metered fee (best-effort) for successful X posts. Bundle's quote is
   // authoritative; our has_link heuristic remains in the ledger for auditing.
@@ -3645,7 +3645,8 @@ async function persistPostHistory(
   postId: string,
   text: string,
   mediaUrls: string[] | undefined,
-  results: PlatformPostResult[]
+  results: PlatformPostResult[],
+  bundleTeamId: string | null
 ): Promise<void> {
   if (!env.SUPABASE_SECRET_KEY) return;
   const supabaseUrl = env.SUPABASE_URL || SUPABASE_URL;
@@ -3667,6 +3668,7 @@ async function persistPostHistory(
         results,
         has_link: detectHasLink(text),
         posted_at: new Date().toISOString(),
+        ...(bundleTeamId ? { bundle_team_id: bundleTeamId } : {}),
       }),
     });
   } catch {
