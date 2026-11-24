@@ -4052,7 +4052,10 @@ function commentsHtml(platform, postId) {
     const debug = state.debug
       ? `<div style="margin-top:4px;font-size:0.7rem;color:var(--text-muted);word-break:break-word;opacity:0.8;">provider: ${escapeHtml(state.debug)}</div>`
       : "";
-    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${msg} ${loadBtn}</div>${debug}${composer}`;
+    const sent = state.sent
+      ? `<div style="margin-top:4px;font-size:0.7rem;color:var(--text-muted);word-break:break-word;opacity:0.8;">sent: ${escapeHtml(state.sent)}</div>`
+      : "";
+    return `<div style="padding:8px 0;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${msg} ${loadBtn}</div>${debug}${sent}${composer}`;
   }
 
   const rows = state.items.map((c) => {
@@ -4117,6 +4120,10 @@ async function importComments(panel, platform, postId) {
     if (data?.debug) {
       const prev = commentCache.get(key) || { items: [], error: "" };
       commentCache.set(key, { items: prev.items, error, debug: data.debug });
+    }
+    if (data?.sent) {
+      const prev = commentCache.get(key) || { items: [], error: "" };
+      commentCache.set(key, { items: prev.items, error: prev.error, debug: prev.debug || "", sent: JSON.stringify(data.sent) });
     }
   } catch (err) {
     error = err?.message || "Import request failed.";

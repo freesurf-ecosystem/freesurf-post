@@ -2672,7 +2672,7 @@ async function handleCommentImport(
     const res = await fetch("https://api.bundle.social/api/v1/comment/import", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId, internalPostId: body.postId, socialAccountType: bsPlatform }),
+      body: JSON.stringify({ teamId, postId: body.postId, socialAccountType: bsPlatform }),
     });
     // Bundle can return non-JSON (e.g. an HTML error page) when it crashes, so
     // read text first — otherwise res.json() throws and we lose the real reason.
@@ -2696,7 +2696,7 @@ async function handleCommentImport(
     // Always echo the raw provider body back so the failure is visible in-app
     // (e.g. an empty import for TikTok) without digging through Cloudflare logs.
     const wrapped = (data && typeof data === "object") ? data : {};
-    return json({ ...wrapped, debug: raw }, res.status, headers);
+    return json({ ...wrapped, debug: raw, sent: { teamId, postId: body.postId, socialAccountType: bsPlatform } }, res.status, headers);
   } catch (e) {
     console.error("Bundle comment import exception:", e instanceof Error ? e.message : String(e));
     return json({ error: "Comment import failed" }, 502, headers);
