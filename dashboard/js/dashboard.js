@@ -1086,6 +1086,17 @@ function renderVideoFormatPanel() {
   if (shareBox && !showShare) shareBox.checked = false;
   else if (shareBox && showShare && !shareBox.dataset.userTouched) shareBox.checked = true;
 
+  // Trial reel: Instagram Reels only. Mutually exclusive with share-to-feed
+  // (a trial reel is shown to non-followers first, not in the main Feed).
+  const trialWrap = $("#opt-trial-reel-wrap");
+  const trialBox = $("#opt-trial-reel");
+  const gradWrap = $("#opt-trial-grad-wrap");
+  const showTrial = chosen === "reel" && ctx.ig;
+  trialWrap?.classList.toggle("hidden", !showTrial);
+  gradWrap?.classList.toggle("hidden", !(showTrial && trialBox?.checked));
+  if (trialBox && !showTrial) trialBox.checked = false;
+  if (trialBox && trialBox.checked && shareBox) shareBox.checked = false;
+
   const note = $("#vf-note");
   if (note) {
     let msg = "";
@@ -1100,6 +1111,13 @@ document.querySelectorAll('input[name="video-format"]').forEach((el) => {
   el.addEventListener("change", () => { renderVideoFormatPanel(); updateComposeWarnings(); });
 });
 $("#opt-share-to-feed")?.addEventListener("change", (e) => { e.target.dataset.userTouched = "1"; });
+$("#opt-trial-reel")?.addEventListener("change", (e) => {
+  if (e.target.checked) {
+    const share = $("#opt-share-to-feed");
+    if (share) { share.checked = false; share.dataset.userTouched = "1"; }
+  }
+  $("#opt-trial-grad-wrap")?.classList.toggle("hidden", !e.target.checked);
+});
 
 // Clicking a greyed-out format should explain why, not silently do nothing.
 for (const key of ["reel", "feed", "story"]) {
@@ -1241,7 +1259,12 @@ function collectPlatformOptions() {
     const type = VIDEO_FORMAT_TYPES[format];
     if (platforms.includes("instagram")) {
       opts.instagram = { ...(opts.instagram || {}), type };
-      if (type === "REEL") opts.instagram.shareToFeed = Boolean($("#opt-share-to-feed")?.checked);
+      if (type === "REEL") {
+        opts.instagram.shareToFeed = Boolean($("#opt-share-to-feed")?.checked);
+        if ($("#opt-trial-reel")?.checked) {
+          opts.instagram.trialParams = { graduationStrategy: $("#opt-trial-grad")?.value || "SS_PERFORMANCE" };
+        }
+      }
     }
     if (platforms.includes("facebook")) {
       opts.facebook = { ...(opts.facebook || {}), type };
@@ -1270,6 +1293,8 @@ function resetDisclosures() {
   document.querySelectorAll('input[name="video-format"]').forEach((el) => { el.checked = false; });
   const share = $("#opt-share-to-feed");
   if (share) { share.checked = true; delete share.dataset.userTouched; }
+  const trial = $("#opt-trial-reel"); if (trial) trial.checked = false;
+  const gradWrap = $("#opt-trial-grad-wrap"); if (gradWrap) gradWrap.classList.add("hidden");
   const yt = $("#youtube-title"); if (yt) yt.value = "";
   clearMusic();
 }

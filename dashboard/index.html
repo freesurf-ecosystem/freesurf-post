@@ -367,6 +367,18 @@
                   <input type="checkbox" id="opt-share-to-feed" checked />
                   Also show in Feed (Instagram)
                 </label>
+                <label class="auth-checkbox hidden" id="opt-trial-reel-wrap" style="margin-left:20px;">
+                  <input type="checkbox" id="opt-trial-reel" />
+                  Post as trial reel
+                  <span style="font-weight:400;color:var(--text-muted);font-size:0.72rem;">shown to non-followers first</span>
+                </label>
+                <div class="hidden" id="opt-trial-grad-wrap" style="margin-left:20px;margin-top:4px;">
+                  <label class="form-label" for="opt-trial-grad" style="font-size:0.72rem;">Graduate to full reel</label>
+                  <select id="opt-trial-grad" class="form-select" style="max-width:260px;font-size:0.8rem;">
+                    <option value="SS_PERFORMANCE" selected>Automatically (if it performs)</option>
+                    <option value="MANUAL">Manually (I'll decide later)</option>
+                  </select>
+                </div>
                 <label class="auth-checkbox" id="vf-feed-wrap">
                   <input type="radio" name="video-format" value="feed" />
                   Feed video
