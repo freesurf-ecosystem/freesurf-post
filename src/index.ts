@@ -2672,7 +2672,7 @@ async function handleCommentImport(
     const res = await fetch("https://api.bundle.social/api/v1/comment/import", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId, postId: body.postId, socialAccountType: bsPlatform }),
+      body: JSON.stringify({ teamId, internalPostId: body.postId, socialAccountTypes: [bsPlatform] }),
     });
     // Bundle can return non-JSON (e.g. an HTML error page) when it crashes, so
     // read text first — otherwise res.json() throws and we lose the real reason.
@@ -2691,9 +2691,12 @@ async function handleCommentImport(
     // A 200 can still carry a job that failed upstream (e.g. TikTok).
     if (data && typeof data === "object" && String(data.status || "").toUpperCase() === "FAILED") {
       console.error(`Bundle comment import job FAILED (${bsPlatform}, post ${body.postId}):`, raw.slice(0, 500));
-      return json({ error: data.error || data.message || "Comment import job failed", job: data }, 200, headers);
+      return json({ error: data.error || data.message || "Comment import job failed", job: data, debug: raw }, 200, headers);
     }
-    return json(data, res.status, headers);
+    // Always echo the raw provider body back so the failure is visible in-app
+    // (e.g. an empty import for TikTok) without digging through Cloudflare logs.
+    const wrapped = (data && typeof data === "object") ? data : {};
+    return json({ ...wrapped, debug: raw }, res.status, headers);
   } catch (e) {
     console.error("Bundle comment import exception:", e instanceof Error ? e.message : String(e));
     return json({ error: "Comment import failed" }, 502, headers);
@@ -2728,7 +2731,7 @@ async function handleComments(
     console.log(`Bundle comments list (${platform}, post ${postId}): ${res.status} ${raw.slice(0, 500)}`);
     if (!res.ok) {
       return json(
-        { items: [], error: data?.message || data?.error || `Comments unavailable (${res.status})`, debug: raw.slice(0, 500) },
+        { items: [], error: data?.message || data?.error || `Comments unavailable (${res.status})`, debug: raw.slice(0, 2000) },
         res.status,
         headers
       );
@@ -2737,7 +2740,7 @@ async function handleComments(
     const payload: Record<string, unknown> = { items };
     // When nothing comes back, hand the raw provider response to the client so
     // the cause is visible in the UI without digging through logs.
-    if (!items.length) payload.debug = raw.slice(0, 500);
+    if (!items.length) payload.debug = raw.slice(0, 2000);
     return json(payload, 200, headers);
   } catch (e) {
     console.error("Comments list exception:", e instanceof Error ? e.message : String(e));

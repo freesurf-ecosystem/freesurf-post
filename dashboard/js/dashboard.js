@@ -4114,13 +4114,17 @@ async function importComments(panel, platform, postId) {
       // The import started but the job failed upstream (e.g. TikTok).
       error = data.error;
     }
+    if (data?.debug) {
+      const prev = commentCache.get(key) || { items: [], error: "" };
+      commentCache.set(key, { items: prev.items, error, debug: data.debug });
+    }
   } catch (err) {
     error = err?.message || "Import request failed.";
   }
   if (error) {
     commentBusy.delete(key);
     const prev = commentCache.get(key) || { items: [], error: "" };
-    commentCache.set(key, { items: prev.items, error });
+    commentCache.set(key, { items: prev.items, error, debug: prev.debug || "" });
     renderCommentsPanel(panel, platform, postId);
     return;
   }
