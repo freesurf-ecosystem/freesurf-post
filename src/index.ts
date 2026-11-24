@@ -2672,7 +2672,7 @@ async function handleCommentImport(
     const res = await fetch("https://api.bundle.social/api/v1/comment/import", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": env.SOCIAL_API_PROVIDER_KEY },
-      body: JSON.stringify({ teamId, internalPostId: body.postId, socialAccountTypes: [bsPlatform] }),
+      body: JSON.stringify({ teamId, internalPostId: body.postId, socialAccountType: bsPlatform }),
     });
     // Bundle can return non-JSON (e.g. an HTML error page) when it crashes, so
     // read text first — otherwise res.json() throws and we lose the real reason.
