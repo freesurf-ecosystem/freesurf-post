@@ -2686,12 +2686,12 @@ async function handleCommentImport(
         ? data.issues.map((i: any) => `${(i.path || []).join(".")}: ${i.message}`).join("; ")
         : "";
       const message = issues || data?.message || data?.error || raw.slice(0, 300) || `Comment import failed (${res.status})`;
-      return json({ error: message }, res.status, headers);
+      return json({ error: message, debug: raw, sent: { teamId, postId: body.postId, socialAccountType: bsPlatform } }, res.status, headers);
     }
     // A 200 can still carry a job that failed upstream (e.g. TikTok).
     if (data && typeof data === "object" && String(data.status || "").toUpperCase() === "FAILED") {
       console.error(`Bundle comment import job FAILED (${bsPlatform}, post ${body.postId}):`, raw.slice(0, 500));
-      return json({ error: data.error || data.message || "Comment import job failed", job: data, debug: raw }, 200, headers);
+      return json({ error: data.error || data.message || "Comment import job failed", job: data, debug: raw, sent: { teamId, postId: body.postId, socialAccountType: bsPlatform } }, 200, headers);
     }
     // Always echo the raw provider body back so the failure is visible in-app
     // (e.g. an empty import for TikTok) without digging through Cloudflare logs.

@@ -4131,7 +4131,7 @@ async function importComments(panel, platform, postId) {
   if (error) {
     commentBusy.delete(key);
     const prev = commentCache.get(key) || { items: [], error: "" };
-    commentCache.set(key, { items: prev.items, error, debug: prev.debug || "" });
+    commentCache.set(key, { items: prev.items, error, debug: prev.debug || "", sent: prev.sent || "" });
     renderCommentsPanel(panel, platform, postId);
     return;
   }
