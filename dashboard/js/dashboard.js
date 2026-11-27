@@ -990,6 +990,7 @@ function updateDisclosures(platforms) {
   const tiktok = platforms.includes("tiktok");
   panel.classList.toggle("hidden", !aiPlatforms.length);
   $("#opt-tiktok-brand-wrap")?.classList.toggle("hidden", !tiktok);
+  $("#opt-made-for-kids-wrap")?.classList.toggle("hidden", !platforms.includes("youtube"));
   updateMusicPanel(platforms);
 }
 
