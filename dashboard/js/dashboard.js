@@ -970,7 +970,17 @@ function updatePlatformPreviews() {
 }
 
 // Platforms where we surface compliance toggles (AI disclosure, branded content).
-const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "pinterest"]);
+const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "pinterest", "youtube"]);
+// Bundle's per-platform flag for the AI disclosure. YouTube uses
+// `containsSyntheticMedia` (its altered/synthetic-content disclosure); the
+// rest accept `isAiGenerated`.
+const AI_DISCLOSURE_FIELD = {
+  x: "isAiGenerated",
+  tiktok: "isAiGenerated",
+  instagram: "isAiGenerated",
+  pinterest: "isAiGenerated",
+  youtube: "containsSyntheticMedia",
+};
 
 function updateDisclosures(platforms) {
   const panel = $("#disclosures-panel");
@@ -1244,11 +1254,20 @@ function collectPlatformOptions() {
   const opts = {};
   if ($("#opt-ai-generated")?.checked) {
     for (const p of platforms) {
-      if (AI_DISCLOSURE_PLATFORMS.has(p)) opts[p] = { ...(opts[p] || {}), isAiGenerated: true };
+      if (AI_DISCLOSURE_PLATFORMS.has(p)) {
+        const field = AI_DISCLOSURE_FIELD[p] || "isAiGenerated";
+        opts[p] = { ...(opts[p] || {}), [field]: true };
+      }
     }
   }
   if ($("#opt-tiktok-brand")?.checked && platforms.includes("tiktok")) {
     opts.tiktok = { ...(opts.tiktok || {}), isOrganicBrandContent: true };
+  }
+
+  // YouTube thumbnail (long-form video cover). The URL is resolved during the
+  // upload phase and stored in youtubeThumbnailUrl.
+  if (platforms.includes("youtube") && youtubeThumbnailUrl) {
+    opts.youtube = { ...(opts.youtube || {}), thumbnail: youtubeThumbnailUrl };
   }
 
   // Instagram / Facebook video format. The radio is mutually exclusive; the
@@ -1296,6 +1315,7 @@ function resetDisclosures() {
   const trial = $("#opt-trial-reel"); if (trial) trial.checked = false;
   const gradWrap = $("#opt-trial-grad-wrap"); if (gradWrap) gradWrap.classList.add("hidden");
   const yt = $("#youtube-title"); if (yt) yt.value = "";
+  clearYoutubeThumbnail();
   clearMusic();
 }
 
@@ -1402,6 +1422,14 @@ btnPost.addEventListener("click", async () => {
     }
 
     const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined, width: m.width || undefined, height: m.height || undefined, duration: m.duration || undefined }));
+    try {
+      await uploadYoutubeThumbnailIfNeeded(teamId);
+    } catch (e) {
+      showFeedback(e?.message || "Thumbnail upload failed.", "error");
+      btnPost.disabled = false;
+      btnPost.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Post`;
+      return;
+    }
     const res = await apiFetch(`/api/post`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
@@ -1504,6 +1532,12 @@ $("#btn-schedule-compose")?.addEventListener("click", async () => {
     }
 
     const mediaRefs = uploadedMedia.map((m) => ({ uploadId: m.uploadId, kind: m.type, mime: m.file?.type || undefined, width: m.width || undefined, height: m.height || undefined, duration: m.duration || undefined }));
+    try {
+      await uploadYoutubeThumbnailIfNeeded(teamId);
+    } catch (e) {
+      showFeedback(e?.message || "Thumbnail upload failed.", "error");
+      return;
+    }
     const res = await apiFetch(`/api/schedule`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
@@ -2472,6 +2506,9 @@ const mediaMeta = $("#media-meta");
 
 let uploadedMedia = [];
 let composeVideoError = "";
+let youtubeThumbnailFile = null;   // File chosen as the YouTube video thumbnail
+let youtubeThumbnailObjectUrl = ""; // local object URL for the preview
+let youtubeThumbnailUrl = "";       // public Bundle URL, set after upload
 
 $("#video-help-btn")?.addEventListener("click", () => videoHelpModal());
 
@@ -2517,6 +2554,91 @@ if (mediaDropzone && mediaInput) {
     );
     if (files.length > 0) handleMediaUpload(files);
   });
+}
+
+// ── YouTube thumbnail (long-form video cover) ──
+function setYoutubeThumbnail(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  youtubeThumbnailFile = file;
+  youtubeThumbnailUrl = "";
+  renderYoutubeThumbnail();
+}
+
+function clearYoutubeThumbnail() {
+  youtubeThumbnailFile = null;
+  youtubeThumbnailUrl = "";
+  if (youtubeThumbnailObjectUrl) URL.revokeObjectURL(youtubeThumbnailObjectUrl);
+  youtubeThumbnailObjectUrl = "";
+  renderYoutubeThumbnail();
+}
+
+function renderYoutubeThumbnail() {
+  const preview = $("#youtube-thumbnail-preview");
+  const placeholder = $("#youtube-thumbnail-placeholder");
+  const removeBtn = $("#youtube-thumbnail-remove");
+  const has = Boolean(youtubeThumbnailFile);
+  if (preview) {
+    if (youtubeThumbnailObjectUrl) URL.revokeObjectURL(youtubeThumbnailObjectUrl);
+    youtubeThumbnailObjectUrl = has ? URL.createObjectURL(youtubeThumbnailFile) : "";
+    preview.src = youtubeThumbnailObjectUrl || "";
+    preview.style.display = has ? "block" : "none";
+  }
+  if (placeholder) placeholder.style.display = has ? "none" : "flex";
+  if (removeBtn) removeBtn.classList.toggle("hidden", !has);
+}
+
+// Mirror the backend's Short-vs-video rule: a thumbnail only applies to a
+// long-form video (not a <=3min vertical/square Short).
+function youtubeLongFormVideo() {
+  const video = uploadedMedia.find((m) => m.type === "video");
+  if (!video) return false;
+  const duration = Number(video.duration) || 0;
+  const ratio = video.width && video.height ? video.width / video.height : 0;
+  const isShort = duration > 0 && duration <= 180 && ratio >= 1 / 3 && ratio <= 1;
+  return !isShort;
+}
+
+function updateYoutubeThumbnailVisibility() {
+  const wrap = $("#youtube-thumbnail-wrap");
+  if (!wrap) return;
+  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  wrap.classList.toggle("hidden", !(platforms.includes("youtube") && youtubeLongFormVideo()));
+}
+
+// Upload the thumbnail (if any) and cache its public Bundle URL so
+// collectPlatformOptions() can attach it to data.YOUTUBE.thumbnail.
+async function uploadYoutubeThumbnailIfNeeded(teamId) {
+  youtubeThumbnailUrl = "";
+  if (!youtubeThumbnailFile) return;
+  const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
+  if (!platforms.includes("youtube")) return;
+  const m = { file: youtubeThumbnailFile, type: "image" };
+  const uploadId = await uploadMediaFile(m, teamId);
+  const items = await getUploads(uploadId);
+  youtubeThumbnailUrl = items?.[0]?.url || "";
+  if (!youtubeThumbnailUrl) throw new Error("Thumbnail upload returned no public URL.");
+}
+
+$("#youtube-thumbnail-input")?.addEventListener("change", (e) => {
+  const f = e.target.files?.[0];
+  e.target.value = "";
+  if (f) setYoutubeThumbnail(f);
+});
+$("#youtube-thumbnail-remove")?.addEventListener("click", clearYoutubeThumbnail);
+
+{
+  const ytDrop = $("#youtube-thumbnail-dropzone");
+  if (ytDrop) {
+    let depth = 0;
+    ytDrop.addEventListener("dragenter", (e) => { e.preventDefault(); e.stopPropagation(); depth++; ytDrop.classList.add("drag-active"); });
+    ytDrop.addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"; });
+    ytDrop.addEventListener("dragleave", (e) => { e.preventDefault(); e.stopPropagation(); depth = Math.max(0, depth - 1); if (depth === 0) ytDrop.classList.remove("drag-active"); });
+    ytDrop.addEventListener("drop", (e) => {
+      e.preventDefault(); e.stopPropagation(); depth = 0; ytDrop.classList.remove("drag-active");
+      const f = Array.from(e.dataTransfer?.files || []).find((x) => x.type.startsWith("image/"));
+      if (f) setYoutubeThumbnail(f);
+    });
+  }
 }
 
 const TEXT_REQUIRED_PLATFORMS = {
@@ -2571,6 +2693,7 @@ function computeMediaWarnings(platforms) {
 
 function updateComposeWarnings() {
   renderVideoFormatPanel();
+  updateYoutubeThumbnailVisibility();
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const textLen = textarea ? textarea.value.length : 0;
   const bsky = $("#bsky-warning");
@@ -3538,7 +3661,9 @@ $("#skip-x-analytics")?.addEventListener("change", async (e) => {
 });
 
 // Engagement-over-time bar chart (sums current metrics by publication day).
-let chartRange = 30;
+// Default to whatever range button is marked active in the markup (7d), so the
+// chart always matches the highlighted toggle on first load.
+let chartRange = Number($$("[data-chart-range].active")?.[0]?.dataset.chartRange) || 7;
 async function loadAnalyticsChart() {
   const el = $("#analytics-chart");
   if (!el) return;
@@ -3628,6 +3753,20 @@ $$("[data-chart-range]")?.forEach((btn) => {
 // Manual refresh: pull live per-post engagement for the posts currently shown.
 // The server processes a bounded batch per request (to stay inside Cloudflare's
 // subrequest cap), so advance its cursor until every selected post is covered.
+// Per-post refresh errors, keyed `${postRowId}::${platform}`, so the recent-posts
+// list can annotate individual rows that failed to pull fresh metrics instead of
+// dumping a long error string into the feedback banner.
+const refreshErrors = new Map();
+
+function condenseRefreshError(s) {
+  let msg = humanError(s);
+  const m = msg.match(/"message"\s*:\s*"([^"]+)"/);
+  if (m) msg = m[1];
+  msg = msg.replace(/\s+/g, " ").trim();
+  if (msg.length > 80) msg = msg.slice(0, 77) + "…";
+  return msg || "couldn't refresh";
+}
+
 async function refreshAnalytics() {
   const btn = $("#btn-refresh-analytics");
   if (!btn || btn.disabled) return;
@@ -3638,9 +3777,8 @@ async function refreshAnalytics() {
   let refreshed = 0;
   let processed = 0;
   let skippedX = 0;
-  let rateLimited = 0;
   let failed = false;
-  const failures = [];
+  refreshErrors.clear();
   try {
     let offset = 0;
     let guard = 0;
@@ -3659,25 +3797,23 @@ async function refreshAnalytics() {
       refreshed += Number(data?.refreshed) || 0;
       processed += Number(data?.processed) || 0;
       skippedX += Number(data?.skippedX) || 0;
-      rateLimited += Number(data?.rateLimited) || 0;
-      for (const d of data?.details || []) if (!d.ok) failures.push(d);
+      for (const d of data?.details || []) {
+        if (!d.ok) refreshErrors.set(`${d.postRowId}::${d.platform}`, condenseRefreshError(d.error));
+      }
       const next = Number(data?.nextOffset);
       if (data?.done || !Number.isFinite(next) || next <= offset) break;
       offset = next;
       btn.textContent = `Pulling ${Math.min(offset, pulling)}/${pulling}…`;
     }
     if (!failed) {
+      const failedCount = refreshErrors.size;
       let msg = refreshed
         ? `Refreshed ${processed} posts (${refreshed} with new engagement).`
-        : `Checked ${processed} posts — no fresh metrics yet (the platform may still be reporting zeros).`;
-      if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"} ("Skip X in bulk refresh" is on).`;
-      if (rateLimited) msg += ` ${rateLimited} live read${rateLimited === 1 ? "" : "s"} hit the platform's 6-refresh/day limit — showing cached numbers for those.`;
-      if (failures.length) {
-        const sample = failures.slice(0, 3).map((f) => `${f.platform}: ${f.error || "read failed"}`).join("; ");
-        msg += ` ${failures.length} read${failures.length === 1 ? "" : "s"} failed — ${sample}${failures.length > 3 ? "; see console for the rest" : ""}.`;
-      }
+        : `Checked ${processed} posts — no fresh metrics yet.`;
+      if (skippedX) msg += ` Skipped ${skippedX} X post${skippedX === 1 ? "" : "s"}.`;
+      if (failedCount) msg += ` ${failedCount} couldn't refresh — see the note on each post.`;
       showAnalyticsFeedback(msg, refreshed ? "success" : "warning");
-      if (failures.length) console.warn("[analytics] post read failures", failures);
+      if (failedCount) console.warn("[analytics] post read failures", [...refreshErrors.entries()]);
     }
   } catch (e) {
     showAnalyticsFeedback("Refresh failed — " + (e?.message || "network error"), "error");
@@ -3911,15 +4047,17 @@ function renderRecentPosts() {
               : r.status
                 ? pill(escapeHtml(String(r.status).toLowerCase()), "var(--text-muted)")
                 : "";
+      const refreshErr = refreshErrors.get(`${p.id}::${r.platform}`);
       return `
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--border-light);">
           <span style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;min-width:70px;color:var(--text-secondary);">${escapeHtml(r.platform)}</span>
+          ${status}
           ${r.postId ? `<button class="btn btn-xs btn-secondary" data-force-post="${escapeHtml(r.postId)}" data-force-platform="${escapeHtml(r.platform)}" data-force-row="${escapeHtml(p.id)}" data-force-via="${escapeHtml(r.via || "bundle")}" title="Refresh just this post's metrics${r.platform === "x" ? " (~$0.005 X read)" : ""}. The platform allows up to 6 refreshes per post per day.">Refresh</button>` : ""}
           ${delivery}
-          ${status}
           ${r.postUrl ? `<a class="btn btn-xs btn-ghost" href="${escapeHtml(r.postUrl)}" target="_blank">View</a>` : ""}
           ${canComments ? `<button class="btn btn-xs btn-ghost" data-show-comments="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}"><span class="comments-chevron" style="display:inline-block;transition:transform .15s ease;margin-right:4px;">\u25B8</span>Comments${commentCount ? ` (${commentCount})` : ""}</button>` : ""}
           ${r.platform === "x" && r.postId ? `<button class="btn btn-xs btn-ghost" data-delete-post="${escapeHtml(r.postId)}" style="color:var(--error);" title="Delete from X (permanent, $0.01)">Delete</button>` : ""}
+          ${refreshErr ? `<span style="font-size:0.75rem;color:var(--error);">couldn't refresh — ${escapeHtml(refreshErr)}</span>` : ""}
         </div>
         ${canComments ? `<div class="post-comments hidden" data-comments-for="${escapeHtml(r.postId)}" data-comments-platform="${escapeHtml(r.platform)}" style="border-left:2px solid var(--border);padding-left:10px;margin:2px 0 8px 0;"></div>` : ""}`;
     }).join("");
