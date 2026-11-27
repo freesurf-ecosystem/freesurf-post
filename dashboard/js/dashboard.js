@@ -970,10 +970,11 @@ function updatePlatformPreviews() {
 }
 
 // Platforms where we surface compliance toggles (AI disclosure, branded content).
-const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "pinterest", "youtube"]);
+const AI_DISCLOSURE_PLATFORMS = new Set(["x", "tiktok", "instagram", "pinterest", "youtube", "facebook"]);
 // Bundle's per-platform flag for the AI disclosure. YouTube uses
 // `containsSyntheticMedia` (its altered/synthetic-content disclosure); the
-// rest accept `isAiGenerated`.
+// rest accept `isAiGenerated`. Facebook's `isAiGenerated` only applies to
+// Reels, so it's handled (and gated) separately in collectPlatformOptions.
 const AI_DISCLOSURE_FIELD = {
   x: "isAiGenerated",
   tiktok: "isAiGenerated",
@@ -1252,14 +1253,6 @@ $("#btn-clear-music")?.addEventListener("click", clearMusic);
 function collectPlatformOptions() {
   const platforms = Array.from($$(".platform-chip.selected")).map((c) => c.dataset.platform);
   const opts = {};
-  if ($("#opt-ai-generated")?.checked) {
-    for (const p of platforms) {
-      if (AI_DISCLOSURE_PLATFORMS.has(p)) {
-        const field = AI_DISCLOSURE_FIELD[p] || "isAiGenerated";
-        opts[p] = { ...(opts[p] || {}), [field]: true };
-      }
-    }
-  }
   if ($("#opt-tiktok-brand")?.checked && platforms.includes("tiktok")) {
     opts.tiktok = { ...(opts.tiktok || {}), isOrganicBrandContent: true };
   }
@@ -1268,6 +1261,12 @@ function collectPlatformOptions() {
   // upload phase and stored in youtubeThumbnailUrl.
   if (platforms.includes("youtube") && youtubeThumbnailUrl) {
     opts.youtube = { ...(opts.youtube || {}), thumbnail: youtubeThumbnailUrl };
+  }
+
+  // YouTube "made for kids" declaration — always sent so YouTube gets an
+  // explicit answer (unchecked = false = not made for kids, the default).
+  if (platforms.includes("youtube")) {
+    opts.youtube = { ...(opts.youtube || {}), madeForKids: Boolean($("#opt-made-for-kids")?.checked) };
   }
 
   // Instagram / Facebook video format. The radio is mutually exclusive; the
@@ -1287,6 +1286,24 @@ function collectPlatformOptions() {
     }
     if (platforms.includes("facebook")) {
       opts.facebook = { ...(opts.facebook || {}), type };
+    }
+  }
+
+  // AI disclosure — one checkbox that fans out to every eligible selected
+  // platform with the field that platform understands. Facebook's label is
+  // Reel-only, so it's applied only when the post is going out as a Reel.
+  if ($("#opt-ai-generated")?.checked) {
+    for (const p of platforms) {
+      if (p === "facebook") {
+        if (opts.facebook?.type === "REEL") {
+          opts.facebook = { ...opts.facebook, isAiGenerated: true };
+        }
+        continue;
+      }
+      if (AI_DISCLOSURE_PLATFORMS.has(p)) {
+        const field = AI_DISCLOSURE_FIELD[p] || "isAiGenerated";
+        opts[p] = { ...(opts[p] || {}), [field]: true };
+      }
     }
   }
 
@@ -1315,6 +1332,7 @@ function resetDisclosures() {
   const trial = $("#opt-trial-reel"); if (trial) trial.checked = false;
   const gradWrap = $("#opt-trial-grad-wrap"); if (gradWrap) gradWrap.classList.add("hidden");
   const yt = $("#youtube-title"); if (yt) yt.value = "";
+  const mk = $("#opt-made-for-kids"); if (mk) mk.checked = false;
   clearYoutubeThumbnail();
   clearMusic();
 }
