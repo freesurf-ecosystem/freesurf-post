@@ -2087,26 +2087,6 @@ html:not([data-reviewer="true"]) .reviewer-only {
   margin-top: 16px;
 }
 
-.analytics-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-  margin-top: 16px;
-}
-
-.analytics-layout .analytics-chart-card {
-  margin-top: 0;
-}
-
-.analytics-posts {
-  min-width: 0;
-}
-
-@media (max-width: 900px) {
-  .analytics-layout { grid-template-columns: 1fr; }
-}
-
 .analytics-chart-card .card-header {
   display: flex;
   justify-content: space-between;

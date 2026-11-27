@@ -979,34 +979,30 @@ curl -X POST https://post.freesurf.tools/api/credits/topup \
 
           <div id="analytics-feedback" class="feedback"></div>
 
-          <div class="analytics-layout">
-            <div class="analytics-chart-card" id="analytics-chart-card">
-              <div class="card-header">
-                <div>
-                  <h2 class="card-title">Engagement over time</h2>
-                  <p class="card-subtitle" id="analytics-chart-subtitle">Total impressions, likes, comments and shares across your posts.</p>
-                </div>
-                <div style="display:flex;gap:6px;">
-                  <button class="btn btn-sm btn-secondary active" data-chart-range="7">7d</button>
-                  <button class="btn btn-sm btn-secondary" data-chart-range="30">30d</button>
-                  <button class="btn btn-sm btn-secondary" data-chart-range="90">90d</button>
-                </div>
+          <div class="analytics-chart-card" id="analytics-chart-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Engagement over time</h2>
+                <p class="card-subtitle" id="analytics-chart-subtitle">Total impressions, likes, comments and shares across your posts.</p>
               </div>
-              <div class="analytics-chart" id="analytics-chart"></div>
-              <div class="analytics-chart-legend" id="analytics-chart-legend"></div>
-              <div id="analytics-platform-summary" style="margin-top:12px;"></div>
-            </div>
-
-            <div class="analytics-posts">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;">
-                <span style="font-size:0.8rem;color:var(--text-muted);">Filter:</span>
-                <select id="analytics-platform-filter" class="form-input" style="max-width:150px;"><option value="">All platforms</option></select>
-                <select id="analytics-team-filter" class="form-input" style="max-width:150px;"><option value="">All teams</option></select>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-sm btn-secondary active" data-chart-range="7">7d</button>
+                <button class="btn btn-sm btn-secondary" data-chart-range="30">30d</button>
+                <button class="btn btn-sm btn-secondary" data-chart-range="90">90d</button>
               </div>
-              <div class="account-list" id="recent-posts-list"></div>
-              <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
             </div>
+            <div class="analytics-chart" id="analytics-chart"></div>
+            <div class="analytics-chart-legend" id="analytics-chart-legend"></div>
+            <div id="analytics-platform-summary" style="margin-top:12px;"></div>
           </div>
+
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 4px;">
+            <span style="font-size:0.8rem;color:var(--text-muted);">Filter:</span>
+            <select id="analytics-platform-filter" class="form-input" style="max-width:170px;"><option value="">All platforms</option></select>
+            <select id="analytics-team-filter" class="form-input" style="max-width:170px;"><option value="">All teams</option></select>
+          </div>
+          <div class="account-list" id="recent-posts-list"></div>
+          <div style="margin-top:10px;text-align:center;"><button class="btn btn-sm btn-secondary hidden" id="btn-load-more-posts">Load more</button></div>
         </div>
       </section>
 

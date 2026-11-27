@@ -3713,10 +3713,10 @@ function renderPlatformSummary(byPlatform) {
       const pct = Math.max(1, Math.round((eng / total) * 100));
       return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
         <span style="font-size:0.78rem;font-weight:700;text-transform:uppercase;min-width:70px;color:var(--text-secondary);">${escapeHtml(platform)}</span>
+        <span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;text-align:right;min-width:150px;">${fmtNum(v.posts)} posts · ${fmtNum(v.impressions)} imp · ${fmtNum(v.likes)} likes · ${fmtNum(v.comments)} cmts</span>
         <div style="flex:1;height:8px;background:var(--bg-alt);border-radius:999px;overflow:hidden;">
           <div style="width:${pct}%;height:100%;background:var(--brand);border-radius:999px;"></div>
         </div>
-        <span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">${fmtNum(v.posts)} posts · ${fmtNum(v.impressions)} imp · ${fmtNum(v.likes)} likes · ${fmtNum(v.comments)} cmts</span>
       </div>`;
     }).join("");
 }
